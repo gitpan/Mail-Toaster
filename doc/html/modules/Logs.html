@@ -1,0 +1,276 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Logs</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<ul>
+
+		<li><a href="#checksetup">CheckSetup</a></li>
+		<li><a href="#checkforflags">CheckForFlags</a></li>
+		<li><a href="#countrbl">CountRBL</a></li>
+		<li><a href="#countsmtp">CountSMTP</a></li>
+		<li><a href="#countsend">CountSend</a></li>
+		<li><a href="#countimap">CountIMAP</a></li>
+		<li><a href="#countpop3">CountPOP3</a></li>
+		<li><a href="#countwebmail">CountWebMail</a></li>
+		<li><a href="#countspama">CountSpamA</a></li>
+		<li><a href="#countqms">CountQMS</a></li>
+		<li><a href="#rollsendlogs">RollSendLogs</a></li>
+		<li><a href="#rollrbllogs">RollRblLogs</a></li>
+		<li><a href="#rollpop3logs">RollPOP3Logs</a></li>
+		<li><a href="#compressyesterdayslogfile">CompressYesterdaysLogfile</a></li>
+		<li><a href="#purgelastmonthlogs">PurgeLastMonthLogs</a></li>
+		<li><a href="#rotatemaillogs">RotateMailLogs</a></li>
+		<li><a href="#setupdatevariables">SetupDateVariables</a></li>
+		<li><a href="#checklogfiles">CheckLogFiles</a></li>
+		<li><a href="#processpop3logs">ProcessPOP3Logs</a></li>
+		<li><a href="#processrbllogs">ProcessRblLogs</a></li>
+		<li><a href="#countrblline">CountRblLine</a></li>
+		<li><a href="#processsendlogs">ProcessSendLogs</a></li>
+		<li><a href="#countsendline">CountSendLine</a></li>
+		<li><a href="#readcounters">ReadCounters</a></li>
+		<li><a href="#writecounters">WriteCounters</a></li>
+		<li><a href="#whatami">WhatAmI</a></li>
+		<li><a href="#setsyslog">SetSyslog</a></li>
+	</ul>
+
+	<li><a href="#design_considerations">Design considerations</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::Logs</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Perl modules related to mail logging. These modules are used primarily in maillogs but will be used in ttoaster-watcher.pl and toaster_setup.pl as well.</p>
+<p>
+</p>
+<h2><a name="checksetup">CheckSetup</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CheckSetup($conf);</pre>
+<p>
+</p>
+<h2><a name="checkforflags">CheckForFlags</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CheckForFlags($conf, $prot, $debug);</pre>
+<p>$conf is a hashref of configuration values, assumed to be pulled from toaster-watcher.conf.$prot is the protocol we're supposed to work on. Do the appropriate things based on what argument is passed on the command line.</p>
+<p>
+</p>
+<h2><a name="countrbl">CountRBL</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountRBL($conf, $debug);</pre>
+<p>Count the number of connections we've blocked (via rblsmtpd) for each RBL that we use.</p>
+<p>
+</p>
+<h2><a name="countsmtp">CountSMTP</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountSMTP($conf, $syslog, $debug);</pre>
+<p>Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd daemon.</p>
+<p>
+</p>
+<h2><a name="countsend">CountSend</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountSend($conf, $debug);</pre>
+<p>Count the number of messages we deliver, and a whole mess of stats from qmail-send.</p>
+<p>
+</p>
+<h2><a name="countimap">CountIMAP</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountIMAP($conf, $syslog, $debug);</pre>
+<p>Count the number of connections and successful authentications via IMAP and IMAP-SSL.</p>
+<p>
+</p>
+<h2><a name="countpop3">CountPOP3</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountPOP3($conf, $syslog, $debug);</pre>
+<p>Count the number of connections and successful authentications via POP3 and POP3-SSL.</p>
+<p>
+</p>
+<h2><a name="countwebmail">CountWebMail</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountWebMail($conf, $syslog, $debug);</pre>
+<p>Count the number of webmail authentications.</p>
+<p>
+</p>
+<h2><a name="countspama">CountSpamA</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountSpamA($conf, $syslog, $debug);</pre>
+<p>Count statistics logged by SpamAssassin.</p>
+<p>
+</p>
+<h2><a name="countqms">CountQMS</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CountQMS($conf, $syslog, $debug);</pre>
+<p>Count statistics logged by qmail scanner.</p>
+<p>
+</p>
+<h2><a name="rollsendlogs">RollSendLogs</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        RollSendLogs($conf, $debug);</pre>
+<p>Roll the qmail-send multilog logs. Update the maillogs counter.</p>
+<p>
+</p>
+<h2><a name="rollrbllogs">RollRblLogs</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        RollRblLogs($conf, $debug);</pre>
+<p>Roll the qmail-smtpd logs (without 2&gt;&amp;1 output generated by rblsmtpd).</p>
+<p>
+</p>
+<h2><a name="rollpop3logs">RollPOP3Logs</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        RollPOP3Logs($conf);</pre>
+<p>These logs will only exist if tcpserver debugging is enabled. Rolling them is not likely to be necessary but the code is here should it ever prove necessary.</p>
+<p>
+</p>
+<h2><a name="compressyesterdayslogfile">CompressYesterdaysLogfile</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CompressYesterdaysLogfile($conf, $file, $debug);</pre>
+<p>You'll have to guess what this does. ;)</p>
+<p>
+</p>
+<h2><a name="purgelastmonthlogs">PurgeLastMonthLogs</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        PurgeLastMonthLogs($conf, $protdir, $debug);</pre>
+<p>Keep guessing...</p>
+<p>
+</p>
+<h2><a name="rotatemaillogs">RotateMailLogs</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        RotateMailLogs(@dirs);</pre>
+<p>Tell multilog to rotate the maillogs for the array of dirs supplied.</p>
+<p>
+</p>
+<h2><a name="setupdatevariables">SetupDateVariables</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        SetupDateVariables($offset);</pre>
+<p>
+</p>
+<h2><a name="checklogfiles">CheckLogFiles</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        CheckLogFiles(@check);</pre>
+<p>
+</p>
+<h2><a name="processpop3logs">ProcessPOP3Logs</a></h2>
+<p>
+</p>
+<h2><a name="processrbllogs">ProcessRblLogs</a></h2>
+<p>
+</p>
+<h2><a name="countrblline">CountRblLine</a></h2>
+<p>
+</p>
+<h2><a name="processsendlogs">ProcessSendLogs</a></h2>
+<p>
+</p>
+<h2><a name="countsendline">CountSendLine</a></h2>
+<p>
+</p>
+<h2><a name="readcounters">ReadCounters</a></h2>
+<pre>
+        use Mail::Toster::Logs;
+        ReadCounters($file, $debug);</pre>
+<p>$file is the file to read from. $debug is optional, it prints out verbose messages during the process. The sub returns a hashref full of key value pairs.</p>
+<p>
+</p>
+<h2><a name="writecounters">WriteCounters</a></h2>
+<pre>
+        use Mail::Toster::Logs;
+        WriteCounters($file, %values);</pre>
+<p>$file is the logfile to write to.</p>
+<p>%values is a hash of value=count style pairs.</p>
+<p>
+</p>
+<h2><a name="whatami">WhatAmI</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        WhatAmI(;$debug)</pre>
+<p>Determine what the filename of this program is. This is used in maillogs, as maillogs gets renamed in order to function as a log post-processor for multilog.</p>
+<p>
+</p>
+<h2><a name="setsyslog">SetSyslog</a></h2>
+<pre>
+        use Mail::Toaster::Logs;
+        SetSyslog();</pre>
+<p>Determine where syslog.mail is logged to. Right now we just test based on the OS you're running on and assume you've left it in the default location. This is easy to expand later.</p>
+<p>
+</p>
+<hr />
+<h1><a name="design_considerations">Design considerations</a></h1>
+<ul>
+<li><strong><a name="item_counters_will_be_polled_via_snmp_2e_script_must_be">Counters will be polled via SNMP. Script must be able to return counts instantly, even when dealing with HUGE logs.</a></strong><br />
+</li>
+<li><strong><a name="item_must_work_with_multilog_and_syslog_logging_formats">Must work with multilog and syslog logging formats</a></strong><br />
+</li>
+<li><strong><a name="item_outputs_data_in_a_format_suitable_for_polling_via_">Outputs data in a format suitable for polling via SNMP</a></strong><br />
+</li>
+<li><strong><a name="item_simple_configuration">Simple configuration</a></strong><br />
+</li>
+<li><strong><a name="item_fail_safe_2c_errors_must_be_noticed_and_reported_b">Fail safe, errors must be noticed and reported but not fatal</a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a></p>
+<p>Mail::Toaster::CGI, Mail::Toaster::DNS, Mail::Toaster::Logs,
+Mail::Toaster::Qmail, Mail::Toaster::Setup</p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright 2003, The Network People, Inc.</p>
+<p>This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.</p>
+
+</body>
+
+</html>

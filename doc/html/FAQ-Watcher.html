@@ -1,0 +1,43 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Watcher FAQ</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#what_is_toaster_watcher">What is Toaster Watcher?</a></li>
+	<li><a href="#how_did_toaster_watcher_get_started">How did Toaster Watcher get started?</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="what_is_toaster_watcher">What is Toaster Watcher?</a></h1>
+<p>At the moment it's two things. First, it's a configuration file that stores a plethora of settings about your mail system. Other scripts and programs can thus use this configuration file to determine how to configure themselves and sub programs.</p>
+<p>The second part is a script that builds the run control file for qmail-smtpd. It takes into consideration all your settings, tests the RBL's you want to use, and builds a control file accordingly.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_did_toaster_watcher_get_started">How did Toaster Watcher get started?</a></h1>
+<p>It was this post to the toaster-users list:</p>
+<p>On 9/8/03 2:28 PM, ``Matt Simerson'' &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt; wrote:</p>
+<p>I just had an ``ahah moment''.</p>
+<p>It seems that an almost perpetual problem with mail servers is configuration, and being able to easily modify your SMTP servers configuration. So, my idea is this.</p>
+<p>Part 1.</p>
+<p>Create a configuration file and store it someplace reasonable like /usr/local/etc/mail/toaster.conf. That config file will have various sections. Within the smtpd section you'll be able to set various mail server settings such as memory limits, connection limits, which RBL's you want to use, multilog versus syslog logging, etc. It would look something like this: <a href="http://www.tnpi.biz/internet/www/logmonster/logmonster.conf">http://www.tnpi.biz/internet/www/logmonster/logmonster.conf</a></p>
+<p>Part 2.</p>
+<p>Write a little program named something appropriate like RBL-Watcher.  The program can be run either as a daemon or via cron. It periodically (I'm thinking every 5-10 minutes would suffice) does very important things like poll all the RBL servers you have selected (in the configuration file) and verify that they are up and running. If it finds them down, it recreates the smtp servers run file and restarts qmail-smtpd.</p>
+<p>Benefits.</p>
+<p>This will keep us (system admins) from having to manually tweak our toasters config files every time a RBL list gets DoSed off the planet or is otherwise unreachable. It will also make it much easier to configure your mail toaster settings. For example, toaster_setup.pl could read the config file and ask a lot fewer questions when you are updating your toaster. When you want to switch from syslog to multilog, you could change the config file, run toaster_setup, and it'll rebuild your server files appropriately.</p>
+
+</body>
+
+</html>

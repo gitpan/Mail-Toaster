@@ -1,0 +1,52 @@
+
+#
+# $Id: INSTALL-CGI.pod,v 1.4 2003/11/22 17:23:06 matt Exp $
+#
+
+
+=head2 Step 1: Install MATT::Bundle
+
+http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz
+
+
+=head2 Step 2: Install Mail::Toaster
+
+http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz
+
+	perl Makefile.PL
+	make
+	make test
+	make install
+	make cgi
+
+
+=head2 Step 3: Satisfy any dependencies
+
+	./index.cgi
+
+If it has any problems, it'll warn you and you'll be expected to fix them. So far the only known problems are that you didn't install toaster.conf, or HTML::Template isn't installed. The script will offer to fix the latter for you.
+
+
+=head2 Step 4: Configure Apache
+
+Make a few httpd.conf changes. See the contrib directory for a diff and patch file. The diff shows you the changes, the patch can be applied to a virgin httpd.conf file (patch /usr/local/etc/apache2/httpd.conf contrib/httpd.conf-2.0.patch).
+
+Or you can manually edit httpd.conf. Add this line:
+
+	AddHandler cgi-script .cgi
+
+Add "index.cgi" to the line starts with DirectoryIndex
+
+Enable ExecCGI for the directory in which the index.cgi is installed.
+
+
+=head2 Step 5: Edit Config File
+
+	vi /usr/local/etc/toaster.conf
+
+
+=head2 Step 6: Contribute
+
+Create some additional help files and sumbit them to <matt@tnpi.biz>. Think of new and exciting ways to make this even better. Buy stuff off my wish list. 
+
+=cut

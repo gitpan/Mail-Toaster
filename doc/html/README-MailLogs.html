@@ -1,0 +1,154 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Logs README</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#whatami">WhatAmI</a></li>
+	<li><a href="#installation">INSTALLATION</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<li><a href="#design_considerations">Design considerations</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Logs - A log file processer for mail server logs</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>A script that maintains ever increasing counters for mail logs and functions as a postprocessor for multilog. Currently handles log counting of the following types:</p>
+<pre>
+        qmail mail delivery (send)
+        qmail-pop3d         (pop3) (edit file to set pop3 daemon)</pre>
+<pre>
+        courier pop3d       (pop3) (edit file to set pop3 daemon)
+        courier pop3dssl    (pop3)
+        courier imapd       (imap)
+        courier imapdssl    (imap)</pre>
+<pre>
+        vpopmail smtp-auth  (smtp)</pre>
+<pre>
+        sqwebmail           (webmail)
+        squirrelmail        (webmail)</pre>
+<pre>
+        rblsmtpd            (rbl)</pre>
+<pre>
+        spamasssassin       (spamassassin)
+        qmailscanner        (qmailscanner)</pre>
+<p>This script and modules is (at last) easily extendible as I continue to find new stats on my mail system that I want to count and graph.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>I have ``farms'' of mail servers that share a hostname. I needed 
+a way to collect the logs from all the servers and manage them.</p>
+<p>This is a piece of that puzzle. Maillogs does several things. First,
+it acts as a simple log postprocessor. By default it takes files that
+qmail outputs (/var/log/mail/[send|smtp|pop3]/current) and collects 
+a bunch of counters about the logs and stores them in counter files.</p>
+<p>For smtp logs we count denied RBL connections (rblsmtpd).</p>
+<p>For qmail-send we log a slew of message send statistics.</p>
+<p>For pop3, IMAP, webmail, and SMTP-AUTH, we count  the number of 
+connections and the number of successful logins.</p>
+<p>Counters are written to files in /var/log/mail/counters/ by default.
+You can alter the locations of the logs files by editing the ``user
+preferences'' section of this script. I will add support for a config file
+at some point.</p>
+<p>
+</p>
+<hr />
+<h1><a name="whatami">WhatAmI</a></h1>
+<p>WhatAmI - Is this a schizophrenic program?</p>
+<p>No, because schizophrenic denotes a disorder. This application is designed
+to behave differently depending on how it's called. It has (currently) four
+ distinct personalities. Allow me to introduce you to multilog.</p>
+<p>The multilog program (http://cr.yp.to/daemontools/multilog.html)
+has a poorly documented ability to run a postprocessor on logs
+after they reach a predetermined size (or are otherwise triggered).</p>
+<p>This script is designed to be that postprocessor. If you rename this file to
+be named one of ``smtplog'', ``pop3log'', or ``sendlog'' it will become a log
+file processor for that qmail server protocol. See the FAQ for more details.</p>
+<p>If called as maillogs, it will return ever incrementing counters for the 
+protocol you entered. Run maillogs without any parameters to see the supported
+options. It's expected that you'll be calling maillogs from an SNMP agent 
+allowing this solution to scale from single to clustered systems.</p>
+<p>
+</p>
+<hr />
+<h1><a name="installation">INSTALLATION</a></h1>
+<p>To install this module type the following:</p>
+<pre>
+        perl Makefile.PL
+        make
+        make test
+        make install</pre>
+<p>To install as a post-processor for qmail type the following:</p>
+<pre>
+        make qmail</pre>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<p>This module requires these other modules and libraries:</p>
+<p>MATT::Bundle - <a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/">http://www.tnpi.biz/computing/perl/MATT-Bundle/</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="design_considerations">Design considerations</a></h1>
+<ul>
+<li><strong><a name="item_counters_will_be_polled_via_snmp_2e_script_must_be">Counters will be polled via SNMP. Script must be able to return counts instantly, even when dealing with HUGE logs.</a></strong><br />
+</li>
+<li><strong><a name="item_must_work_with_multilog_and_syslog_logging_formats">Must work with multilog and syslog logging formats</a></strong><br />
+</li>
+<li><strong><a name="item_outputs_data_in_a_format_suitable_for_polling_via_">Outputs data in a format suitable for polling via SNMP</a></strong><br />
+</li>
+<li><strong><a name="item_simple_configuration">Simple configuration</a></strong><br />
+</li>
+<li><strong><a name="item_fail_safe_2c_errors_must_be_noticed_and_reported_b">Fail safe, errors must be noticed and reported but not fatal</a></strong><br />
+</li>
+</ul>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://www.tnpi.biz/internet/mail/">http://www.tnpi.biz/internet/mail/</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright 2003, The Network People, Inc.</p>
+<p>This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.</p>
+
+</body>
+
+</html>

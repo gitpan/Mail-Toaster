@@ -1,0 +1,482 @@
+3.33 - 02.14.2004
+     - CGI.pm - moved lots of logic from index.cgi
+       into CGI.pm for easier maintenance.
+     - Added many new config options to toaster.conf
+       to make customizing Toaster::CGI very easy.
+     - Added toaster_hostname to watcher.conf
+     - qmail_service_smtps needed to be 
+         qmail_service_submit in watcher.conf
+     - index.cgi & index.tmpl - added logo info to 
+       toaster.conf file for easier site customization.
+     - Setup.pm - reworked several subs to allow version
+       information to be stored in w.conf for courier, 
+       sqwebmail, vpopmail, qmailadmin, qmail
+     - t_setup.pl - updated to match new watcher.conf
+       settings
+     - Setup.pm - Added InstallQmailScannerStats sub
+     - Updated vpopmail to 5.4.0 (-stable)
+     - Updated qmailadmin to 1.2.0 (-stable)
+     - Added toaster_debug to watcher.conf file. Now 
+       watcher script will spit out lots of messages
+       when it runs.  That will prove helpful to some 
+       people as many errors can be get reported.
+     - Added additional debug calls to watcher.pl
+     - Added ability to clean up mail messages based
+       on settings in toaster-watcher.conf. Cleans up
+       old messages based on admin configurable number
+       of days. Optionally feed spam and ham messages
+       through sa-learn.
+       Added CleanMailboxMessasges call to watcher.pl
+       Added CleanMailboxMessasges to Toaster.pm
+       Added maildir_clean_* options to watcher.conf
+     - Added qs_quarantine_verbose option to w.conf
+     - Eliminated duplicate virus IP blocks
+
+3.32 - 02.04.2004
+     - Setup.pm & toaster-watcher.conf - added more 
+       options so fewer questions are asked during
+       install. Added f-prot virus scanner support.
+     - CGI.pm - Added Qmail Scanner Statistics option
+       see https://mail.cadillac.net/
+     - FAQ.pod - Added 5 new FAQ entries. 
+     - Setup.pm & Qmail.pm - Added smtp-submit. Adds a
+       smtp listener on port 587 per the SMTP-submission
+       RFC. (Added for client)
+     - Setup.pm - scripts now adds snmpd_enable="YES" to 
+       /etc/rc.conf instead of giving you a notice. Also
+       (re)starts the snmpd daemon.
+     - Setup.pm - Fixed the regexp that fixes the Ezmlm
+       Makefile to use MySQL 4.
+     - Logs.pm  - make sure logs_base (var/log/mail) is 
+       owned by qmaill:qnofiles.
+     - Setup.pm - added  package_install_method to w.conf
+       Now InstallPackage calls can be replaced with
+       InstallPort based on user prefs.
+     - Logs.pm  - added defaults for all $conf->{} settings
+       Now, if a user doesn't update their .conf file and
+       has missing settings, the toaster will behave 
+       reasonably.
+     - Setup.pm - qmailscanner wasn't fetching the sources
+       into the right directory.
+     - Added support directory to the distribution (Mail::
+       Toaster::CGI support html files)
+     - Setup.pm - adjusted regexp for ezmlm
+     - Setup.pm - Added Mail::Audit to InstallFilter SA
+     - Setup.pm - Added DCC, razor, pyzor, and bogofilter
+       to InstallFilter section
+     - added code to support smtps server build
+
+3.31 - 01.19.2004
+     - Qmail.pm - Don't insert rblsmtpd options in smtp/run
+       unless rbls are being used.
+     - Setup.pm - Only install rc.d/pop3.sh if courier
+       is selected as the pop3 server.
+     - Added more documentation to address relay questions
+       posed on the mailing list
+
+3.30 - 12.17.2003
+     - Setup.pm - Honor install_apache from watcher
+       .conf file.
+     - Setup.pm - Added install_qmailscanner_version
+     - Qmail.pm - Honor rblsmtpd options from watcher
+       .conf file.
+     - Logs.pm - Many changes, see seperate file
+       Changes-MailLogs for details.
+     - Setup.pm - InstallFilters now starts spamd after
+       install SpamAssassin.
+     - Start clamd after install ClamAV
+     - Setup.pm - InstallVpopmail now honors the
+       vpopmail_roaming_users setting in .conf
+     - Setup.pm - InstallSocklog - you can now pass 
+       along the user the logs should be owned by.
+     - Setup.pm - InstallSocklog: chmod 755 the run file
+     - Setup.pm - InstallSocklog - added some print
+       lines so you could tell what it was doing. Added
+       the $ip argument in case your logging server isn't
+       on the same IP as mine. ;)
+     - Setup.pm - FetchFile calls weren't being tested
+       to determine if they had succeeded. Updated every
+       call to FetchFile and added code to verify that
+       the files were downloaded.
+     - Added more pod documentation and published pod
+       docs on Mail::Toaster web pages.
+
+3.29 - 12.02.2003
+     - Mail::Toaster::Logs & maillogs - see  seperate
+       Changes-MailLogs
+     - Many little aestetic (ie, what output the user
+       sees when running) changes.
+     - Moved the MATT::Apache dependency from setup.pl
+       which caused ApacheCreateSSLCerts to fail. Moved
+       that call into Mail::Toaster::Setup::InstallApache
+     - InstallPhpMyAdmin moved into Setup.pm from setup.
+       updated to remove MATT::Apache dependency.
+     - Removed the MATT::Mysql dependency  from setup.pl
+       to Setup::InstallMysql. Now you don't get prompted
+       to install DBI and DBD::mysql when doing clean
+       installs. This will make it less daunting for
+       newbies. (No more chicken-egg dependencies)
+     - InstallClamAV - was trying to chown the ClamAV 
+       databases before they were created.
+
+3.28 - 11.26.2003
+     - Setup.pm - InstallVpopmail - Added "port" install
+       option.
+     - Setup.pm - Added InstallVqadmin
+     - Setup.pm - InstallQmailadmin - added port install
+       option (install from FreeBSD port)
+     - Setup.pm - InstallCourier - added options to port
+       build to toasterize it.
+     - Updated toaster patch to 2.7 (2.6 + chk-usr)
+     - added t/maillogs.t, t/toaster_setup.t, and index.t
+     - added doc/pods/Changes-MailLogs.pod
+     - maillogs - misc updates
+     - Logs.pm - misc updates due to movement of subs from
+       maillogs to Logs.pm
+     - added cvsup_server_country (pass to cvsup_fastest)
+     - chmod 640 for qmail/control/sql and SSL certs
+     - Setup.pm - Added option for portupgrade install and
+       added to toaster-watcher.conf-dist
+     - Setup.pm - InstallPorts - use default toaster URL if
+       none supplied
+     - Setup.pm - InstallToasterDeps - install Net::DNS
+       DBI, and DBD::mysql, mysql-client(3.23)
+     - Setup.pm - Added InstallSources
+     - Setup.pm - InstallQmail - configure $qmaildir, $vpopdir
+       and $mysql (lib include dir) based on .conf settings.
+     - toaster-setup.pl - do not pass $toaster to InstallPorts
+     - toaster-setup.pl - added sources target (update FreeBSD)
+
+3.27 - 11.25.2003
+     - modify the ezmlm-idx file to use Mysql 4 lib if
+       chosen (default) in toaster-watcher.conf
+     - Create qmail/control/locals if exist non-existant
+     - Setup.pm - InstallMaildropFiles now has a default
+       toaster URL if one isn't passed.
+     - toaster_setup.pl - reverted back to qmailadmin 
+       1.0.27 (from 1.0.30) due to build problems.
+
+3.26 - 11.24.2003
+     - toaster_setup.pl - added -s phpmyadmin
+     - Qmail.pm - added pod documentation for each sub
+     - Setup.pm - added pod documentation for subs
+     - updated qmailadmin to 1.0.29
+     - updated vpopmail to 5.3.30
+
+3.25 - 11.22.2003
+     - Fixed call in InstallPort for cvsup_fastest
+     - InstallRRDutil will delete sources from previous
+       builds before installing
+     - InstallMATTBundle will delete sources from previous
+       builds before installing
+     - Significant updates to toaster-watcher.pl. It now
+       also generates smtp and pop3 run files for qmail.
+       See it's Changes-Watcher for details.
+     - InstallRRDutil now tests for snmpd_conf in rc.conf
+       starts snmpd if it's there, warns otherwise
+     - Added apacheconf target to toasterize httpd.conf
+     - Added rrdutil target to Setup.pm (RRDutil)
+     - Added apachessl target to Setup.pm
+     - Added mattbundle target to Setup.pm (MATT::Bundle)
+     - Added maillogs as Mail::Toaster::Logs (still needs
+       a fair amount of work)
+     - Got the rest of the variables out of toaster_setup
+       and into the config file where they belong.
+     - BuildSMTPRun will now create it's supervise dir if
+       it doesn't already exist.
+
+3.23 - 11.21.2003
+     - Merged several programs into the Mail::Toaster 
+       package. Including is toaster-watcher, 
+       toaster_setup, and index.cgi. I expect to bring 
+       qqtool, maillogs and a few other apps into this 
+       module as well.
+     - Added Mail/Toaster/Qmail.pm (from MATT::Bundle).
+     - Added Mail/Toaster/DNS.pm (from MATT::Bundle).
+     - Major, major reworking of the -s supervise and 
+       -s maillogs install portions. They now honor oodles
+       of your preferences from toaster-watcher.conf. The
+       .conf file also has a bucketful of new options as
+       well. You'll want to merge in the new changes.
+     - removed a lot of the die calls and made them
+       warnings instead.
+     - Removed a lot of assumptions that the code made. Now
+       that I have config settings, in know how things 
+       should be and can act accordingly.
+     - Whether or not service/pop3 exists will now depend
+       on the pop3_daemon preference
+     - Moved toaster_setup subs to Mail::Toaster::Setup.pm
+     - Lots and lots of code changes due to seperation
+     - Fixed a bug in ConfigVmysql where db auth settings
+       weren't being set in the vmysql.h file
+     - Now writes out the vpopmail.mysql file for db auth
+       in vpopmail 5.3.2? and higher
+     - Now writes out supervise/pop3d/run based on settings
+       in toaster-watcher.conf (instead of defaults)
+     - Now writes out supervise/smtp/run based on settings
+       in toaster-watcher.conf (instead of defaults)
+     - InstallSqwebmail - expect and deal properly with bz2
+     - InstallCourier - expect and deal properly with bz2
+     - deleted InstallMysql (it's in MATT::Utility::Mysql)
+     - Updated qmail to use new version 2.6 patch (based on
+       Bill Shupp's toaster patch
+
+3.22 - 11.07.2003
+     - Added SSL pem creation to the ConfigCourier sub
+     - Updated the toaster installation page.
+
+3.21 - 11.06.2003
+     - Fixed the InstallVpopmail routine so that mysql
+       values get used when pulled from watcher.conf
+     - InstallFilter creates /var/log/mail/maildrop.log
+       and sets ownership on it to vpopmail
+     - Moved UpdatePortsTree to MATT::FreeBSD
+     - Added fastest_cvsup feature to UpdatePortsTree
+     - Added more settings toaster-watcher.conf to override
+       default values supplied in toaster-setup.pl
+
+3.20 - 10.31.2003
+     - Now reads the toaster-watcher.conf file and pulls
+       config values from there. Don't be surprised when
+       it doesn't ask you a slew of questions any longer. :)
+     - Added CVS id tag to toaster_setup.pl
+     - Added perl module files and released as Perl module.
+     - Updated to support qmail-scanner 1.20
+     - Added MATT::Qmail dependencie (moving more code into
+       MATT::Bundle for increased platform portability.
+
+3.1.1
+     - updated dl_site to use tnpi.biz
+     - added is_newer sub
+     - updates to maillogs subs for increased reliability
+     - mysql_install is now MUCH smarter. Should make
+       things smoother for newbies
+     - remove osirusoft from list of RBLs
+     - removed FetchFile (get from MATT::Utility)
+     - removed CdSrcDir (get from MATT::Utility)
+
+3.0.2 07.13.2003
+     - Added additional POD documentation
+     - Moved InstallApache* into MATT::Apache
+     - Added creating of /var/log/apache to InstallApache2
+     - Additional notes for QMAILQUEUE usage for qmail-scanner
+     - Moved InstallMysqlTool to MATT::Mysql
+     - Moved InstallGroup and InstallUser to MATT::Passwd
+     - Moved InstallPackage, CheckPortsAge, and
+       InstallPort to MATT::FreeBSD
+     - Moved YesOrNo, FindTheBin, SysCmd, ReadFile,
+       WriteFile to MATT::Utility
+
+3.0.1 07.10.2003
+     - Fixed a permissions error with $prot/log/run files
+     - Added MATT::Utility dependency, removed subs GetAnswer,
+            ReadFile, WriteFile, SysCmd, FindTheBin, YesOrNo
+
+3.0.0 06.16.2003
+     - Added --enable-rebuild-tcpserver-file=n to InstallVpopmail
+     - Updated vpopmail to version 5.3.20 (devel)
+     - Updated qmailadmin to 1.0.21
+     - Enable spam options in qmailadmin per filtering recipe
+     - Added filtering page for assistance in setting up filtering
+
+2.7.8 05.22.2003
+     - Updated maillogs sub to run CreateSuperviseDirs
+     - Commented out adding service/*/log/down files
+       (Beginning to trend back towards using multilog)
+
+05.21.2003
+     - Removed mysqltool from setup page
+
+2.7.6 05.12.2003
+     - Update ucspi-tcp MySQL patch with query change submitted
+       by Flavio Curti (curti@cyberlink.ch). Allows you to put
+       entries for subnets in the MySQL relay table with a NULL
+       timestamp and remove the necessity of putting your relay
+       netblocks in a tcp.smtp.cdb file.
+
+2.7.5 05.02.2003
+     - Added InstallQmailScanner subroutine
+
+2.7.2 04.23.03
+     - Fixed InstallQmailAdmin so that help files get
+       installed properly on new installs
+     - Updated so courier files get chmod to 755
+     - InstallVpopmail now asks about qmail-extensions
+     - InstallVpopmail - added =y to --enable-valias
+     - InstallFilter - added clamav port install
+
+2.7.1 04.15.03
+     - Fixed InstallQmail so sources get removed before rebuild.
+     - Qmail-smtpd is now chowned to vpopmail if you
+       are using chk-usr functions.
+
+2.7 - 04.09.2003
+     - Misc updates for FreeBSD 4.8
+     - Added Apache2 install section
+     - Apache2 also installs mod_php4 and mod_perl2
+     - Install cvsup-without-gui instead of cvsup
+     - Install perl5 from ports (5.6.1)
+
+2.6.7 03.28.03
+     - CheckPortsAge - fixed URL for cvsup-ports file retrieval
+     - Ask if password learning should be enabled
+     - Ask what type of vpopmail logging is desired.
+     - Ask user if domains are owned by users other than
+       vpopmail. If so, run the qmail-smtpd daemon as root.
+     - Updated mod_ssl to 2.8.14
+     - Added domain quota question to Vpopmail interview
+     - copy vlimits.h file to ~vpopmail/include/
+     - fixed typo (s/answer/ans) in InstallVpopmail
+
+2.6.6 03.26.03
+     - Updated vpopmail version to 5.3.19
+     - Updated qmailadmin to 1.0.15
+
+2.6.5 03.19.03
+     - Updated qmail-smtpd run file with ideas from LWQ
+     - Changed URL for mysqltool.index.txt file
+
+2.6.4 03.13.03
+     - $supervise/send/log/run how gets a working config file
+     - Apache build goes a little farther, after getting input
+     - Check for src earlier in qmail install
+
+2.6.3 03.11.03
+      - Updated to use qmail-toaster patch 2.4
+        (added qmail-smtpd-chkusr patch)
+
+2.6.2 03.08.03
+     - Added interview for $service files so they don't need to
+            be hand edited after install
+     - Added interview for netblocks (tcp.smtp) list that you
+            need to relay for.
+     - Build $qmaildir/service files (smtp/run, pop3/run)
+            based on user input instead of my defaults.
+     - Bugfix in RemoveOldApacheSources
+     - Lots of reporting added to InstallSupervise and it's
+            new list of subs
+     - Don't bother re-installing qmailadmin help files if they
+            are already present.
+
+2.6.1 03.06.03
+     - Updated qmailadmin to 1.0.12
+     - Moved ChangeLog to web page
+
+2.6 - 03.06.2003
+      Updated qmailadmin to 1.0.12
+      Complete code review and updates to toaster_setup.pl (2.6).
+      Lots of overall code updates to nearly every sub (audit)
+        More build time interview questions.
+      Code is now more portable (for a future on other platforms)
+      Ironically, there was enough duplication that despite adding
+      a bunch of fresh code, the resulting script is now smaller
+      Wrapped shell commands in a SysCmd sub with error checking
+      FetchFile calls are clean enough now to use any fetching
+        tool (instead of just fetch). (portability)
+      InstallPackage & InstallPort report better
+      Install(User|Group) use get_*_nam functions
+      ConfigQmail asks for SQL password instead of writing
+        default value to $qmail/control/sql
+      InstallEzmlm doesn't overwrite preinstalled config files
+      Install stuff into $httpdir/data/mail if it exists
+      Moved lots of redundant code from subs into SourceWarning
+      Moved Personal Preferences to the top of the script
+                
+2.5 - 02.07.2003
+      Updated qmailadmin to 1.0.9
+      Updated vpopmail to 5.3.16
+      Updated toaster_setup.pl script to 1.7
+      Dynamically configure qmailadmin based on answers to
+        a series of questions. Now you're not necessarily
+        stuck with my choices. :)
+      Added install_vpopmail subroutine with lots of
+        questions for user customizability
+      Added read_file and write_file subs
+      Made sure apache doesn't compile using old sources
+      Added squirrelmail install
+      Added cvsup (auto install, configure, and run).
+      Added yes_or_no subroutine
+      Added find_the_bin subroutine to make script more
+        self configuring and more portable.
+      Updated a bunch of system calls (rm, mv, and ln)
+        to use perl functions for increased portability.
+      Added socklog install function
+      Added filtering section
+      Made install section cleaner and prettier
+      Added Apache install section
+      Added defines: $toaster, $httpdir, $confdir
+      Added Mysqltool install section
+      Added qmailadmin install section
+      Added sqwebmail install section
+      Added courier imap build section
+      Added check for stale ports tree
+      Disable the $local/rc.d/qmail.sh file that is installed
+      Fixed permission of $qmailcontrol/bin/servercert.pem
+      Moved all $fetch calls into sub fetch_files
+      Made the supervise directory creation much more robust
+      Added more error checking and feedback to install_qmail
+      Added install of ucspi-tcp to script
+      Added better checks for user and group entries
+
+      Updated qmailadmin with MySQL replication and quota fixes
+      updated sqwebmail instructions, version to 3.3.7
+      Updated qmail patch (2.3) to use newer smtp-auth 0.31
+      Removed badmailfrom and badrcptto patches from qmail
+      Updated toaster_setup.pl script to v1.4
+
+      Made the qmail binary install honor the $qmaildir
+      Updated to smtp_run-1.1 (qmail-smtpd uid is now vpopmail)
+      Owner of /var/qmail/control/sql needs to be vpopmail
+
+2.2 - Updated qmail, vpopmail, qmailadmin.
+      cgi-bin dir changed to more normal location of cgi-bin.
+      qmailadmin 1.0.6 - with quota support which I hacked in
+      Vpopmail 5.3.5 - smth-auth works. :-) .
+      patch - added qmailqueue & qpop3d maildir++ quota patches
+      qmailqueue - Added qmailqueue support to my toaster patch
+      toaster_setup.pl - moved a bunch more of the config
+        and install steps into the script
+
+2.1 - Updated autoresponder, Vpopmail, qmailadmin, and courier-imap.
+    Autoresponder is now installed from ports instead of as a package. As of
+    2/21/02 if you update your ports tree and install, you'll get version
+    2.02.
+
+    Vpopmail is updated from 5.0 to 5.2. You can simply install 5.2 right
+    over top of 5.0 with no consequence.
+
+    Qmailadmin is updated from 1.0 to 1.02. Just install right over the old
+    one.
+
+    Courier-IMAP is updated from 1.3.12 to 1.4.2. Adds quota support. Note
+    the additional configuration steps in the courier install section of the
+    toaster recipe.
+
+2.0 - Latest versions of all programs, everything works, fun changes.
+      Added TLS support to qmail-smtpd
+      Updated smtp control file accordingly.
+      Vpopmail updated to version 5.0
+      Courier-IMAP updated to 1.3.12
+      Sqwebmail updated to 3.2
+      Updated ucspi-tcp patch to include rss patch to rblsmtpd
+
+    Updated my qmail-toaster patch to use SMTP-AUTH 0.30 from
+    http://members.elysium.pl/brush/qmail-smtpd-auth/
+
+    Changed Apache build to statically include mod_ssl, mod_php, & mod_perl.
+    Mod perl fails when loaded dynamically and after toiling for many hours,
+    I gave up and compiled it statically. I learned many others before me
+    had gone down that road and failed as well.
+
+1.7
+    MySQL authentication, SMTP tarpitting, & SMTP-AUTH support.
+
+1.6
+    SMTP relay table is entirely contained in a MySQL table. Previously the
+    tcp.smtp.cdb file was still generated based upon the contents of a MySQL
+    table. We have modified the tcpserver application to check a MySQL table
+    (instead of a flat file) for each SMTP session to determine if a user's
+    IP can relay or not. If the database connection fails, we allow the SMTP
+    session anyway but don't allow relaying. Invoke tcpserver with the -S
+    flag to utilize the new feature.
+

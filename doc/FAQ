@@ -1,0 +1,593 @@
+What features does the Toaster support?
+      SMTP Mail Server (SMTP-AUTH, TLS, tarpitting, RBL)
+        http://www.tnpi.biz/internet/mail/toaster/patches/
+      Virtual Domain Hosting w/delegated administration
+      Virtual Domain Users
+      Mailing List (Ezmlm)
+      AutoResponder
+      Web Based E-Mail (multiple options)
+      Web Based Domain Administration
+      Mail Filtering (rblsmtpd, SpamAssassin, Qmail-Scanner)
+      SMTP roaming via SMTP-AUTH, POP-AUTH, & IMAP-AUTH
+      POP3, POP3-SSL
+      IMAP, IMAP-SSL
+
+What programs will be installed?
+      Qmail 1.03   : Secure, fast, and reliable MTA
+      MySQL (3,4)  : Database engine
+      ucspi-tcp    : Inetd replacement
+      daemontools  : Tools for managing daemons
+      ezmlm-idx    : Mailing list management
+      Apache (1,2) : Secure HTTP server
+      Apache mods  : mod_php, mod_ssl, mod_perl
+      OpenLDAP     : LDAP client
+      vpopmail     : Virtual Domain module
+      qmailadmin   : Vpopmail domain administration CGI
+      autorespond  : Auto Responder & vacation
+      gdbm         : Database routines
+      ispell       : Spell checking for web mail
+      qmailadmin   : Web Control Panel Interface
+      sqwebmail    : Web based email
+      squirrelmail : Web based email
+      courier-IMAP : IMAP & POP3 servers
+      maildrop     : procmail like mail deliver agent
+      spamassassin : spam filtering program
+      clamAV       : Virus scanning software
+      qmailscanner : content scanner for qmail
+      maillogs     : mail log processor
+      rrdutil      : MRTG like graphs
+      Mail::Toaster: Perl modules for mail systems
+      MATT::Bundle : Perl modules for unix systems
+
+What are the mail retrieval options?
+      pop3://mail.example.com
+      imap://mail.example.com
+      pop3s://mail.example.com
+      imaps://mail.example.com
+
+      http://mail.example.com/cgi-bin/sqwebmail
+      https://mail.example.com/cgi-bin/sqwebmail
+
+      http://mail.example.com/squirrelmail
+      https://mail.example.com/squirrelmail
+
+    Mail::Toaster::CGI showcases the toasters functionality. See it live at:
+    http://mail.cadillac.net/
+
+How do I manage mail options for a domain?
+    Point a web broswer at https://mail.example.com/cgi-bin/qmailadmin
+
+Where do I find the maildomain script?
+    maildomain perl script - Front end to nearly everything you can do with
+    the vpopmail programs and a bunch of handy fixup utilities for qmail
+    systems.
+    http://localhost.tnpi.biz/internet/mail/toaster/maildomain/maildomain.pl
+
+    UPDATE: This is now part of Mail::Toaster and has been renamed
+    mailadmin.
+
+How do I convert Multilog date stamps to human readable date stamps?
+      tai64nlocal < logfile > qmaillog.tmp
+
+How do I find statistics about my mail queue:
+      1. qmail queue | more
+
+      2. qqtool -a list
+
+      3. rrdutil
+
+      4. isoqlog
+
+      5. Manually feed qmail-send output through matchup and pipe
+        the results through a processor (all one one line):
+
+         /usr/local/qmailanalog/bin/matchup < 
+         /var/log/mail/send/current | 
+         /usr/local/qmailanalog/bin/z*
+
+        where z* is one of the following:
+
+        zddist, zdeferrals, zfailures, zoverall, zrecipients, 
+        zrhosts, zrxdelay, zsenders, zsuccesses, zsuids
+
+How do I enable the sqwebmail calendar?
+    echo "local" &gt; /usr/local/share/sqwebmail/calendarmode
+
+When will you add support for my platform?
+    The scripts are extensible in anticipation of using them on platforms
+    other than FreeBSD where they were developed. My next "supported" OS
+    will likely be Mac OS X and then probably Linux. Linux fans might want
+    to check out Bill Shupp's toaster pages. Here's a couple URLs for you:
+    http://www.shupp.org/toaster/ and http://qmailtoaster.clikka.com/.
+
+How do I block connections from servers with no reverse DNS?
+    Contents of ~vpopmail/etc/tcp.smtp (fix wrapped lines):
+
+     127.:allow,RELAYCLIENT=""
+     209.218.8.2:allow
+     =:allow
+     :allow,RBLSMTPD="Blocked - Reverse DNS queries for 
+       your IP fail. You cannot send me mail."
+     #:allow,RBLSMTPD="-Blocked - Reverse DNS queries for 
+       your IP fail. You cannot send me mail."
+
+     line 1. Obvious, allows localhost to relay.
+     line 2. Allows traffic from the inter7 email list
+     line 3. Matches any mail message with reverse dns.
+
+    line 4. Matches what's left (no reverse DNS). By setting the RBLSMTPD
+    environment variable, we actually get to pass a message back to the mail
+    server we're blocking telling them why. That gives them a chance to fix
+    it before the messages bounces.
+
+    They'll get a message like this in their mail logs:
+
+    Mar 27 08:40:43 seattle qmail: 1048783243.397888 info msg 6469: bytes
+    258 from qp 13226 uid 0 Mar 27 08:40:43 seattle qmail: 1048783243.438981
+    starting delivery 533: msg 6469 to remote matt@simerson.net Mar 27
+    08:40:43 seattle qmail: 1048783243.979048 delivery 533: deferral:
+    207.89.154.94_does_not_like_recipient./ Remote_host_said:_451_Blocked_
+    Reverse_DNS_queries_for_your_IP_failed. You_cannot_send_me_mail.
+    Giving_up_on_207.89.154.94./
+
+    line 5. If you want to be a little more aggressive about it, use the 5th
+    line instead of the fourth. Notice the '-' character in there. That
+    tells rblsmtpd to return a permanent error (ie, don't try again!)
+
+    Mar 27 08:42:40 seattle qmail: 1048783360.776812 info msg 6475: bytes
+    250 from qp 13464 uid 0 Mar 27 08:42:40 seattle qmail: 1048783360.805534
+    starting delivery 534: msg 6475 to remote matt@simerson.net Mar 27
+    08:42:41 seattle qmail: 1048783361.259737 delivery 534: failure:
+    207.89.154.94_does_not_like_recipient.
+    Remote_host_said:_553_Blocked_-_Reverse_DNS_queries_for_your_IP_fail.
+    You_cannot_send_me_mail. Giving_up_on_207.89.154.94./ Mar 27 08:42:41
+    seattle qmail: 1048783361.269637 bounce msg 6475 qp 13467 Mar 27
+    08:42:41 seattle qmail: 1048783361.270564 end msg 6475
+
+    Notice that in the second case, the message bounces immediately. It's
+    your mail server, you have to decide what policy you think is best.
+    Bouncing messages seems to get more attention, and gets it faster than
+    deferring connections.
+
+    That's all there is to it. Of course, that assumes you are running
+    rblsmtpd as part of your smtp invocation.
+
+How do I use SpamAssassin & ClamAV?
+    See the Filtering section at
+    http://www.tnpi.biz/internet/mail/toaster/filter.shtml
+
+Whats the best way to view/expire messages from the queue?
+    Use qqtool: http://www.tnpi.biz/internet/mail/qqtool/
+
+Why are IMAP connections getting reset?
+    See this post to the mailing list for a possible explanation:
+    http://matt.simerson.net/cgi-bin/ezmlm.cgi?mss:2006:pnonldigcpgkfpehlcgo
+
+How do I delete old messages in the Spam folders?
+    find /usr/local/vpopmail/domains/*/*/Maildir/.SPAM/cur -type f -mtime
+    +30 -exec rm -f {} \;
+
+    deletes files older than 30d
+
+    no guarantee, that just came off from the top of my head :) haven't
+    tested, but worth the try :D regards, Andryan.
+
+    UPDATE: Matt thinks is a partial solution, as it won't find files within
+    numbered buckets which you'll find on any domains with a large number of
+    users.
+
+Where is the UCSPI-TCP patch?
+    http://www.tnpi.biz/internet/mail/toaster/patches/tcpserver-mysql.shtml
+
+    The patch adds MySQL query support to tcpserver. The patch will allow
+    tcpserver to query a Mysql server for each new connection and set
+    RELAYCLIENT based on the presence of the remote IP in the table. This is
+    a very useful and popular patch.
+
+How can I modify the Sqwebmail interface?
+    The html temples live in /usr/local/share/sqwebmail/html/
+
+How can I modify the Qmailadmin interface?
+    The html templates live in /usr/local/share/qmailadmin/html/
+
+What httpd.conf changes are needed?
+    See contrib/httpd.conf-2.0.diff in the Mail::Toaster distribution.
+
+Can you explain the Anti-Spam options please?
+    There are several anti-spam mechanisms in place. The first is RBLs.
+
+    *   Layer 1: RBLs
+
+        RBL's that deny SMTP connections to your server have no concept of
+        email addresses. They only know whether the remote address is a
+        blacklisted or not. So, if someone is blacklisted, you only have two
+        choices:
+
+           a) use the blacklist and deny connections
+           b) use the blacklist and whitelist specific IP's
+           c) don't use the blacklist
+
+        I choose b. I strongly desire to block volumes of crap before my
+        SMTP server has to deal with it. In the few cases where a remote
+        server is misconfigured and gets blacklisted, I have no problems
+        being one of many servers they can't send mail to until they get it
+        fixed. This is a form of policing the Internet and making careless
+        or just plain naughty mail server owners become good netizens.
+
+        If a RBL is unjustly blocking too much for your organizations
+        policies, you'll want to disable it.
+
+    *   Layer #2: Patches to qmail-smtpd.
+
+        We block invalid users (based on qmail-chk-usr patch, and have the
+        badmailfrom, badrcptto, and other patches which you'll need to read
+        up on to understand how to use. However, there isn't (as far as I
+        know) any whitelisting. Even if there was, I wouldn't consider it
+        beneficial.
+
+    *   Layer #3: Qmail-scanner.
+
+        If you've chosen to use it. It can filter based on external programs
+        (ClamAV, SpamAssassin, etc) as well as things like attachment
+        extensions, keywords, etc. It's very powerful, but has substantial
+        resource requirements so use it with care.
+
+        The aforementioned layers are at the system level and settings there
+        apply to your entire mail server. If you must employ different
+        policies for different users, then you must do one of the following:
+
+          a) run multiple SMTP servers 
+             (on unique IPs) with different policies
+          b) choose a "lowest common denominator" policy
+
+        The final layer of protection is at the mailbox level. This is where
+        the user gets to opt into using SpamAssassin, and routing suspected
+        spam into a .Spam folder. If there is to be user selectable
+        preferences, this is where they belong, and eventually I'll work in
+        some Squirrelmail -> SpamAssassin integration so users can tweak
+        their preferences.
+
+        There are other mechanisms available for fighting spam but none that
+        are easily implemented or that don't have other nasty side affects.
+
+    *   Layer 4: Maildrop
+
+        Maildrop is much like procmail and is used for the same reasons.
+        After the message has passed through all the checks above, we can do
+        some very sophisticated processing of the message. For example, the
+        default mailfilter I wrote and include with the toaster does the
+        following:
+
+         1. process messages < 256k through SpamAssassin
+         2. Process any user specific rules
+         3. verify users mail quotas
+         4. delete any message with a spam score > 12
+         5. Deliver spam message to Spam folder
+         6. bounce message if Mailbox is over quota
+
+    You have some very powerful tools included with the Mail::Toaster that
+    will let you deal with each message in any fashion that you'd like. The
+    only limits are your knowledge of the available tools and you are
+    encouraged to learn them.
+
+Is portupgrade -a safe?
+    Simple answer: No.
+
+    Long answer. I never recommend portupgrade -a on a production server.
+    There are a variety of reasons for this:
+
+    *
+    Broken Binaries
+
+    Read the portupgrade man page for details.
+
+    *
+    Overwrites custom binaries
+
+    The toaster setup installs some customized binaries such as the heavily
+    modified qmail package. If you let portupgrade "update" qmail, then the
+    special anti-spam features go away. Ouch.
+
+    *
+    Does not honor make options
+
+    You'll note that toaster-watcher.conf has lots of options for
+    configuration how certain toaster components are installed. We'll take
+    MySQL for example. You might want it installed with ssl or linuxthreads.
+    The toaster setup script honors those settings, but after portupgrade
+    "updates" your MySQL, those special features are gone.
+
+    Because of the aforementioned reasons, many folks end up breaking their
+    mail systems after running portupgrade. The best advise is have a
+    development server to test on first. If it doesn't break your dev
+    server, then it'll probably work find on your production one. Be very
+    careful updating any programs installed via toaster_setup.pl. If you do
+    upgrade something and break your toaster, run through the setup again,
+    and it should repair the damage.
+
+Why does SpamAssassin take so long to check messages?
+    First, you need to understand what a "normal" processing time is. On my
+    server, I do DCC, Pyzor, Razor2, and the rest of the "normal" checks. If
+    I have RBL checking on, then processing a message takes a couple
+    seconds. If I disable RBL checks, messages processing drops to less than
+    a second. This is on a pretty old server (Dual PIII 650) with 1GB of
+    RAM.
+
+    If your processing time is extraordinarily different, That could be one
+    of several reasons:
+
+    *   DNS timeouts
+
+        By default, SpamAssassin does RBL lookups against several
+        blacklists. Make sure your DNS works well. If you are doing RBL
+        checks via SMTP, then you may want to disable the RBL lookups in
+        SpamAssassin. You can do that by adding "skip_rbl_checks 1" to
+        /usr/local/etc/mail/spamassassin/local.cf.
+
+        If a RBL that SA is trying to contact is down, it may also introduce
+        an extended timeout. Disabling the RBL checks is a good way to
+        diagnose this. I run all the RBL checks at the SMTP level so I can
+        deny the messages and thus avoid having to process them. As such, it
+        makes little sense to have SA also running RBL checks.
+
+    *   Firewall blocking
+
+        SpamAssassin can use DCC, Razor2, and Pyzor. Those modules require
+        contacting network servers. If your firewall rules are blocking
+        those connections, this will introduce a timeout that hangs SA for 5
+        seconds per check. So, if your message processing time takes 11
+        seconds and it should be taking about 1, then you are likely
+        blocking a couple checks. I added the following rules to my IPFW
+        firewall:
+
+         # Allow DCC (6277) & Pyzor (24441)
+         ${fwcmd} add allow udp from ${oip} to any 6277,24441
+         ${fwcmd} add allow udp from any 6277,24441 to ${oip} 1024-65535
+
+How do I set up per-user SpamAssassin preferences?
+    I did it as follows:
+
+    *   Create the MySQL database
+
+        http://eu.spamassassin.org/full/2.6x/dist/sql/README
+
+        I named my database "spamassassin" and the table "userpref" as shown
+        in the SA docs. The table name isn't significant, just make sure you
+        are consistent in how you configure SA and sasql's access to it.
+
+        Create a MySQL user and password for access to the spamassassin
+        database. I did so with a grant such as: GRANT ALL PRIVILEGES ON
+        spamassassin.* TO spamassassin@'locahost' IDENTIFIED BY
+        'secretword';
+
+    *   Install SASQL
+
+        http://www.squirrelmail.org/plugin_view.php?id=167
+
+        Install it as you would any other squirrelmail plugin. Edit
+        sasql_conf.php and set the DSN.
+
+    *   Install WebUserPrefs
+
+        http://www.pipegrep.net/webuserprefs/
+
+        I did it as follows:
+
+         cd /usr/local/www/mail
+         fetch http://...
+         tar -xzf webuserprefs-0.5.tar.gz
+         mv webuserprefs-0.5 webuserprefs
+         cd webuserprefs
+         vi config.php
+
+        Edit the prefs_source to "db", authorization to "squirrelmail" and
+        set the database info. Point your browser at
+        http://mail.example.com/webuserprefs/ and volia. The catch is that
+        you must be logged in via squirrelmail in order to use it. The
+        alternate solution is to use IMAP or POP3 but then you have to
+        recompile PHP with IMAP support.
+
+    *   Install Pear-DB
+
+        You'll find it in /usr/ports/databases/pear-DB.
+
+        I had mod_php4 installed before and this silly port was convinced it
+        needed the lang/php4 port installed. Since I had another need for
+        the PHP cli, I honored it's insistence by deinstalling www/mod_php4.
+
+    *   Modify spamd's flags. The best way is to modify /etc/rc.conf and add
+        the following lines:
+
+          spamd_enable="YES"
+          spamd_flags="-a -d -v -q -x -r /var/run/spamd.pid"
+
+What needs to be in /etc/rc.conf?
+    Here's the relevant portions of mine:
+
+      enable_quotas="YES"
+      check_quotas="YES"
+      clamav_clamd_enable="YES"
+      spamd_enable="YES"
+      spamd_flags="-a -d -v -q -x -r /var/run/spamd.pid"
+      ntpdate="YES"
+      xntpd_enable="YES"
+      xntpd_flags="-p /var/run/ntpd.pid"
+      sendmail_enable="NONE"
+      snmpd_enable="YES"
+
+Should I use RBLs?
+    Grab a cut of coffee, it's SMTP lesson time.
+
+    The type of statistics you'll see in your logs regarding SMTP blocks
+    will reflect several things of interest (that are related to your
+    question). The first, and most obvious is how you are using the RBLs.
+
+    The most important setting in that regard is rbl_enable_soft_failure in
+    your toaster-watcher.conf file. If you have soft failure enabled, then
+    when you deny a mail agent access, you are doing so with a temporary
+    failure, which amounts to saying "try again later". The idea behind that
+    is that if it's a legit mail server, it gives them a chance to fix their
+    problem and then try sending again.
+
+    I'm not in that camp. My email addresses have been plastered on web
+    pages for years and years, on mailing lists, usenet forums, etc. Thus,
+    my address(es) are included in many of the spammers databases so I'm
+    going to be a target regardless. I want to stop them dead so I set
+    rbl_enable_soft_failure to 0, which chooses a 553 error "sorry go away,
+    permanent error, you spammer pig" style. This tells the remote server,
+    don't even bother trying again, it won't work.
+
+    Obviously with the latter arrangement, you'll see a lot fewer (than if
+    using the former) RBL blocks. Many of the spammers don't honor the 553
+    error and try again anyhow but that's quite OK. The majority of mail
+    servers (themselves victims of naughty people) will get the 553 and
+    bounce the message, no longer trying to contact me. All is well. This is
+    the very same reason why it's better to use a SMTP 553 error instead of
+    simply packet filtering their IP. Sure, they're blackholed, but they'll
+    get a SMTP unreachable error and just keep trying. I want the spam
+    traffic destined to my server to go away, not add to the cost of my
+    system (via connectivity). When your server has thousands of mailboxes
+    on it, these policy decisions make very real and measurable differences.
+
+    Doing a RBL lookup on a message at SMTP invocation time is cheap.
+    Extremely cheap. It's a simple DNS query so it's very very very
+    lightweight. I may even have it cached from the last time the spammer
+    tried. It costs almost nothing. If I can deny a spam message there,
+    before having to pass it to qmail-scanner (medium cost), through the
+    virus scanner (medium to expensive), bayesian filtering (low cost),
+    spamassassin network tests: blacklists, DCC, pyzor, razor (low -
+    medium), and then maildrop filtering, then you it's worth it to me.
+
+    So, reason #1: It costs me less to use RBLs.
+
+    The next reason for RBL usage is more political. The spammers revenue
+    (that they charge advertisers) is based on message deliveries. They
+    maintain databases of email accounts that they can deliver to. They have
+    developed very sophisticated ways of determining if a message got
+    delivered (well beyond "did the SMTP server accept it") and further, if
+    it landed in a real persons mailbox. These include delivery
+    notifications, embedded HTML (the web server logs then reflect success),
+    and other clever mechanisms.
+
+    Very few Mail User Agents are very clever about dealing with spam
+    messages. Unfortunately, the ones that are (like Mail.app) are not the
+    most popular. A lions share of users use that icky software from Redmond
+    which is a spammers dream come true. Even if I tag and bag the spam to a
+    special folder, they end user may peruse through it, opening the message
+    to verify and thus letting the spammer know the message was delivered
+    successfully. Yay, spam 'em again!
+
+    So, if I can block the message entirely (not just from my mailbox, but
+    from every landing on my server) then the spammer will never get back
+    any indication of success. This increases the likelihood of being
+    removed from the naughty miscreants list and thus reduces the likelihood
+    of getting spammed from him again in the future.
+
+    Sounds great in theory right? So how does it play out in real life? I
+    have quite a few "case studies" we'll call them, ranging from my own
+    personal mail servers to mail systems with tens of thousands of
+    mailboxes on them. In general, the spam to ham ratio of messages on the
+    internet is rising, but in every case my mail servers (with RBLs), the
+    number of RBL blocks I see is gradually decreasing. This suggests that
+    either RBLs are becoming less effective or some other unknown factor(s)
+    are at work.
+
+    So, let's look at my mail server as a case study. Over time my message
+    volume on my server has continued to rise, so we should expect the level
+    of spam messages as well as ham messages to be steadily increasing (or
+    the number of RBL blocks to increase). The effectiveness of my spam
+    filters has been fairly constant (>98%) for the past six months yet the
+    number of spam messages being delivered on my mail server has steadily
+    dropped. What accounts for the difference?
+
+    Reason #2: Keeping spam messages way from end users
+
+    About a year ago I was watching my mail server logs and noticed that
+    quite a few of my mail users (of whom I know personally) were getting
+    extraordinarily high levels of spam being delivered to them. I then
+    decreased my spam tolerance by blocking mail servers without DNS (which
+    required whitelisting a fair number of mail servers), increasing my RBL
+    usage. Immediately after that the number of RBL hits spiked and then
+    began a gradual decline ever since. This reduction of traffic is due
+    almost entirely to the RBL usage as I tested the reverse DNS blocking at
+    various times and ultimately removed it.
+
+    Approximately six months later I did another round of decreased spam
+    tolerance and enabling the spam filtering for these users, all of whom
+    are not very sophisticated mail users. They don't know or care about
+    mail servers, filtering, etc. They just want their email to work.
+    Overnight the levels of spam in their inboxes dropped to almost nothing
+    (a condition I'm accustomed to living with). This, of course made them
+    all very happy. It also gave me a way to track the effectiveness of the
+    RBLs, as I had a very accurate indicator of their effectiveness. RBLs
+    only caught about 50% of the spam, but that's still a remarkably good
+    achievement for something that costs so little to employ.
+
+    So, RBLs aren't a "one stop shopping" spam solution, but they are a very
+    effective tool.
+
+    Reason #3: Spammers hate RBLs
+
+    There is good reason why RBL operators are targets of DoS attacks. These
+    days running a RBL means making sure you and your upstream provider are
+    prepared to deal with massive DoS attacks, sometimes lasting over a
+    week. These DoS attacks can cost many thousands of dollars in excess
+    bandwidth fees, lost revenues, and related costs. This is the reason for
+    several of the RBL operators decisions to step out of the game,
+    including osirusoft which was one of, if not the most effective free
+    RBL. If RBLs weren't effective, they wouldn't be targets.
+
+    Unfortunately, the spammers have millions of advertising dollars at
+    stake. When a RBL is as effective as Osirusoft, it measurably effects
+    their bottom line, and thus becomes a target. If I can hurt the spammers
+    where it counts (in their wallet), then in my book, that's A Very Good
+    Thing.
+
+    Matt
+
+How do I get QmailScanner Statistics to work?
+    I did as follows:
+
+      cd /usr/local/www/data
+      mkdir qss; cd qss
+      download tar archive from:
+        http://sourceforge.net/projects/qss/
+      tar -xzf qss-2.0.2.tar.gz
+      vi config.php 
+
+    Change the start date to the earliest date shown in your log file (head
+    /var/spool/qmailscan/quarantine.log). Change the logFile variable to
+    point to "/var/spool/qmailscan/quarantine.log". Then open up the
+    permissions a bit on the quarantine so qmail-scanner stats can read it:
+
+      chmod o+x /var/spool/qmailscan
+      chmod o+r /var/spool/qmailscan/quarantine.log
+
+    Qmail-Scanner changed the logging date format at version 1.20 but
+    qmailscanner stats doesn't have a fix for it yet. If you log files with
+    dates in this format: 23-09-2003 then it'll work great. If you are using
+    a newer version of qmail-scanner, you'll notice that your log entries
+    are not showing up. I have both (before/after upgrade) so I fixed
+    qmailscanner stats it by editing the index.php as follows (The if..else
+    block is my addition):
+
+      vi index.php
+
+       if ( eregi("(^[0-9]+)", $val[0]) )
+       {
+          # Calc the date timestamp
+          $date = explode("/",$val[0]);
+          $dateT = $date[0];
+          $date[0] = $date[1];
+          $date[1] = $dateT;
+          $date = strtotime(implode("/",$date));
+       }
+       else
+       {
+          $date = strtotime ($val[0]);
+       };
+
+    Point your browser at http://mail.example.com/qss/ and voila! If you
+    can't get it working, just look at mine and pretend:
+    https://mail.cadillac.net/qss/. ;-)
+

@@ -1,0 +1,384 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Setup</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#installphpmyadminw">InstallPhpMyAdminW</a></li>
+		<li><a href="#installvqadmin">InstallVqadmin</a></li>
+		<li><a href="#installmysqld">InstallMysqld</a></li>
+		<li><a href="#installsources">InstallSources</a></li>
+		<li><a href="#apacheconfpatch">ApacheConfPatch</a></li>
+		<li><a href="#installmattbundle">InstallMATTBundle</a></li>
+		<li><a href="#installrrdutil">InstallRRDutil</a></li>
+		<li><a href="#installports">InstallPorts</a></li>
+		<li><a href="#installapache">InstallApache</a></li>
+		<li><a href="#installvpopmail">InstallVpopmail</a></li>
+		<li><a href="#is_newer">is_newer</a></li>
+		<li><a href="#setupvmysql">SetupVmysql</a></li>
+		<li><a href="#installsquirrelmail">InstallSquirrelmail</a></li>
+		<li><a href="#installmaillogs">InstallMailLogs</a></li>
+		<li><a href="#installsocklog">InstallSockLog</a></li>
+		<li><a href="#installsocklogqmailcontrol">InstallSocklogQmailControl</a></li>
+		<li><a href="#installfilter">InstallFilter</a></li>
+		<li><a href="#installmaildropfiles">InstallMaildropFiles</a></li>
+		<li><a href="#configspamassassin">ConfigSpamAssassin</a></li>
+		<li><a href="#configqmailscanner">ConfigQmailScanner</a></li>
+		<li><a href="#installqmailscanner">InstallQmailScanner</a></li>
+		<li><a href="#installclamav">InstallClamAV</a></li>
+		<li><a href="#installtoasterdependencies">InstallToasterDependencies</a></li>
+		<li><a href="#installcourier">InstallCourier</a></li>
+		<li><a href="#sourcewarning">SourceWarning</a></li>
+		<li><a href="#installsqwebmail">InstallSqwebmail</a></li>
+		<li><a href="#installqmailadmin">InstallQmailadmin</a></li>
+		<li><a href="#installucspi">InstallUCSPI</a></li>
+		<li><a href="#installezmlm">InstallEzmlm</a></li>
+		<li><a href="#configcourier">ConfigCourier</a></li>
+		<li><a href="#configvpopmailetc">ConfigVpopmailEtc</a></li>
+		<li><a href="#installsupervise">InstallSupervise</a></li>
+		<li><a href="#createservicedir">CreateServiceDir</a></li>
+		<li><a href="#configureservices">ConfigureServices</a></li>
+		<li><a href="#createsupervisedirs">CreateSuperviseDirs</a></li>
+		<li><a href="#installqmail">InstallQmail</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::Setup</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>The meat and potatoes of toaster_setup.pl. This is where the majority of the work gets done. Big chunks of the code got moved here, mainly because toaster_setup.pl was getting rather unwieldly. The biggest benefit requiring me to clean up the code considerably. It's now in nice tidy little subroutines that are pretty easy to read and understand.</p>
+<p>
+</p>
+<h2><a name="installphpmyadminw">InstallPhpMyAdminW</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallPhpMyAdminW($conf);</pre>
+<p>Installs PhpMyAdmin for you, based on your settings in toaster-watcher.conf. The actual code that does the work is in MATT::Mysql (part of MATT::Bundle) so read the man page for MATT::Mysql for more info.</p>
+<p>
+</p>
+<h2><a name="installvqadmin">InstallVqadmin</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallVqadmin($conf);</pre>
+<p>Installs vqadmin from FreeBSD ports. It honors your cgi-bin and your htdocs directory as configured in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="installmysqld">InstallMysqld</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallMysqld($conf);</pre>
+<p>Installs mysql server for you, based on your settings in toaster-watcher.conf. The actual code that does the work is in MATT::Mysql (part of MATT::Bundle) so read the man page for MATT::Mysql for more info.</p>
+<p>
+</p>
+<h2><a name="installsources">InstallSources</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSources($conf, $toaster);</pre>
+<p>Update your FreeBSD source tree (/usr/src). Uses cvsup_fastest to pick the fastest server in your country (configure in toaster-watcher.conf) and then updates from there. Updates based on any cvsup settings in /etc/cvsup-stable). Configure that file to suit your preferences. If that file doesn't exist, it will be created for you.</p>
+<p>
+</p>
+<h2><a name="apacheconfpatch">ApacheConfPatch</a></h2>
+<pre>
+ # moved to MATT::Apache
+ # delete this sub at some point</pre>
+<pre>
+        use MATT::Apache;   
+        ApacheConfPatch;</pre>
+<p>
+</p>
+<h2><a name="installmattbundle">InstallMATTBundle</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallMATTBundle;</pre>
+<p>Downloads and installs the latest version of MATT::Bundle.</p>
+<p>
+</p>
+<h2><a name="installrrdutil">InstallRRDutil</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallRRDutil;</pre>
+<p>Checks for and installs any missing programs upon which RRDutil depends (rrdtool, net-snmp, Net::SNMP, Time::Date) and then downloads and installs the latest version of RRDutil.</p>
+<p>If upgrading, it is wise to check for differences in your installed rrdutil.conf and the latest rrdutil.conf-dist included in the RRDutil distribution.</p>
+<p>
+</p>
+<h2><a name="installports">InstallPorts</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallPorts($conf, $toaster);</pre>
+<p>Install the FreeBSD ports tree and update it with cvsup. Optionally uses cvsup_fastest to choose the fastest cvsup server to mirror from. Configure toaster-watch.conf to adjust it's behaviour.</p>
+<p>Installs the portupgrade port to use for updating your legacy installed ports. Portupgrade is very useful, but be very careful about using portupgrade -a. I always use portupgrade -ai and skip the toastser related ports such as qmail since we have customized <code>version(s)</code> of them installed.</p>
+<p>
+</p>
+<h2><a name="installapache">InstallApache</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallApache($conf, $version);</pre>
+<p>Calls MATT::Apache::InstallApache[1|2] which then builds and install Apache for you based on how it was called. See MATT::Apache:InstallApache (part of MATT::Bundle) for more details.</p>
+<p>
+</p>
+<h2><a name="installvpopmail">InstallVpopmail</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallVpopmail($conf);</pre>
+<p>Vpopmail is great, but it has lots of options and remembering which option you used months or years ago to build a mail server isn't always easy. So, store all the settings in toaster-watcher.conf and this sub will install vpopmail for you honoring all your settings and passing the appropriate configure flags to vpopmail's configure.</p>
+<p>If you don't have toaster-watcher.conf installed, it'll ask you a series of questions and then install based on your answers.</p>
+<p>
+</p>
+<h2><a name="is_newer">is_newer</a></h2>
+<p>Checks a three place version string like 5.3.24 to see if the current version is newer than some value. Useful when you have various version of a program like vpopmail or mysql and the syntax you need to use for building it is different for differing version of the software.</p>
+<p>
+</p>
+<h2><a name="setupvmysql">SetupVmysql</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        SetupVmysql(replication, master, slave, user, pass);</pre>
+<p>Version of vpopmail less than 5.2.26 (or thereabouts) required you to manually edit vmysql.h to set your mysql login parameters. This sub modifies that file for you.</p>
+<p>
+</p>
+<h2><a name="installsquirrelmail">InstallSquirrelmail</a></h2>
+<pre>
+        Use Mail::Toaster::Setup;
+        InstallSquirrelmail</pre>
+<p>Installs Squirrelmail using FreeBSD ports. Adjusts the FreeBSD port by passing along WITH_APACHE2 if you have Apache2 selected installed in your toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="installmaillogs">InstallMailLogs</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallMailLogs($conf);</pre>
+<p>Installs the maillogs script, creates the logging directories (/var/log/mail/*), creates the qmail supervise dirs, installs maillogs as a log post-process and then builds the corresponding service/log/run file to use the post-processor.</p>
+<p>
+</p>
+<h2><a name="installsocklog">InstallSockLog</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSockLog($conf, $ip);</pre>
+<p>If you need to use socklog, then you'll appreciate how nicely this configures it. :)  $ip is the IP address of the socklog master server.</p>
+<p>
+</p>
+<h2><a name="installsocklogqmailcontrol">InstallSocklogQmailControl</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSocklogQmailControl($service, $ip, $user, $supervisedir);</pre>
+<p>Builds a service/log/run file for use with socklog.</p>
+<p>
+</p>
+<h2><a name="installfilter">InstallFilter</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallFilter($conf);</pre>
+<p>Installs SpamAssassin, ClamAV, QmailScanner, maildrop, procmail, and programs that support the aforementioned ones. See toaster-watcher.conf for options that allow you to customize the programs that are installed.</p>
+<p>
+</p>
+<h2><a name="installmaildropfiles">InstallMaildropFiles</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallMaildropFiles($toaster_site_url);</pre>
+<p>Installs a maildrop filter in /usr/local/etc/mail/mailfilter, a script for use with Courier-IMAP in /usr/local/sbin/subscribeIMAP.sh, and sets up a filter debugging file in /var/log/mail/maildrop.log.</p>
+<p>
+</p>
+<h2><a name="configspamassassin">ConfigSpamAssassin</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        ConfigSpamAssassin();</pre>
+<p>Shows this URL: <a href="http://www.yrex.com/spam/spamconfig.php">http://www.yrex.com/spam/spamconfig.php</a></p>
+<p>
+</p>
+<h2><a name="configqmailscanner">ConfigQmailScanner</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        ConfigQmailScanner;</pre>
+<p>prints out a note telling you how to enable qmail-scanner.</p>
+<p>
+</p>
+<h2><a name="installqmailscanner">InstallQmailScanner</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallQmailScanner($conf, $src);</pre>
+<p>
+</p>
+<h2><a name="installclamav">InstallClamAV</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallClamAV($conf);</pre>
+<p>
+</p>
+<h2><a name="installtoasterdependencies">InstallToasterDependencies</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallToasterDependencies($conf);</pre>
+<p>Installs a bunch of programs that are needed by subsequent programs we'll be installing. You can install these yourself if you'd like, this doesn't do anything special beyond installing them:</p>
+<p>ispell, gdbm, setquota, autoconf, automake, expect, gnupg, maildrop, mysql-client(3), autorespond, qmail, qmailanalog, daemontools, openldap-client, Compress::Zlib, Crypt::PasswdMD5, HTML::Template, Net::DNS, Crypt::OpenSSL-RSA, DBI, DBD::mysql, TimeDate.</p>
+<p>
+</p>
+<h2><a name="installcourier">InstallCourier</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallCourier($conf, $package);</pre>
+<p>Installs courier imap based on your settings in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="sourcewarning">SourceWarning</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        SourceWarning($package, $clean, $src);</pre>
+<p>
+</p>
+<h2><a name="installsqwebmail">InstallSqwebmail</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSqwebmail($conf, $package);</pre>
+<p>InstallSqwebmail based on your settings in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="installqmailadmin">InstallQmailadmin</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallQmailadmin($conf);</pre>
+<p>Install qmailadmin based on your settings in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="installucspi">InstallUCSPI</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallUCSPI($conf);</pre>
+<p>Installs ucspi-tcp with my (Matt Simerson) MySQL patch.</p>
+<p>
+</p>
+<h2><a name="installezmlm">InstallEzmlm</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallEzmlm($conf);</pre>
+<p>Installs Ezmlm-idx. This also tweaks the port Makefile so that it'll build against MySQL 4.0 libraries as if you don't have MySQL 3 installed. It also copies the sample config files into place so that you have some default settings.</p>
+<p>
+</p>
+<h2><a name="configcourier">ConfigCourier</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        ConfigCourier($confdir);</pre>
+<p>Does all the post-install configuration of Courier IMAP.</p>
+<p>
+</p>
+<h2><a name="configvpopmailetc">ConfigVpopmailEtc</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        ConfigVpopmailEtc($conf);</pre>
+<p>Builds the ~vpopmail/etc/tcp.smtp file.</p>
+<p>
+</p>
+<h2><a name="installsupervise">InstallSupervise</a></h2>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSupervise($conf);</pre>
+<p>One stop shopping: calls the following subs:</p>
+<pre>
+ ConfigureQmailControl($conf);
+ CreateServiceDir($conf);
+ CreateSuperviseDirs($supervise);
+ InstallQmailSuperviseRunFiles($conf, $supervise );
+ InstallQmailSuperviseLogRunFiles($conf);
+ ConfigureServices($conf, $supervise);</pre>
+<p>
+</p>
+<h2><a name="createservicedir">CreateServiceDir</a></h2>
+<p>Create the supevised services directory (if it doesn't exist).</p>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallSupervise($conf);</pre>
+<p>Also sets the permissions of 775.</p>
+<p>
+</p>
+<h2><a name="configureservices">ConfigureServices</a></h2>
+<p>Sets up the supervised mail services for Mail::Toaster</p>
+<pre>
+        use Mail::Toaster::Setup;
+        ConfigureServices($conf, $supervise);</pre>
+<p>This creates (if it doesn't exist) /var/service and populates it with symlinks to the supervise control directories (typicall /var/qmail/supervise). Creates and sets permissions on the following directories and files:</p>
+<pre>
+  /var/service
+  /var/service/pop3
+  /var/service/smtp
+  /var/service/send
+  /var/service/submit
+  /usr/local/etc/rc.d/services.sh
+  /usr/local/sbin/services</pre>
+<p>
+</p>
+<h2><a name="createsupervisedirs">CreateSuperviseDirs</a></h2>
+<p>Creates the qmail supervise directories.</p>
+<pre>
+        use Mail::Toaster::Setup;
+        CreateSuperviseDirs($supervise);</pre>
+<p>The directories created are:</p>
+<pre>
+  $supervise/smtp
+  $supervise/submit
+  $supervise/send
+  $supervise/pop3</pre>
+<p>
+</p>
+<h2><a name="installqmail">InstallQmail</a></h2>
+<p>Builds qmail and installs qmail with patches (based on your settings in toaster-watcher.conf), installs the SSL certs, adjusts the permissions of several files that need it.</p>
+<pre>
+        use Mail::Toaster::Setup;
+        InstallQmail($conf, $package);</pre>
+<p>$conf is a hash of values from toaster-watcher.conf used to determine how to configured your qmail.</p>
+<p>$package is the name of the program. It defaults to ``qmail-1.03''</p>
+<p>Patch info is here: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/">http://www.tnpi.biz/internet/mail/toaster/patches/</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson - <a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to <a href="mailto:matt@cadillac.net.">matt@cadillac.net.</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>Documentation. Needs more documenation.</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></p>
+<p>Mail::Toaster::CGI, Mail::Toaster::DNS, 
+Mail::Toaster::Logs, Mail::Toaster::Qmail, 
+Mail::Toaster::Setup</p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright 2001 - 2003, The Network People, Inc. All Right Reserved.</p>
+
+</body>
+
+</html>

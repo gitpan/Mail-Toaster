@@ -1,0 +1,138 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Logs FAQ</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#what_can_maillogs_do">What can maillogs do?</a></li>
+	<li><a href="#multilog_postprocessor_usage">multilog postprocessor usage</a></li>
+	<li><a href="#why_are_counters_ever_increasing">Why are counters ever increasing?</a></li>
+	<li><a href="#do_you_support_isoqlog">Do you support isoqlog?</a></li>
+	<li><a href="#what_assumptions_do_you_make">What assumptions do you make?</a></li>
+	<li><a href="#i_get_errors_when_i_run_it__is_something_wrong">I get errors when I run it. Is something wrong?</a></li>
+	<li><a href="#how_do_i_get_squirrelmail_logs_to_work">How do I get squirrelmail logs to work?</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="what_can_maillogs_do">What can maillogs do?</a></h1>
+<p>Maintain and report counters of mail log files. Copy it to /usr/local/sbin/maillogs. That's where RRDUtil (via net-snmp) expects to find it when it wants to poll for the current mail counters.</p>
+<p>To view the counters, simply run ``maillogs protocol'' where protocol is one of smtp, pop3, imap, send, or webmail. You'll get back output that looks like this:</p>
+<pre>
+  # maillogs smtp
+  connect:7:connect_last:7:smtp_block_count:3514773:
+  smtp_block_dns:21386:smtp_block_dsbl:11626:
+  smtp_block_maps:11:smtp_block_ordb:3064:
+  smtp_block_other:3256547:smtp_block_spamcop:32772:
+  smtp_block_spamhaus:189367:</pre>
+<pre>
+  # maillogs webmail 
+  success:7:success_last:7</pre>
+<pre>
+  # maillogs send 
+  concurrencyremote:65.2743691384389:delivery:715748:
+  delivery_deferral:222113:delivery_failure:7332:
+  delivery_success:486303:message_bounce:2477:
+  message_bytes:546858953:message_end:45442:
+  message_info:45720:message_new:45720:other:298:
+  start_delivery:715771:start_delivery_local:42054:
+  start_delivery_remote:673717:status:1431575:
+  status_localp:14273.8000000053:status_remotep:934451</pre>
+<pre>
+  # maillogs pop3
+  pop3_connect:8951:pop3_ssl_connect:0:
+  pop3_success:8951:pop3_ssl_success:0</pre>
+<pre>
+  # maillogs imap
+  connect_imap:2488:connect_imap_ssl:2488:
+  imap_connect_success:817:imap_ssl_success:845</pre>
+<p>This format is very nice for feeding into SNMP stats collectors like MRTG and my own RRDutil.</p>
+<p>It can also roll the logs and pipe them through cronolog so they are stored in /var/log/mail/yyyy/mm/dd/smtplog. That way it's very easy for programs to retrieve a days worth of log files.</p>
+<p>Log files more than 24 hours old are automatically compressed.</p>
+<p>
+</p>
+<hr />
+<h1><a name="multilog_postprocessor_usage">multilog postprocessor usage</a></h1>
+<pre>
+  To use as a postprocessor, you need to install maillogs
+  in your mail log directory as directed in the multilog
+  man page (<a href="http://cr.yp.to/daemontools/multilog.html">http://cr.yp.to/daemontools/multilog.html</a>).  
+  If you are using it with my mail toaster, this will do:</pre>
+<pre>
+           make qmail</pre>
+<p>In order to actually use the script now, you must be logging to multilog, and your log/run files must have the post-processor statement in them. My smtp log/run looks like this:</p>
+<pre>
+ #!/bin/sh
+ PATH=/var/qmail/bin:/usr/local/bin:/usr/bin:/bin
+ export PATH
+ exec setuidgid qmaill multilog !./smtplog s100000 /var/log/mail/smtp</pre>
+<p>The maillogs script alters it's behavior based on how it's called. When it's called as smtplog, it expects qmail's SMTP log format (technically, rblsmtpd), and produces counters based on that. The counter file it produces is (by default) /var/log/mail/counters/smtp_rbl.txt</p>
+<p>
+</p>
+<hr />
+<h1><a name="why_are_counters_ever_increasing">Why are counters ever increasing?</a></h1>
+<p>Well, they aren't, but they are. :)  RRDtool, MRTG, and apps like it expect that counters will increase like an odometer on your car, constantly growing unti they reach a specific threshhold such as 999,999 on your car. With RRDtool, numbers are supposed to increase until they reach a 32 or 64 bit number.</p>
+<p>Your log files (think of /var/log/maillog) are counters and behave normally until syslog decides to rotate them. How to deal with a counter that shrinks before reaching such a threshhold is not something those applications can properly take into account and the assumptions they make aren't correct for this case. To work around that (and prevent a HUGE spike in the graph) I maintain a last count variable for syslog results and do some math on the new count so that the result is ever increasing counters.</p>
+<p>
+</p>
+<hr />
+<h1><a name="do_you_support_isoqlog">Do you support isoqlog?</a></h1>
+<p>Yes. One caveat, the HTML output directory (as defined in isoqlog.conf must be owned and writable by the user which is set up in your supervise/send/log/run file. On most FreeBSD qmail systems, that will be user qmaill and group qnofiles. Otherwise isoqlog refuses to write to it. You can set it up like this (adjust paths as necessary):</p>
+<pre>
+  chown -R qmaill:qnofiles /usr/local/www/data/isoqlog
+  chmod -R 755 /usr/local/www/data/isoqlog</pre>
+<p>Maillogs will detect if isoqlog is installed and every time maillogs rotates your qmail-send logs, it'll trigger isoqlog to process your log files. I've noticed that isoqlog assumes that the contents of your log directory are the entire days logs. Since my logs roll every 5 minutes (because I collect stats for RRDUtil) I have set multilog to save 288 files (the number of 5 minute periods in a day). That has worked quite well.</p>
+<p>
+</p>
+<hr />
+<h1><a name="what_assumptions_do_you_make">What assumptions do you make?</a></h1>
+<p>That your system is set up similarly to mine. If that's not the case, edit the script and change the user preferences section to taste:</p>
+<pre>
+  ##
+  # User Preferences
+  ##
+  # -----------------------------------------------</pre>
+<pre>
+  $logbase   = &quot;/var/log/mail&quot;
+  $syslog    = &quot;/var/log/maillog&quot;
+  $counters  = &quot;counters&quot;
+  $supervise = &quot;/var/qmail/supervise&quot;
+  $loguser   = &quot;qmaill&quot;
+  $loggroup  = &quot;qnofiles&quot;
+  $pop3d     = &quot;qpop3d&quot;   # courier or qpop3d
+  $isoqlog   = 1 
+  $taifiles  = 1          # multilogs @NNNNNNN files
+  $archive   = 1          # YYYY/MM/DD/xxxxlog files</pre>
+<p>These prefs will get rolled into toaster.conf soon.</p>
+<p>
+</p>
+<hr />
+<h1><a name="i_get_errors_when_i_run_it__is_something_wrong">I get errors when I run it. Is something wrong?</a></h1>
+<p>It's normal to get a few errors about files missing or not readable the first time you run maillogs. That's because the counter files it's looking for don't exist yet. Maillogs will create them for you (assuming it has permission to do so).</p>
+<p>If you get errors after running it a couple times, then pay attention to the errors because they are surely telling you something.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_i_get_squirrelmail_logs_to_work">How do I get squirrelmail logs to work?</a></h1>
+<p>Squirrelmail doesn't log anything by default. You need to fix this by installing the logging plugin available from <a href="http://www.squeaksoft.com/products/SquirrelLogger/.">http://www.squeaksoft.com/products/SquirrelLogger/.</a>  The author of that plugin very gratiously added support for syslog logging (per our email exchange) as of version 1.4. I make the following change to the setup.php file:</p>
+<pre>
+  [matt@cadillac] % diff setup.php setup.php.dist 
+  32c32
+  &lt;    $sl_syslog_priority = 22;  // Default is LOG_INFO
+  ---
+  &gt;    $sl_syslog_priority = LOG_INFO;  // Default LOG_INFO</pre>
+<p>and voila, webmail logins are now logged via syslog.mail.</p>
+
+</body>
+
+</html>

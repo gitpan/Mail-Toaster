@@ -1,0 +1,176 @@
+
+#
+# $Id: Changes-MailLogs.pod,v 1.4 2003/12/17 14:45:36 matt Exp $
+#
+
+=head1 2.65 - 12.14.2003
+
+ - pop3 processing had incorrect logs variable
+   being called.
+ - sendlog and smtplog processing, Count__ subs
+   weren't getting passed the count hash.
+ - Prototyped every subroutine so when I don't
+   pass enough arguments, my tests will complain
+ - Create any counter files that don't exit
+ - These changes should resolve all the known 
+   problems with logging.
+
+
+=head1 2.64 - 12.02.2003
+
+ - This code is now a well behaved Perl module. 
+   That's good because now I can use this code to
+   make more intelligent decisions about how the
+   system is build (and subsequently upgraded) when
+   running toaster-watcher.pl and toaster_setup.pl.
+ - Automatically installed as part of Mail::Toaster
+ - updates to Mail::Toaster::Logs
+   added Roll????Logs to @EXPORT so ./????log will
+   work again.
+ - some dimwit had told ParseConfFiles to read
+   toaster-watcher.conf and then put all the config
+   values in toaster.conf. Fixed. (Be sure to update
+   your toaster.conf file!)
+ - Finshed up the conversion from a standalone
+   program into Mail::Toaster::Logs module. Updated
+   all the subs, verified they were getting the right
+   parameters passed.
+ - Tested all features and then installed on my
+   production server. It works again. :)
+
+
+=head1 2.63 - 
+
+ - Installing this version is not a good idea. Lots of
+   changes, little testing.
+
+=head1 2.62 - 11.26.2003
+
+ - last standalone release. Now completely absolved into
+   Mail::Toaster
+
+=head1 2.61 - 11.01.2003
+
+ - chomp the newlines in pop & imap counter files
+ - Added squirrelmail logging entry to FAQ
+ - Added "make web" target to simplify updating web page
+ - Add cvs id tags to maillogs, Makefile.PL, and *.pod
+
+=head1 2.60 - 10.26.2003 
+
+ - Added more prefs to make customizing maillogs easier
+ - Added CountSpam (Qmail-Scanner and SpamAssassin logs)
+ - Added smtp-auth and webmail log counting
+ - Renamed much of the SMTP subs and variables to reflect
+   their rblsmtpd usage (relative to maillogs)
+ - Removed a bunch of die calls and replaced them with warns
+ - Other code "pretty ups" to make reading easier
+ - Made into Perl package (added Makefile.PL, README, test.pl
+ - Don't attempt to compress yesterdays logs if a .gz already
+   exists in the log dir.
+ - Make test now does regression testing. This will help me
+   catch most bugs before I release maillogs.
+ - original version; created by h2xs 1.22 with options
+   h2xs -X -b 5.0.0 Mail::Logs
+ - Next version will be a modularized perl package
+
+=head1 2.5.4 - 10.23.2003 
+
+ - Don't try to control pop3d if courier is the pop3 log type
+
+=head1 2.5.3 
+
+ - Added webmail counters
+
+=head1 2.5.2 - 09.20.2003 
+
+ - POP3 counters incremented incorrectly. fixed.
+
+=head1  2.5.0 - 09.18.2003 
+
+ - Added preference for tai files and archive files.
+ - Fixed problems with MUA counters getting reset by syslog
+   Now we keep track of the last count and if syslog rolls
+   the logfile we notice and feed ever increasing numbers
+   into RRDtool, like it expects.
+ - POP3 reporting was screwy. Updated to match what RRDUtil
+   expects.
+
+=head1  2.4.3 - 09.16.2003 
+
+ - Finally fixed the mkdir call that inverted the arguments.
+ - The counters directly now gets created automatically.
+
+=head1  2.4.2 - 09.16.2003 
+
+ - Added full path call to Date::Format in SetupDateVariables
+
+=head1  2.4.1 - 09.13.2003 
+
+ - Run isoqlog if its on the system.
+
+=head1  2.4 - 09.05.2003
+
+ - Added dependency on MATT::Perl
+ - Offer to install Date::Parse & Date::Format if they aren't
+ - Formatting updates
+ - Hopefully fixed so counters directory will get created
+
+=head1  2.3 - 07.09.2003 
+
+ - Added pod documenation.
+ - Added dependency on MATT::Utility
+
+=head1  2.2 - 05.12.2003
+
+ - Added more reliable pop3 imap log processing and counting.
+
+=head1  2.1 - 05.02.2003
+
+ - Check if counters dir exists, create if if not
+ - Check if sendlog.txt exists, ignore if not
+ - Verify that maillogs is installed in /usr/local/sbin
+
+=head1  2.0 - 03.20.2003 
+
+ - Almost a complete rewrite
+ - use strict pragma enabled.
+ - on-the-fly arrays cleaned up lots of extra code
+ - Script can now be used as a multilog processor
+ - maintains counters for efficiency
+
+=head1  1.8 - 03.19.2001 
+
+ - Cleaned up script, removed a bunch of old stuff
+
+=head1  1.7 - 03.05.2001 
+
+ - Moved imap, imapssl and pop3ssl log output to syslog.
+
+=head1  1.6 - 03.05.2001 
+
+ - Cleaned up code, added daily rotation and compression
+   for pop logs, delete logs over a month old.  
+
+=head1  1.5 - 11.30.2001 
+
+- Added automatic log file compression.    
+
+=head1  1.4 - 11.13.2001 
+
+- Finished log file processing trigged by snmp connection
+
+=head1  1.3 - 11.06.2000 
+
+- Added processing of pop & imap connections
+
+=head1  1.1 - 11.06.2000 
+
+- Added processing of outgoing messages
+
+=head1  1.0 - 10.30.2000 
+
+- Original Authoring
+
+=cut
+

@@ -1,0 +1,25 @@
+2003.11.26 - 1.6
+     - load HTML::Template via LoadModule instead of "use"
+     - reorder main() a bit so "make test" will work
+     - added httpd.conf.patch calls to "make conf" targets
+
+2003.11.22 - 1.5
+     - Added pod documentation to CGI.pm
+     - Removed hard coded host from CGI.pm
+     - Added httpd.conf-2.0.patch to contrib
+     - Added httpd.conf-2.0.diff to contrib
+     - Those files show what you need to do to Apache
+       to have it toasterized.
+     - Made the contrib/snmpd.conf and rrdutil.conf files
+       share the same password. Now it'll work out of the
+       box.
+
+2003.11.21 - 1.3
+     - Rewrote much of the HTML so that it could be 
+       re-written on the fly based on the contents 
+       of the toaster.conf file.
+     - Wrote the toaster.conf file.
+ 
+2003.11.20 - 0.1
+    Initial Authoring
+

@@ -1,0 +1,127 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Setup Install</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<ul>
+
+		<li><a href="#step_1__get_perl_happy_">Step 1: Get Perl happy.</a></li>
+		<li><a href="#step_2__install_matt__bundle_">Step 2: Install MATT::Bundle.</a></li>
+		<li><a href="#step_3__install_mail__toaster">Step 3: Install Mail::Toaster</a></li>
+		<li><a href="#step_4__configure_config_files">Step 4: Configure config files</a></li>
+		<li><a href="#step_5__update_your_ports_tree_">Step 5: Update your ports tree.</a></li>
+		<li><a href="#step_6__install_a_few_things">Step 6: Install a few things</a></li>
+		<li><a href="#step_7__install_qmail">Step 7: Install Qmail</a></li>
+		<li><a href="#step_8___web_based_email_">Step 8: (web based email)</a></li>
+		<li><a href="#step_9__courierimap">Step 9: Courier-IMAP</a></li>
+		<li><a href="#step_10__add_cron_entries">Step 10: Add cron entries</a></li>
+		<li><a href="#step_11__install_even_more_stuff">Step 11: Install even more stuff</a></li>
+		<li><a href="#step_12__continue_with_configuration_">Step 12: Continue with Configuration.</a></li>
+	</ul>
+
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h2><a name="step_1__get_perl_happy_">Step 1: Get Perl happy.</a></h2>
+<p>Certain features (like spam filtering) require perl 5.6.1 or higher to function fully. If perl -v reflects anything smaller than 5.6.1, do the following:</p>
+<pre>
+        cd /usr/ports/lang/perl5
+        make install clean
+        use.perl port</pre>
+<p>We'll also need to CPAN working for installing perl modules so make sure it's configured. If the following command doesn't give you a prompt, then you'll be prompted to configure.</p>
+<pre>
+        perl -MCPAN -e shell
+        exit</pre>
+<p>
+</p>
+<h2><a name="step_2__install_matt__bundle_">Step 2: Install MATT::Bundle.</a></h2>
+<p><a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz">http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz</a></p>
+<p>
+</p>
+<h2><a name="step_3__install_mail__toaster">Step 3: Install Mail::Toaster</a></h2>
+<p><a href="http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz">http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz</a></p>
+<pre>
+        perl Makefile.PL
+        make test
+        make install
+        make conf  (newconf for new installs)
+        make cgi   (installs the index.cgi)
+        rehash
+        toaster_setup.pl -s pre</pre>
+<p>See <a href="http://mail.cadillac.net">http://mail.cadillac.net</a> for an example of index.cgi.</p>
+<p>
+</p>
+<h2><a name="step_4__configure_config_files">Step 4: Configure config files</a></h2>
+<pre>
+        vi /usr/local/etc/toaster.conf
+        vi /usr/local/etc/toaster-watcher.conf</pre>
+<p>
+</p>
+<h2><a name="step_5__update_your_ports_tree_">Step 5: Update your ports tree.</a></h2>
+<pre>
+        toaster_setup.pl -s ports</pre>
+<p>
+</p>
+<h2><a name="step_6__install_a_few_things">Step 6: Install a few things</a></h2>
+<pre>
+        toaster_setup.pl -s mysql
+        toaster_setup.pl -s [ apache | apache2 ]
+        toaster_setup.pl -s ucspi
+        toaster_setup.pl -s ezmlm 
+        toaster_setup.pl -s vpopmail
+        toaster_setup.pl -s qmailadmin</pre>
+<p>
+</p>
+<h2><a name="step_7__install_qmail">Step 7: Install Qmail</a></h2>
+<p>With this patch: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/index.shtml">http://www.tnpi.biz/internet/mail/toaster/patches/index.shtml</a></p>
+<pre>
+        toaster_setup.pl -s qmail
+        cd /usr/local/src/mail/qmail-1.03
+        make cert</pre>
+<p>
+</p>
+<h2><a name="step_8___web_based_email_">Step 8: (web based email)</a></h2>
+<pre>
+        toaster_setup.pl -s squirrelmail
+        toaster_setup.pl -s sqwebmail</pre>
+<p>
+</p>
+<h2><a name="step_9__courierimap">Step 9: Courier-IMAP</a></h2>
+<pre>
+        toaster_setup.pl -s courier
+        cd /usr/local/etc/courier-imap
+        vi pop3d.cnf imapd.cnf quotawarnmsg</pre>
+<p>
+</p>
+<h2><a name="step_10__add_cron_entries">Step 10: Add cron entries</a></h2>
+<pre>
+        crontab -u root -e</pre>
+<p>9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp 2&gt;&amp;1 &gt; /dev/null</p>
+<p>40 * * * * /usr/local/share/sqwebmail/cleancache.pl 2&gt;&amp;1 &gt; /dev/null</p>
+<p>
+</p>
+<h2><a name="step_11__install_even_more_stuff">Step 11: Install even more stuff</a></h2>
+<pre>
+        toaster_setup.pl -s filter
+        toaster_setup.pl -s supervise
+        toaster_setup.pl -s maillogs</pre>
+<p>
+</p>
+<h2><a name="step_12__continue_with_configuration_">Step 12: Continue with Configuration.</a></h2>
+<p>See the file CONFIGURE or visit this URL: <a href="http://www.tnpi.biz/internet/mail/toaster/config.shtml">http://www.tnpi.biz/internet/mail/toaster/config.shtml</a> Skipping this step is guaranteed to make you unhappy. :)</p>
+
+</body>
+
+</html>

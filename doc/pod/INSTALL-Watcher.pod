@@ -1,0 +1,36 @@
+
+#
+# $Id: INSTALL-Watcher.pod,v 1.1 2003/11/21 21:52:50 matt Exp $
+#
+
+=head4 Step 1: Install MATT::Bundle. 
+
+Download: http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz
+
+
+=head4 Step 2: Install Mail::Toaster
+
+http://www.tnpi.biz/computing/mail/toaster/Mail-Toaster.tar.gz
+
+	perl Makefile.PL
+	make test
+	make install
+	make conf  (or newconf)
+
+=head4 Step 3: Edit or update toaster-watcher.conf
+
+	vi /usr/local/etc/toaster-watcher.conf
+
+=head4 Step 4: Test
+
+	cd /service/smtp 
+	cp run run.bak
+	/usr/local/sbin/toaster-watcher.pl
+	diff run run.bak
+
+=head4 Step 5: Add to cron
+
+	crontab -e -u root 
+	*/5 * * * * /usr/local/sbin/toaster-watcher.pl
+
+=cut

@@ -1,0 +1,23 @@
+218c218
+< Listen 80
+---
+> Listen 
+277a278
+> LoadModule php4_module        libexec/apache2/libphp4.so
+391c392
+<     Options Indexes FollowSymLinks
+---
+>     Options Indexes FollowSymLinks ExecCGI
+439c440
+< DirectoryIndex index.html index.html.var
+---
+> DirectoryIndex index.cgi index.shtml index.html index.htm index.html.var
+594a596,597
+> Alias /squirrelmail/ "/usr/local/www/squirrelmail/"
+> Alias /isoqlog/images/ "/usr/local/share/isoqlog/htmltemp/images/"
+908c911,913
+< #AddHandler cgi-script .cgi
+---
+> AddHandler cgi-script .cgi
+> AddType application/x-httpd-php .php
+> AddType application/x-httpd-php-source .phps

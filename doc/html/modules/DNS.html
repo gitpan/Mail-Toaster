@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::DNS</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#getrbltestns">GetRblTestNS</a></li>
+		<li><a href="#getrbltestpositiveip">GetRblTestPositiveIP</a></li>
+		<li><a href="#getrbltestnegativeip">GetRblTestNegativeIP</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::DNS - Common DNS functions</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Mail::Toaster::DNS is a grouping of DNS functions I've written.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>These functions are used by toaster-watcher to determine if RBL's are available when generating qmail's smtpd/run control file.</p>
+<p>
+</p>
+<h2><a name="getrbltestns">GetRblTestNS</a></h2>
+<pre>
+        use Mail::Toaster::DNS;
+        GetRblTestNS($rbl);</pre>
+<p>$rbl is the reverse zone we use to test this rbl.</p>
+<p>
+</p>
+<h2><a name="getrbltestpositiveip">GetRblTestPositiveIP</a></h2>
+<pre>
+        use Mail::Toaster::DNS;
+        GetRblTestPositiveIP($rbl);</pre>
+<p>$rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.</p>
+<p>
+</p>
+<h2><a name="getrbltestnegativeip">GetRblTestNegativeIP</a></h2>
+<pre>
+        use Mail::Toaster::DNS;
+        GetRblTestNegativeIP($rbl);</pre>
+<p>This test is difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://www.tnpi.biz/computing/">http://www.tnpi.biz/computing/</a>
+<a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/">http://www.tnpi.biz/computing/perl/MATT-Bundle/</a></p>
+<p>Mail::Toaster::CGI, Mail::Toaster::DNS, 
+Mail::Toaster::Logs, Mail::Toaster::Qmail, 
+Mail::Toaster::Setup</p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright 2003, The Network People, Inc. All Rights Reserved.</p>
+
+</body>
+
+</html>

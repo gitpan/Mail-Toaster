@@ -1,0 +1,122 @@
+Step 1: Make Perl happy.
+    Certain features (like spam filtering) require perl 5.6.1 or higher to
+    function fully. If perl -v reflects anything smaller than 5.6.1, do
+    either of the following:
+
+      pkg_add -r perl  (on FreeBSD 5+)
+
+          or 
+
+      cd /usr/ports/lang/perl5;
+      make install clean;
+      rehash; use.perl port;
+
+    You need Perl's CPAN working for installing perl modules so make sure
+    it's configured. If the following command doesn't give you a prompt,
+    then you'll be prompted to configure.
+
+      perl -MCPAN -e shell
+      exit
+
+Step 2: Install MATT::Bundle.
+    http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz
+
+       perl Makefile.PL
+       make install
+
+    There is a fair amount of documenation on MATT::Bundle which can be read
+    via "perldoc MATT::Bundle". That also applies for subsequent MATT::*
+    targets. The docs are also available at
+    http://www.tnpi.biz/computing/perl/MATT-Bundle/.
+
+Step 3: Install Mail::Toaster
+    http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz
+
+       perl Makefile.PL
+       make install
+       make newconf (overwrites installed .conf files)
+       make cgi
+
+    or
+
+       perl -e 'use MATT::Utility; InstallMailToaster';
+
+    Documentation for the modules being called by toaster_setup.pl,
+    toaster_watcher.pl, maillogs, and index.cgi are all installed in Perl's
+    pod format (perldoc Mail::Toaster, perldoc Mail::Toaster::CGI, etc) as
+    well as being available online at
+    http://www.tnpi.biz/internet/mail/toaster/.
+
+Step 4: Edit config files
+       vi /usr/local/etc/toaster.conf
+       vi /usr/local/etc/toaster-watcher.conf
+
+    Edit to suit your preferences.
+
+Step 5: Start building the toaster!
+       rehash
+       toaster_setup.pl -s pre
+       toaster_setup.pl -s ports
+       toaster_setup.pl -s mysql
+       toaster_setup.pl -s [ apache2 | apache ]
+       toaster_setup.pl -s apachessl (create ssl certs)
+       toaster_setup.pl -s phpmyadmin (optional)
+       toaster_setup.pl -s ucspi
+       toaster_setup.pl -s ezmlm 
+       toaster_setup.pl -s vpopmail
+       toaster_setup.pl -s qmailadmin
+
+    If toaster_setup.pl has any problems running, fix what it complains
+    about and then run it again with the same parameter. It will resume and
+    finish that section.
+
+    If you want something installed "your" way, install it first.
+    Toaster_setup.pl will detect it (assuming it's registered in the package
+    database) and skip that portion of the install.
+
+    When you install Apache, it'll also install PHP which is required by
+    squirrelmail and QSS. Make sure to select the following modules: GD,
+    MYSQL, OPENSSL, & SNMP. Other modules are optional, I recommend
+    selecting those I've listed in addition to the "defaults".
+
+Step 7: Install Qmail
+       toaster_setup.pl -s qmail
+
+    patch info: http://www.tnpi.biz/internet/mail/toaster/patches/
+
+Step 8: Install Web/POP3/IMAP servers
+       toaster_setup.pl -s courier
+       toaster_setup.pl -s sqwebmail
+       toaster_setup.pl -s squirrelmail
+
+Step 9: Configure Courier-IMAP
+       cd /usr/local/etc/courier-imap
+       vi pop3d.cnf imapd.cnf quotawarnmsg
+
+       cd /usr/local/share/courier-imap
+       ./mkimapdcert; ./mkpop3dcert
+
+Step 10: Set up mail filtering and logging
+       toaster_setup.pl -s filter
+       toaster_setup.pl -s supervise
+       toaster_setup.pl -s maillogs
+       toaster_setup.pl -s rrdutil (optional)
+
+Step 11: Add cron entries
+    Run all these commands from the command line and verify their proper
+    functionality (no complaints or errors) BEFORE adding to cron.
+
+     crontab -u root -e 
+
+      9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp
+      40  * * * *  /usr/local/share/sqwebmail/cleancache.pl
+      */5 * * * * /usr/local/sbin/toaster-watcher.pl
+      */5 * * * * /usr/local/www/cgi-bin/rrdutil.cgi -a update
+
+Step 12: Continue with Configuration.
+    Visit this URL: http://www.tnpi.biz/internet/mail/toaster/config.shtml
+    Skipping this step is guaranteed to make you less than pleased with your
+    toaster.
+
+    See http://mail.cadillac.net/ for an example of index.cgi.
+

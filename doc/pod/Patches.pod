@@ -1,0 +1,82 @@
+
+#
+# $Id: Patches.pod,v 1.4 2003/11/30 15:56:06 matt Exp $
+#
+
+
+=head2 v2.7
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.7.patch
+
+Based on Bill Shupp's large qmail patch AND his chkusr mysql patch, together and then with a few minor modifications. We use the standard qnofiles group for FreeBSD's port based qmail, use a different location for mysql libs, and include a bunch more documentation for the patches that are included (README.*), and a few minor code tweaks so that the make cert targets will work if your qmail is installed somewhere other than /var/qmail.
+
+
+=head2 v2.6 
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.6.patch
+
+Based on Bill Shupp's patch with only a minor modification to use the standard qnofiles group for FreeBSD's port based qmail.
+
+
+=head2 v2.5 
+
+unpublished
+
+
+=head2 v2.4 
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.4.patch
+
+Added qmail-smtpd-chkusr - http://www.interazioni.it/qmail/
+
+
+=head2 v2.3 
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.3.patch
+
+big-concurrency.patch (see README.big-concurrency) raises the number of simultaneous outgoing connections we can make. 
+
+smtp tarpitting patch (see README.tarpit)
+
+Eric Johnson's SMTP-AUTH patch (see the README.auth or 'man qmail-smtpd' after installing). 
+
+TLS patch - (see README.tls)
+
+qmail-queue - (see README.qmailqueue) - Use for filtering
+
+qmail-pop3d maildir++ quota support - Bill Shupp's patch
+
+
+=head2 v2.2 
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.0.patch
+
+To closely resemble the FreeBSD qmail port, we:
+
+	DNS patch (AOL) to accept >512 byte dns entries.
+	Change qmails nofiles group to qnofiles. 
+
+- big-concurrency.patch (see README.big-concurrency) raises the number of simultaneous outgoing connections we can make.
+
+- smtp tarpitting patch (see README.tarpit)
+
+- Eric Johnson's SMTP-AUTH patch (see the README.auth or 'man qmail-smtpd' after installing).
+
+- qmail-queue - For use with mail filtering software
+
+- qmail-pop3d maildir++ quota support - Bill Shupp's patch
+
+- qmail-badrcptto patch - see README.badrcptto
+
+- Patch to make sure evelope sender is a valid DNS name. (based on Nagy Balazs's patch)
+
+=head2 v2.0 
+
+http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.0.patch
+
+
+=head2 v1.0 
+
+http://www.tnpi.biz/internet/mail/qmail/qmail-1.03-matt-toaster.patch
+
+combines SMTP-AUTH, tarpitting, DNS, and large concurrency patches

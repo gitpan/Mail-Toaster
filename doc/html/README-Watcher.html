@@ -1,0 +1,80 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Watcher README</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>toaster-watcher.pl - Mail::Toaster::Watcher - monitors aspects of a qmail toaster</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>At the moment toaster-watcher is two things. First, it's a configuration file that stores settings about your mail system. Other scripts and programs use this configuration file to determine how to configure themselves and other parts of the mail toaster solution.</p>
+<p>The second part is a script that builds the control (run) file for qmail-smtpd. It takes into consideration all your settings, tests the RBL's you've selected to use, and builds a control file accordingly. It will soon be much, much more.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>Optionally send an email notification to an admin if a file gets updated. Make this
+configurable on a per service basis. I can imagine wanting to know if pop3/run or send/run ever
+changed but I don't care to get emailed every time a RBL fails a DNS check.</p>
+<p>Feature request by David Chaplin-Leobell: check for low disk space on the queue and
+mail delivery partitions.  If low disk is detected, it could either just
+notify the administrator, or it could do some cleanup of things like the
+qmail-scanner quarantine folder.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<p>This module requires these other modules and libraries:</p>
+<p>MATT::Bundle  - <a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/">http://www.tnpi.biz/computing/perl/MATT-Bundle/</a>
+Net::DNS</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a>
+<a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/">http://www.tnpi.biz/computing/perl/MATT-Bundle/</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright 2003, The Network People, Inc.</p>
+<p>This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.</p>
+
+</body>
+
+</html>
