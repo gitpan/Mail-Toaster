@@ -1,7 +1,14 @@
 
 #
-# $Id: Changes-MailLogs.pod,v 1.4 2003/12/17 14:45:36 matt Exp $
+# $Id: Changes-MailLogs.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
+
+=head1 03.09.2004
+
+ - maillogs has been fully integrated into the
+   Mail::Toaster bundle. This document is now
+   depreciated and all future changes will be
+   documented in the Mail::Toaster changelog.
 
 =head1 2.65 - 12.14.2003
 

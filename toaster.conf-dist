@@ -1,6 +1,17 @@
 # 
-# $Id: toaster.conf-dist,v 1.8 2004/02/14 22:26:25 matt Exp $
+# $Id: toaster.conf-dist,v 4.0 2004/11/16 20:57:30 matt Exp $
 #
+# Extensive documentation for this file and it's settings is available
+# It is included in the docs directory of the Mail::Toaster 
+# distribution, in perl pod format (perldoc toaster.conf)
+# and posted online at the following URLs:
+#
+#   http://www.tnpi.biz/internet/mail/toaster/docs/ or
+#   http://www.tnpi.biz/support/phpBB/viewtopic.php?t=80
+#
+# A current copy of this file is posted on the Mail::Toaster web site:
+# http://www.tnpi.biz/internet/mail/toaster/etc/toaster.conf
+
 
 ######################################
 #            TOASTER
@@ -14,7 +25,7 @@ system_config_dir              = /usr/local/etc
 #         Mail::Toaster::CGI          #
 #######################################
 
-web_logo_url                    = /images/logo.jpg
+web_logo_url                    = /images/tnpi_logo.jpg
 web_logo_alt_text               = example.com logo
 web_heading_text                = Mail Center
 web_instructions                = To check your mail, fill in the account info and select a destination.
@@ -33,12 +44,27 @@ web_squirrelmail_require_ssl    = 1
 web_squirrelmail_name           = Squirrelmail:
 web_squirrelmail_description    = attractive, many features, very customizable
 
+web_v-webmail                   = 0
+web_v-webmail_host              = 0
+web_v-webmail_url               = /v-webmail/login.php
+web_v-webmail_require_ssl       = 1
+web_v-webmail_name              = V-Webmail:
+web_v-webmail_description       = Prefers the use of IE browser
+
+web_imp                         = 0
+web_imp_host                    = 0
+web_imp_url                     = /horde/imp/redirect.php
+web_imp_require_ssl             = 1
+web_imp_name                    = Horde/IMP:
+web_imp_description             = What to Say?
+
 web_qmailadmin                  = 1
 web_qmailadmin_host             = 0
 web_qmailadmin_url              = /cgi-bin/qmailadmin
 web_qmailadmin_require_ssl      = 1
 web_qmailadmin_name             = Qmailadmin:
 web_qmailadmin_description      = modify your mail settings
+web_qmailadmin_help_url         = /qmailadmin/images/help/email_admin/
 
 web_rrdutil                     = 1
 web_rrdutil_host                = 0
@@ -66,24 +92,26 @@ web_qs_stat_description         = Virus blocks
 #         Mail::Toaster::Logs         #
 #######################################
 
-logs_base         = /var/log/mail         # where qmail logs live (/var/log)
-logs_supervise    = /var/qmail/supervise
-logs_user         = qmaill
-logs_group        = qnofiles
-logs_pop3d        = qpop3d                # choices are courier or qpop3d
-logs_isoqlog      = 1                     # configure isoqlog first!
-logs_taifiles     = 1                     # output to multilogs @NNNNNNN files
-logs_archive      = 1                     # output to YYYY/MM/DD/xxxxlog files
+logs_base          = /var/log/mail         # where qmail logs live (/var/log)
+logs_supervise     = /var/qmail/supervise
+logs_user          = qmaill
+logs_group         = qnofiles
+logs_pop3d         = qpop3d                # choices are courier or qpop3d
+logs_isoqlog       = 1                     # configure isoqlog first!
+logs_taifiles      = 1                     # output to multilogs @NNNNNNN files
+logs_archive       = 1                     # output to YYYY/MM/DD/xxxxlog files
+logs_archive_untai = 0                     # convert tai to human readable dates
+qmailanalog_bin    = /usr/local/qmailanalog/bin
 
-logs_counters     = counters              # dir for storing counters
-logs_rbl_count    = smtp_rbl.txt
-logs_smtp_count   = smtp_auth.txt
-logs_send_count   = send.txt
-logs_pop3_count   = pop3.txt
-logs_imap_count   = imap.txt
-logs_spam_count   = spam.txt
-logs_virus_count  = virus.txt
-logs_web_count    = webmail.txt
+logs_counters      = counters              # dir for storing counters
+logs_rbl_count     = smtp_rbl.txt
+logs_smtp_count    = smtp_auth.txt
+logs_send_count    = send.txt
+logs_pop3_count    = pop3.txt
+logs_imap_count    = imap.txt
+logs_spam_count    = spam.txt
+logs_virus_count   = virus.txt
+logs_web_count     = webmail.txt
 
 
 #######################################
@@ -101,13 +129,13 @@ admin_mailservers      = mail1 mail2 mail3 mail4 mail5
 
 admin_vpopbin          = /usr/local/vpopmail/bin
 
-singleuid           =       #  If all your mail domains will be owned by a single user
+singleuid           = vpopmail #  If all your mail domains will be owned by a single user
                             #  (vpopmail) then set to the username of your vpopmail user
 
-create_sys_user     = 1     #  by default, when in single uid mode this script won't 
+create_sys_user     = 0     #  by default, when in single uid mode this script won't 
                             #  create a new system user. This flag overrides that. (y/n)
 
-homedirtree         = 1     #  Using a homedir tree? (/usr/home/a/ab/abcuser instead of
+homedirtree         = 0     #  Using a homedir tree? (/usr/home/a/ab/abcuser instead of
                             #  /usr/home/abcuser)
 
 homedir_base        = u     # If using a system user account, where do we put their 
@@ -124,5 +152,4 @@ vauth               = mysql # where vpopmail stores it's auth info (cdb, mysql, 
 delete_old_archives = 0     # Delete archive files after restoring?
 
 secure_levels       = 1     # Adds multiple levels of security while running this script.
-
 

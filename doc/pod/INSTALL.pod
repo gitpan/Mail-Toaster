@@ -1,37 +1,27 @@
 
 #
-# $Id: INSTALL.pod,v 1.12 2004/02/16 16:57:58 matt Exp $
+# $Id: INSTALL.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
-=head1 Step 1: Make Perl happy.
+=head1 Step 1: Install Perl.
 
-Certain features (like spam filtering) require perl 5.6.1 or higher to function fully. If perl -v reflects anything smaller than 5.6.1, do either of the following:
+If you do not have perl installed, you need to install it. On FreeBSD 5, it's as easy as:
 
-  pkg_add -r perl  (on FreeBSD 5+)
+  pkg_add -r perl
 
-      or 
+Certain programs (like spam assassin) require perl 5.8.1 or higher to function fully. If perl -v reflects anything smaller than 5.6.1, you must update it. If you intend to use qmail-scanner, perl must be suid enabled.  In Perl 5.8+, suid perl is not enabled by default. Enable suidperl by adding -DENABLE_SUIDPERL to your make command (as shown below):
 
-  cd /usr/ports/lang/perl5;
-  make install clean;
+  cd /usr/ports/lang/perl5.8;
+  make -DENABLE_SUIDPERL install clean;
   rehash; use.perl port;
 
-You need Perl's CPAN working for installing perl modules so make sure it's configured. If the following command doesn't give you a prompt, then you'll be prompted to configure.
+If you are or will be upgrading perl on FreeBSD and using pkg* and friends (like portupgrade), add the following line to the MAKE_ARGS section of /usr/local/etc/pkgtools.conf:
 
-  perl -MCPAN -e shell
-  exit
+ 'lang/perl5.8'	=> 'ENABLE_SUIDPERL=yes',
 
+You may need Perl's CPAN working for installing perl modules so make sure it's configured. You can test by running:  perl -MCPAN -e shell . If that command doesn't give you a shell prompt, then you'll be prompted to configure. When you get to a prompt, the command "exit" will get you back out.
 
-=head1 Step 2: Install MATT::Bundle. 
-
-http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz
-
-   perl Makefile.PL
-   make install
-
-There is a fair amount of documenation on MATT::Bundle which can be read via "perldoc MATT::Bundle". That also applies for subsequent MATT::* targets. The docs are also available at http://www.tnpi.biz/computing/perl/MATT-Bundle/.
-
-
-=head1 Step 3: Install Mail::Toaster
+=head1 Step 2: Install Mail::Toaster
 
 http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz
 
@@ -40,84 +30,89 @@ http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz
    make newconf (overwrites installed .conf files)
    make cgi
 
-or
+Documentation for the modules being called by toaster_setup.pl, toaster_watcher.pl, maillogs, and index.cgi are all installed in Perl's pod format (perldoc Mail::Toaster) as well as being available online at http://www.tnpi.biz/internet/mail/toaster/.
 
-   perl -e 'use MATT::Utility; InstallMailToaster';
+If you run "make test", you will likely get prompted to install any missing perl modules such as DBI and DBD::mysql. When prompted, choose no. The modules will get installed later.
 
-Documentation for the modules being called by toaster_setup.pl, toaster_watcher.pl, maillogs, and index.cgi are all installed in Perl's pod format (perldoc Mail::Toaster, perldoc Mail::Toaster::CGI, etc) as well as being available online at http://www.tnpi.biz/internet/mail/toaster/.
-
-You will likely get prompted to install a few missing perl modules such as DBI and DBD::mysql. When prompted, choose no. The modules will get installed later.
-
-
-=head1 Step 4: Edit config files
+=head1 Step 3: Edit config files
 
    vi /usr/local/etc/toaster.conf
    vi /usr/local/etc/toaster-watcher.conf
 
-Edit to suit your preferences.
+Edit to suit your preferences. Use 'perldoc toaster.conf' or 'perldoc toaster-watcher.conf' to read the man pages describing what all them settings are for.
 
-=head1 Step 5: Start building the toaster!
+=head1 Step 4: Start building the toaster!
 
    rehash
    toaster_setup.pl -s pre
    toaster_setup.pl -s ports
+   toaster_setup.pl -s mattbundle (optional)
    toaster_setup.pl -s mysql
-   toaster_setup.pl -s [ apache2 | apache ]
-   toaster_setup.pl -s apachessl (create ssl certs)
+   toaster_setup.pl -s apache
    toaster_setup.pl -s phpmyadmin (optional)
    toaster_setup.pl -s ucspi
    toaster_setup.pl -s ezmlm 
    toaster_setup.pl -s vpopmail
+   toaster_setup.pl -s maildrop
    toaster_setup.pl -s qmailadmin
 
-If toaster_setup.pl has any problems running, fix what it complains about and then run it again with the same parameter. It will resume and finish that section. 
+NOTICE: The default install method is now ports (instead of packages). You can alter this in toaster-watcher.conf. This default was changed due to compatibility problems with some packages on FreeBSD's servers (notable MySQL and SNMPd). The flip side is that it's typical that at least one of the thousands of FreeBSD ports is broken. When you find a port that won't compile, try installing the package (ie. "pkg_add -r expat" ) instead.
 
-If you want something installed "your" way, install it first. Toaster_setup.pl will detect it (assuming it's registered in the package database) and skip that portion of the install.
+If toaster_setup.pl has any problems running, fix what it complains about and then run it again. It will pick up where it left off.
 
-When you install Apache, it'll also install PHP which is required by squirrelmail and QSS. Make sure to select the following modules: GD, MYSQL, OPENSSL, & SNMP. Other modules are optional, I recommend selecting those I've listed in addition to the "defaults". 
+If you want something installed "your" way, install it yourself. Toaster_setup.pl will detect it (assuming it's registered in the package database) and skip that portion of the install. Just don't act surprised when a toaster advertised feature doesn't work.
 
-=head1 Step 7: Install Qmail
+=head1 Step 5: Install Qmail
 
    toaster_setup.pl -s qmail
 
 patch info: http://www.tnpi.biz/internet/mail/toaster/patches/
 
-=head1 Step 8: Install Web/POP3/IMAP servers
+=head1 Step 6: Install Web/POP3/IMAP servers
 
    toaster_setup.pl -s courier
    toaster_setup.pl -s sqwebmail
    toaster_setup.pl -s squirrelmail
 
-=head1 Step 9: Configure Courier-IMAP
+=head1 Step 7: Configure Courier-IMAP (optional)
+
+Courier includes some generic settings in it's SSL config files (*d.conf). If you edit those files, you can have your own values reflected in your SSL certificates that are used the IMAP-SSL and POP3-SSL servers.
 
    cd /usr/local/etc/courier-imap
    vi pop3d.cnf imapd.cnf quotawarnmsg
-
    cd /usr/local/share/courier-imap
    ./mkimapdcert; ./mkpop3dcert
 
-
-=head1 Step 10: Set up mail filtering and logging
+=head1 Step 8: Set up mail filtering and logging
 
    toaster_setup.pl -s filter
-   toaster_setup.pl -s supervise
+
+You can safely skip this step. However, all the spiffy anti-virus and spam detection software will not work. If this is your first mail toaster, you may even want to skip this step, get everything working to your satisfaction and then add in the mail filtering.  It can be daunting for the faint of heart. 
+
    toaster_setup.pl -s maillogs
+   toaster_setup.pl -s supervise
    toaster_setup.pl -s rrdutil (optional)
+   toaster_setup.pl -s qss (optional)
 
 
-=head1 Step 11: Add cron entries
+=head1 Step 9: Add cron entries
 
 Run all these commands from the command line and verify their proper functionality (no complaints or errors) BEFORE adding to cron.
 
  crontab -u root -e 
+ 9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp
+ 40  * * * *  /usr/local/share/sqwebmail/cleancache.pl
+ */5 * * * * /usr/local/sbin/toaster-watcher.pl
+ */5 * * * * /usr/local/www/cgi-bin/rrdutil.cgi -a update
 
-  9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp
-  40  * * * *  /usr/local/share/sqwebmail/cleancache.pl
-  */5 * * * * /usr/local/sbin/toaster-watcher.pl
-  */5 * * * * /usr/local/www/cgi-bin/rrdutil.cgi -a update
 
+=head1 Step 10: Test and Configure.
 
-=head1 Step 12: Continue with Configuration.
+The following command runs a battery of tests. 
+
+   toaster_setup.pl -s test
+
+It's output is quite verbose so you may want to pipe it's output through grep and look for any "FAILED" lines. If you have any, then you'll need to pay some attention to that area.
 
 Visit this URL: http://www.tnpi.biz/internet/mail/toaster/config.shtml Skipping this step is guaranteed to make you less than pleased with your toaster.
 

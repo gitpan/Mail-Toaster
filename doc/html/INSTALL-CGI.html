@@ -14,8 +14,8 @@
 
 	<ul>
 
+		<li><a href="#step_1__install_mail__toaster">Step 1: Install Mail::Toaster</a></li>
 		<li><a href="#step_1__install_matt__bundle">Step 1: Install MATT::Bundle</a></li>
-		<li><a href="#step_2__install_mail__toaster">Step 2: Install Mail::Toaster</a></li>
 		<li><a href="#step_3__satisfy_any_dependencies">Step 3: Satisfy any dependencies</a></li>
 		<li><a href="#step_4__configure_apache">Step 4: Configure Apache</a></li>
 		<li><a href="#step_5__edit_config_file">Step 5: Edit Config File</a></li>
@@ -28,11 +28,7 @@
 <hr />
 <p>
 </p>
-<h2><a name="step_1__install_matt__bundle">Step 1: Install MATT::Bundle</a></h2>
-<p><a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz">http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz</a></p>
-<p>
-</p>
-<h2><a name="step_2__install_mail__toaster">Step 2: Install Mail::Toaster</a></h2>
+<h2><a name="step_1__install_mail__toaster">Step 1: Install Mail::Toaster</a></h2>
 <p><a href="http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz">http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz</a></p>
 <pre>
         perl Makefile.PL
@@ -40,6 +36,12 @@
         make test
         make install
         make cgi</pre>
+<p>
+</p>
+<h2><a name="step_1__install_matt__bundle">Step 1: Install MATT::Bundle</a></h2>
+<pre>
+    rehash
+    toaster_setup.pl -s mattbundle</pre>
 <p>
 </p>
 <h2><a name="step_3__satisfy_any_dependencies">Step 3: Satisfy any dependencies</a></h2>
@@ -53,7 +55,7 @@
 <p>Or you can manually edit httpd.conf. Add this line:</p>
 <pre>
         AddHandler cgi-script .cgi</pre>
-<p>Add ``index.cgi'' to the line starts with DirectoryIndex</p>
+<p>Add index.cgi to the line that starts with DirectoryIndex</p>
 <p>Enable ExecCGI for the directory in which the index.cgi is installed.</p>
 <p>
 </p>

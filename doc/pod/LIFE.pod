@@ -1,0 +1,86 @@
+
+#
+# $Id: LIFE.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
+#
+
+=head1 How do I start and stop the POP and IMAP servers?
+
+For the courier versions, a handy symlink is so you can simply type the following:
+
+  imap start
+  pop3 start
+  imapssl start
+  pop3ssl start
+
+Stopping works exactly the same way:
+
+  imap stop
+  pop3 stop
+  imapssl stop
+  pop3ssl stop
+
+If you are using qmail-pop3d (the deafult toaster), then you'll instead use svc to start and stop the pop3 daemon. To stop:
+
+  svc -dx /var/service/pop3
+
+To start:
+
+  svc -u /var/service/pop3
+
+
+=head1 How to I start/stop qmail?
+
+Qmail is run under Dan's daemontools, making it a supervised process. You can start, stop, and restart all the supervised processes with a script installed for this purpose:
+
+  services start
+  services restart
+  services stop
+
+The services script is smart enough to not try starting the daemons again if they're already running. It is installed by default in /usr/local/etc/rc.d/services.sh so that your supervised daemons run at boot time.
+
+You also have a qmail control script which gives you some handy options for interacting with the qmail daemons. Run "qmail" or "qmailctl" from the command line to see the options available. If you get a file not found error, run "rehash" first (for tcsh users).
+
+=head1 How do I configure squirrelmail?
+
+  cd / usr/local/www/squirrelmail
+  ./configure
+
+
+=head1 How do I set up the nightly server report?
+
+The command that needs to be run is simply:
+
+  maillogs yesterday
+
+How you choose to have it done automatically is up to you. I do so by adding this line:
+
+  mailq  /usr/local/sbin/maillogs yesterday
+
+to the /etc/mail/mailer.conf file and commening out the existing line that started with mailq. You could also add a cron job, add it to your periodic files, or any of a number of other methods.
+
+
+=head1 Mail isn't coming in. Where do I start?
+
+By default, the Mail::Toaster comes with lots of handy anti-spam and virus features build in. While this is all great for keeping your inbox clean, it can make troubleshooting more problematic. 
+
+If mail isn't arriving in your mailbox, first forge a message to your smtp server (see the spam myself FAQ entry). If you get back a normal response, it's time to check your mail logs (/var/log/mail/send) and see what happened to the message.
+
+If you get an error back, then you'll have to act based on what that error message is. I suggested first step is disabling qmail-scanner. You can easily do that  by editing toaster-watcher.conf and setting smtpd_qmail_queue to /var/qmail/bin/qmail-queue
+
+If it's a RBL related error, try disabling that RBL in toaster-watcher.conf. Don't forget to run toaster-watcher.pl after editing. 
+
+
+=head1 Help, (DCC/Razor/Pyzor/bogofilter/etc) won't compile!
+
+Although FreeBSD ports is wonderful, there are instances where ports are often broken. This tends to be the case where ports compplex interdependenencies on other ports. It doesn't help when ports are active targets, such as spam fighting tools that change often. For this reason, you have been given the power to not install stuff that keeps failing to build. Find the line(s) in toaster-watcher.conf and change them from 1 to 0 and toaster_setup will skip trying to install them.
+
+  install_clamav                 = 1
+  install_pyzor                  = 0
+  install_razor                  = 1
+  install_bogofilter             = 0
+  install_dcc                    = 0
+
+A lot of the spam fighting tools are optional, but will be detected and used if present.
+
+=cut
+

@@ -13,12 +13,14 @@
 <ul>
 
 	<li><a href="#what_can_maillogs_do">What can maillogs do?</a></li>
+	<li><a href="#what_does_the_output_look_like">What does the output look like?</a></li>
 	<li><a href="#multilog_postprocessor_usage">multilog postprocessor usage</a></li>
 	<li><a href="#why_are_counters_ever_increasing">Why are counters ever increasing?</a></li>
 	<li><a href="#do_you_support_isoqlog">Do you support isoqlog?</a></li>
 	<li><a href="#what_assumptions_do_you_make">What assumptions do you make?</a></li>
 	<li><a href="#i_get_errors_when_i_run_it__is_something_wrong">I get errors when I run it. Is something wrong?</a></li>
 	<li><a href="#how_do_i_get_squirrelmail_logs_to_work">How do I get squirrelmail logs to work?</a></li>
+	<li><a href="#how_can_i_get_a_nightly_report_of_qmails_activity">How can I get a nightly report of qmails activity?</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -26,8 +28,17 @@
 <p>
 </p>
 <h1><a name="what_can_maillogs_do">What can maillogs do?</a></h1>
-<p>Maintain and report counters of mail log files. Copy it to /usr/local/sbin/maillogs. That's where RRDUtil (via net-snmp) expects to find it when it wants to poll for the current mail counters.</p>
-<p>To view the counters, simply run ``maillogs protocol'' where protocol is one of smtp, pop3, imap, send, or webmail. You'll get back output that looks like this:</p>
+<p>It's primary purpose is to Maintain and report counters of mail log files.</p>
+<p>It also maintains log archives (organized by date) by piping the logs through cronolog. They are stored in $maillogs/yyyy/mm/dd/????log. It's very easy for programs and persons to work with a days worth of log files.</p>
+<p>Maillogs has other fun reporting features as well. See ``maillogs yesterday'' for an example.</p>
+<p>When you install Mail::Toaster, its installed to /usr/local/sbin/maillogs. That's where RRDUtil (via net-snmp) expects to find it when it wants to poll for the current mail counters.</p>
+<p>To view the counters, simply run ``maillogs protocol''. Run maillogs without a protocol to see of list of options.</p>
+<p>Log files more than 24 hours old are automatically compressed.</p>
+<p>
+</p>
+<hr />
+<h1><a name="what_does_the_output_look_like">What does the output look like?</a></h1>
+<p>You'll get back output that looks like this:</p>
 <pre>
   # maillogs smtp
   connect:7:connect_last:7:smtp_block_count:3514773:
@@ -57,8 +68,6 @@
   connect_imap:2488:connect_imap_ssl:2488:
   imap_connect_success:817:imap_ssl_success:845</pre>
 <p>This format is very nice for feeding into SNMP stats collectors like MRTG and my own RRDutil.</p>
-<p>It can also roll the logs and pipe them through cronolog so they are stored in /var/log/mail/yyyy/mm/dd/smtplog. That way it's very easy for programs to retrieve a days worth of log files.</p>
-<p>Log files more than 24 hours old are automatically compressed.</p>
 <p>
 </p>
 <hr />
@@ -96,24 +105,8 @@
 </p>
 <hr />
 <h1><a name="what_assumptions_do_you_make">What assumptions do you make?</a></h1>
-<p>That your system is set up similarly to mine. If that's not the case, edit the script and change the user preferences section to taste:</p>
-<pre>
-  ##
-  # User Preferences
-  ##
-  # -----------------------------------------------</pre>
-<pre>
-  $logbase   = &quot;/var/log/mail&quot;
-  $syslog    = &quot;/var/log/maillog&quot;
-  $counters  = &quot;counters&quot;
-  $supervise = &quot;/var/qmail/supervise&quot;
-  $loguser   = &quot;qmaill&quot;
-  $loggroup  = &quot;qnofiles&quot;
-  $pop3d     = &quot;qpop3d&quot;   # courier or qpop3d
-  $isoqlog   = 1 
-  $taifiles  = 1          # multilogs @NNNNNNN files
-  $archive   = 1          # YYYY/MM/DD/xxxxlog files</pre>
-<p>These prefs will get rolled into toaster.conf soon.</p>
+<p>That you have installed the Mail::Toaster perl modules and configured toaster.conf.  See the documentation for toaster.conf for details of how those settings affect your system:</p>
+<p><a href="http://localhost.tnpi.biz/internet/mail/toaster/docs/tconf.shtml">http://localhost.tnpi.biz/internet/mail/toaster/docs/tconf.shtml</a></p>
 <p>
 </p>
 <hr />
@@ -132,6 +125,14 @@
   ---
   &gt;    $sl_syslog_priority = LOG_INFO;  // Default LOG_INFO</pre>
 <p>and voila, webmail logins are now logged via syslog.mail.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_can_i_get_a_nightly_report_of_qmails_activity">How can I get a nightly report of qmails activity?</a></h1>
+<p>Simply add this line to your /etc/mail/mailer.conf:</p>
+<pre>
+  mailq  /usr/local/sbin/maillogs yesterday</pre>
+<p>If there's a different mailq command in there, comment it out. If you are using an OS other than FreeBSD, add the ``maillogs yesterday'' command to cron or your daily periodic scripts. Else, simply run that command every morning. :)</p>
 
 </body>
 

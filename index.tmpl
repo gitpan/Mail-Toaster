@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <!-- 
-# $Id: index.tmpl,v 1.8 2004/02/16 17:00:43 matt Exp $
+# $Id: index.tmpl,v 4.0 2004/11/16 20:57:30 matt Exp $
 -->
 <html>
 <head>
@@ -48,6 +48,16 @@ function copydata(dest)
 	if ( dest == "sqweb" ) {
 		document.sqweb.username.value = document.auth.email.value;
 		document.sqweb.password.value = document.auth.password.value;
+	}
+
+	if ( dest == "vweb" ) {
+		document.vweb.username.value = document.auth.email.value;
+		document.vweb.password.value = document.auth.password.value;
+	}
+
+	if ( dest == "imp" ) {
+		document.implogin.imapuser.value = document.auth.email.value;
+		document.implogin.pass.value = document.auth.password.value;
 	}
 
 	if ( dest == "admin" )
@@ -188,6 +198,11 @@ function copydata(dest)
 											<font size="-2"> [<a href="/support/antivirus.html">More Info</a>]</font></p>
 										</td>
 									</tr>
+									<tr>
+										<td colspan="2" align="center"><p>
+											<font size="-1"> <a href="/qmailadmin/images/help/email_user/">Email Users Guide</a></font></p>
+										</td>
+									</tr>
 									</table>
 								</td>
 							</tr>
@@ -211,6 +226,8 @@ function copydata(dest)
 										<p><font color="white" size="2"> Destinations</font></p></th>
 									<TMPL_VAR name="sqwebmail">
 									<TMPL_VAR name="squirrelmail">
+									<TMPL_VAR name="vwebmail">
+									<TMPL_VAR name="imp">
 									<TMPL_VAR name="qmailadmin">
 								</table>
 							</td>
@@ -251,3 +268,19 @@ function copydata(dest)
 </p>
 </body>
 </html>
+
+<!--
+
+Copyright (c) 2004, The Network People, Inc.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+-->

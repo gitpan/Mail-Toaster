@@ -15,7 +15,11 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<li><a href="#whatami">WhatAmI</a></li>
+	<ul>
+
+		<li><a href="#what_am_i">what_am_i</a></li>
+	</ul>
+
 	<li><a href="#installation">INSTALLATION</a></li>
 	<li><a href="#dependencies">DEPENDENCIES</a></li>
 	<li><a href="#design_considerations">Design considerations</a></li>
@@ -60,7 +64,7 @@
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>I have ``farms'' of mail servers that share a hostname. I needed 
-a way to collect the logs from all the servers and manage them.</p>
+a way to collect the logs from all the servers and process them.</p>
 <p>This is a piece of that puzzle. Maillogs does several things. First,
 it acts as a simple log postprocessor. By default it takes files that
 qmail outputs (/var/log/mail/[send|smtp|pop3]/current) and collects 
@@ -70,14 +74,13 @@ a bunch of counters about the logs and stores them in counter files.</p>
 <p>For pop3, IMAP, webmail, and SMTP-AUTH, we count  the number of 
 connections and the number of successful logins.</p>
 <p>Counters are written to files in /var/log/mail/counters/ by default.
-You can alter the locations of the logs files by editing the ``user
-preferences'' section of this script. I will add support for a config file
-at some point.</p>
+You can alter the locations of the logs files by editing the 
+toaster.conf file included with this script. That file should be
+installed in /usr/local/etc.</p>
 <p>
 </p>
-<hr />
-<h1><a name="whatami">WhatAmI</a></h1>
-<p>WhatAmI - Is this a schizophrenic program?</p>
+<h2><a name="what_am_i">what_am_i</a></h2>
+<p>what_am_i - Is this a schizophrenic program?</p>
 <p>No, because schizophrenic denotes a disorder. This application is designed
 to behave differently depending on how it's called. It has (currently) four
  distinct personalities. Allow me to introduce you to multilog.</p>
@@ -86,7 +89,8 @@ has a poorly documented ability to run a postprocessor on logs
 after they reach a predetermined size (or are otherwise triggered).</p>
 <p>This script is designed to be that postprocessor. If you rename this file to
 be named one of ``smtplog'', ``pop3log'', or ``sendlog'' it will become a log
-file processor for that qmail server protocol. See the FAQ for more details.</p>
+file processor for that qmail server protocol. See the maillogs FAQ for 
+more details.</p>
 <p>If called as maillogs, it will return ever incrementing counters for the 
 protocol you entered. Run maillogs without any parameters to see the supported
 options. It's expected that you'll be calling maillogs from an SNMP agent 
@@ -108,8 +112,8 @@ allowing this solution to scale from single to clustered systems.</p>
 </p>
 <hr />
 <h1><a name="dependencies">DEPENDENCIES</a></h1>
-<p>This module requires these other modules and libraries:</p>
-<p>MATT::Bundle - <a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/">http://www.tnpi.biz/computing/perl/MATT-Bundle/</a></p>
+<p>This program requires these other modules and libraries:</p>
+<p>Mail::Toaster - <a href="http://www.tnpi.biz/computing/mail/toaster/">http://www.tnpi.biz/computing/mail/toaster/</a></p>
 <p>
 </p>
 <hr />
@@ -145,9 +149,13 @@ allowing this solution to scale from single to clustered systems.</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright 2003, The Network People, Inc.</p>
-<p>This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.</p>
+<p>Copyright (c) 2004, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

@@ -1,0 +1,10 @@
+ 
+#
+# $Id: TODO,v 4.0 2004/11/16 20:57:30 matt Exp $
+#
+
+ - qmail-verh patch
+ - dovecot IMAP/POP3 server
+ - qscanq support
+ - make sure [service]_debug works
+ - update UpdateVirusBlocks so IP's don't get listed twice

@@ -2,12 +2,12 @@
 use strict;
 
 #
-# $Id: maillogs,v 1.4 2003/12/04 15:05:20 matt Exp $
+# $Id: maillogs,v 4.1 2004/11/16 21:20:01 matt Exp $
 #
 
 use vars qw( $VERSION );
 
-$VERSION = "2.64";
+$VERSION = "4.00";
 
 =head1 NAME
 
@@ -41,7 +41,7 @@ This script and modules is (at last) easily extendible as I continue to find new
 =head1 DESCRIPTION
 
 I have "farms" of mail servers that share a hostname. I needed 
-a way to collect the logs from all the servers and manage them.
+a way to collect the logs from all the servers and process them.
 
 This is a piece of that puzzle. Maillogs does several things. First,
 it acts as a simple log postprocessor. By default it takes files that
@@ -56,50 +56,50 @@ For pop3, IMAP, webmail, and SMTP-AUTH, we count  the number of
 connections and the number of successful logins.
 
 Counters are written to files in /var/log/mail/counters/ by default.
-You can alter the locations of the logs files by editing the "user
-preferences" section of this script. I will add support for a config file
-at some point.
+You can alter the locations of the logs files by editing the 
+toaster.conf file included with this script. That file should be
+installed in /usr/local/etc.
 
 =cut
 
 
 # ------------------------------------------------------------------------------
 
-use MATT::Utility 1;    #  http://www.tnpi.biz/computing/perl/MATT-Bundle/
-use MATT::Perl 1;
-use Mail::Toaster::Logs;
+use lib "lib";
+use Mail::Toaster::Perl 1;    my $perl = new Mail::Toaster::Perl;
+use Mail::Toaster::Logs;      my $logs = new Mail::Toaster::Logs;
+use Mail::Toaster::Utility 1; my $utility = new Mail::Toaster::Utility;
 
 use File::Path;
 use Getopt::Std;
 use POSIX;
 
-LoadModule("Date::Parse",  "p5-TimeDate", "devel");
-LoadModule("Date::Format", "p5-TimeDate", "devel");
+$perl->module_load( {module=>"Date::Parse",  ports_dir=>"p5-TimeDate", ports_group=>"devel"} );
+$perl->module_load( {module=>"Date::Format", ports_dir=>"p5-TimeDate", ports_group=>"devel"} );
  
 use vars qw( $opt_r $opt_v %count %spam );
 getopts('rv');
 
-my $conf    = ParseConfigFile("toaster.conf");
-#my $conf    = ParseConfigFile("toaster.conf", $opt_v);
+my $conf = $utility->parse_config( { file=>"toaster.conf", debug=>$opt_v, etcdir=>'' } );
 
 $|++;
 
-CheckSetup($conf);
+$logs->CheckSetup($conf);
 
-my $iam = WhatAmI();
+my $iam = $logs->what_am_i();
 
-if    ( $iam eq "maillogs" ) { CheckForFlags($conf,$ARGV[0],$opt_v) }
-elsif ( $iam eq "sendlog"  ) { RollSendLogs($conf, $opt_v ) } 
-elsif ( $iam eq "smtplog"  ) { RollRblLogs ($conf, $opt_v ) } 
-elsif ( $iam eq "pop3log"  ) { RollPOP3Logs($conf, $opt_v ) } 
-else                         { print "not available.\n"; };
+if    ( $iam eq "maillogs" ) { $logs->CheckForFlags($conf,$ARGV[0],$opt_v) }
+elsif ( $iam eq "sendlog"  ) { $logs->RollSendLogs($conf, $opt_v ) } 
+elsif ( $iam eq "smtplog"  ) { $logs->RollRblLogs ($conf, $opt_v ) } 
+elsif ( $iam eq "pop3log"  ) { $logs->RollPOP3Logs($conf, $opt_v ) } 
+else                         { print "not available.\n";    };
 
-exit 0;
+0;
+__END__
 
+=head2 what_am_i
 
-=head1 WhatAmI
-
-WhatAmI - Is this a schizophrenic program?
+what_am_i - Is this a schizophrenic program?
 
 No, because schizophrenic denotes a disorder. This application is designed
 to behave differently depending on how it's called. It has (currently) four
@@ -111,7 +111,8 @@ after they reach a predetermined size (or are otherwise triggered).
 
 This script is designed to be that postprocessor. If you rename this file to
 be named one of "smtplog", "pop3log", or "sendlog" it will become a log
-file processor for that qmail server protocol. See the FAQ for more details.
+file processor for that qmail server protocol. See the maillogs FAQ for 
+more details.
 
 If called as maillogs, it will return ever incrementing counters for the 
 protocol you entered. Run maillogs without any parameters to see the supported
@@ -135,9 +136,9 @@ To install as a post-processor for qmail type the following:
 
 =head1 DEPENDENCIES
 
-This module requires these other modules and libraries:
+This program requires these other modules and libraries:
 
-MATT::Bundle - http://www.tnpi.biz/computing/perl/MATT-Bundle/
+Mail::Toaster - http://www.tnpi.biz/computing/mail/toaster/
 
 =head1	Design considerations
 
@@ -171,9 +172,17 @@ http://www.tnpi.biz/internet/mail/
 
 =head1 COPYRIGHT
 
-Copyright 2003, The Network People, Inc.
+Copyright (c) 2004, The Network People, Inc.
+All rights reserved.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut

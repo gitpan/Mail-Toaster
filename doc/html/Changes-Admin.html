@@ -1,0 +1,200 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>mailadmin Changes</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<ul>
+
+		<li><a href="#2_7__11_21_2003">2.7  - 11.21.2003</a></li>
+		<li><a href="#2_61__11_01_2003">2.61 - 11.01.2003</a></li>
+		<li><a href="#2_60__10_26_2003">2.60 - 10.26.2003</a></li>
+		<li><a href="#2_5_4__10_23_2003">2.5.4 - 10.23.2003</a></li>
+		<li><a href="#2_5_3">2.5.3</a></li>
+		<li><a href="#2_5_2__09_20_2003">2.5.2 - 09.20.2003</a></li>
+		<li><a href="#2_5_0__09_18_2003">2.5.0 - 09.18.2003</a></li>
+		<li><a href="#2_4_3__09_16_2003">2.4.3 - 09.16.2003</a></li>
+		<li><a href="#2_4_2__09_16_2003">2.4.2 - 09.16.2003</a></li>
+		<li><a href="#2_4_1__09_13_2003">2.4.1 - 09.13.2003</a></li>
+		<li><a href="#2_4__09_05_2003">2.4 - 09.05.2003</a></li>
+		<li><a href="#2_3__07_09_2003">2.3 - 07.09.2003</a></li>
+		<li><a href="#2_2__05_12_2003">2.2 - 05.12.2003</a></li>
+		<li><a href="#2_1__05_02_2003">2.1 - 05.02.2003</a></li>
+		<li><a href="#2_0__03_20_2003">2.0 - 03.20.2003</a></li>
+		<li><a href="#1_8__03_19_2001">1.8 - 03.19.2001</a></li>
+		<li><a href="#1_7__03_05_2001">1.7 - 03.05.2001</a></li>
+		<li><a href="#1_6__03_05_2001">1.6 - 03.05.2001</a></li>
+		<li><a href="#1_5__11_30_2001">1.5 - 11.30.2001</a></li>
+		<li><a href="#1_4__11_13_2001">1.4 - 11.13.2001</a></li>
+		<li><a href="#1_3__11_06_2000">1.3 - 11.06.2000</a></li>
+		<li><a href="#1_1__11_06_2000">1.1 - 11.06.2000</a></li>
+		<li><a href="#1_0__10_30_2000">1.0 - 10.30.2000</a></li>
+	</ul>
+
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h2><a name="2_7__11_21_2003">2.7  - 11.21.2003</a></h2>
+<pre>
+  - imported into Mail::Toaster::Admin
+  - renamed script to mailadmin</pre>
+<p>
+</p>
+<h2><a name="2_61__11_01_2003">2.61 - 11.01.2003</a></h2>
+<pre>
+  - chomp the newlines in pop &amp; imap counter files
+  - Added squirrelmail logging entry to FAQ
+  - Added &quot;make web&quot; target to simplify updating web page
+  - Add cvs id tags to maillogs, Makefile.PL, and *.pod</pre>
+<p>
+</p>
+<h2><a name="2_60__10_26_2003">2.60 - 10.26.2003</a></h2>
+<pre>
+  - Added more prefs to make customizing maillogs easier
+  - Added CountSpam (Qmail-Scanner and SpamAssassin logs)
+  - Added smtp-auth and webmail log counting
+  - Renamed much of the SMTP subs and variables to reflect
+    their rblsmtpd usage (relative to maillogs)
+  - Removed a bunch of die calls and replaced them with warns
+  - Other code &quot;pretty ups&quot; to make reading easier
+  - Made into Perl package (added Makefile.PL, README, test.pl
+  - Don't attempt to compress yesterdays logs if a .gz already
+    exists in the log dir.
+  - Make test now does regression testing. This will help me
+    catch most bugs before I release maillogs.
+  - original version; created by h2xs 1.22 with options
+    h2xs -X -b 5.0.0 Mail::Logs
+  - Next version will be a modularized perl package</pre>
+<p>
+</p>
+<h2><a name="2_5_4__10_23_2003">2.5.4 - 10.23.2003</a></h2>
+<pre>
+  - Don't try to control pop3d if courier is the pop3 log type</pre>
+<p>
+</p>
+<h2><a name="2_5_3">2.5.3</a></h2>
+<pre>
+  - Added webmail counters</pre>
+<p>
+</p>
+<h2><a name="2_5_2__09_20_2003">2.5.2 - 09.20.2003</a></h2>
+<pre>
+  - POP3 counters incremented incorrectly. fixed.</pre>
+<p>
+</p>
+<h2><a name="2_5_0__09_18_2003">2.5.0 - 09.18.2003</a></h2>
+<pre>
+  - Added preference for tai files and archive files.
+  - Fixed problems with MUA counters getting reset by syslog
+    Now we keep track of the last count and if syslog rolls
+    the logfile we notice and feed ever increasing numbers
+    into RRDtool, like it expects.
+  - POP3 reporting was screwy. Updated to match what RRDUtil
+    expects.</pre>
+<p>
+</p>
+<h2><a name="2_4_3__09_16_2003">2.4.3 - 09.16.2003</a></h2>
+<pre>
+  - Finally fixed the mkdir call that inverted the arguments.
+  - The counters directly now gets created automatically.</pre>
+<p>
+</p>
+<h2><a name="2_4_2__09_16_2003">2.4.2 - 09.16.2003</a></h2>
+<pre>
+  - Added full path call to Date::Format in SetupDateVariables</pre>
+<p>
+</p>
+<h2><a name="2_4_1__09_13_2003">2.4.1 - 09.13.2003</a></h2>
+<pre>
+  - Run isoqlog if its on the system.</pre>
+<p>
+</p>
+<h2><a name="2_4__09_05_2003">2.4 - 09.05.2003</a></h2>
+<pre>
+  - Added dependency on MATT::Perl
+  - Offer to install Date::Parse &amp; Date::Format if they aren't
+  - Formatting updates
+  - Hopefully fixed so counters directory will get created</pre>
+<p>
+</p>
+<h2><a name="2_3__07_09_2003">2.3 - 07.09.2003</a></h2>
+<pre>
+  - Added pod documenation.
+  - Added dependency on MATT::Utility</pre>
+<p>
+</p>
+<h2><a name="2_2__05_12_2003">2.2 - 05.12.2003</a></h2>
+<pre>
+  - Added more reliable pop3 imap log processing and counting.</pre>
+<p>
+</p>
+<h2><a name="2_1__05_02_2003">2.1 - 05.02.2003</a></h2>
+<pre>
+  - Check if counters dir exists, create if if not
+  - Check if sendlog.txt exists, ignore if not
+  - Verify that maillogs is installed in /usr/local/sbin</pre>
+<p>
+</p>
+<h2><a name="2_0__03_20_2003">2.0 - 03.20.2003</a></h2>
+<pre>
+  - Almost a complete rewrite
+  - use strict pragma enabled.
+  - on-the-fly arrays cleaned up lots of extra code
+  - Script can now be used as a multilog processor
+  - maintains counters for efficiency</pre>
+<p>
+</p>
+<h2><a name="1_8__03_19_2001">1.8 - 03.19.2001</a></h2>
+<pre>
+  - Cleaned up script, removed a bunch of old stuff</pre>
+<p>
+</p>
+<h2><a name="1_7__03_05_2001">1.7 - 03.05.2001</a></h2>
+<pre>
+  - Moved imap, imapssl and pop3ssl log output to syslog.</pre>
+<p>
+</p>
+<h2><a name="1_6__03_05_2001">1.6 - 03.05.2001</a></h2>
+<pre>
+  - Cleaned up code, added daily rotation and compression
+  for pop logs, delete logs over a month old.</pre>
+<p>
+</p>
+<h2><a name="1_5__11_30_2001">1.5 - 11.30.2001</a></h2>
+<pre>
+ - Added automatic log file compression.</pre>
+<p>
+</p>
+<h2><a name="1_4__11_13_2001">1.4 - 11.13.2001</a></h2>
+<pre>
+ - Finished log file processing trigged by snmp connection</pre>
+<p>
+</p>
+<h2><a name="1_3__11_06_2000">1.3 - 11.06.2000</a></h2>
+<pre>
+ - Added processing of pop &amp; imap connections</pre>
+<p>
+</p>
+<h2><a name="1_1__11_06_2000">1.1 - 11.06.2000</a></h2>
+<pre>
+ - Added processing of outgoing messages</pre>
+<p>
+</p>
+<h2><a name="1_0__10_30_2000">1.0 - 10.30.2000</a></h2>
+<pre>
+ - Original Authoring</pre>
+
+</body>
+
+</html>

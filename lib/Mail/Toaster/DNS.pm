@@ -2,55 +2,56 @@
 use strict;
 
 #
-# $Id: DNS.pm,v 1.4 2003/12/17 14:45:36 matt Exp $
+# $Id: DNS.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
 #
 
 package Mail::Toaster::DNS;
 
 use Carp;
-use Exporter;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
+use vars qw($VERSION);
 
-$VERSION = '1.3';
+$VERSION = '4.00';
 
-@ISA       = qw( Exporter );
-@EXPORT    = qw( 
-	RblTest
-);
-@EXPORT_OK = qw();
-
-use lib ".";
 use lib "lib";
-use MATT::Perl;
+use lib "../..";
 
 
 =head1 NAME
 
-Mail::Toaster::DNS - Common DNS functions
-
+Mail::Toaster::DNS
 
 =head1 SYNOPSIS
 
-Mail::Toaster::DNS is a grouping of DNS functions I've written.
-
+Common DNS functions
 
 =head1 DESCRIPTION
 
 These functions are used by toaster-watcher to determine if RBL's are available when generating qmail's smtpd/run control file.
 
+=head2 new
+
+Create a new DNS method:
+
+   use Mail::Toaster::DNS;
+   my $dns = new Mail::Toaster::DNS;
+
 =cut
 
-sub RblTest
+sub new
 {
-	my ($zone, $debug) = @_;
-	
-=head2 RblTest
+	my $class = shift;
+	my $self = { class=>$class };
+	bless ($self, $class);
+	return $self;
+}
 
-	use Mail::Toaster::DNS;
-	my $r = RblTest("bl.example.com");
+
+=head2 rbl_test
+
+After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.
+
+	my $r = $dns->rbl_test("bl.example.com");
 	if ($r) { print "bl tests good!" };
-
-After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity. 
 
 The routine expects to receive the zone of a blacklist to test as it's first argument and a possible debug value (set to a non-zero value) as it's second. 
 
@@ -60,17 +61,21 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 
 =cut
 
-	LoadModule("Net::DNS", "p5-Net-DNS", "dns");
+sub rbl_test
+{
+	my ($self, $zone, $debug) = @_;
+	use Mail::Toaster::Perl; my $perl = Mail::Toaster::Perl->new;
+	$perl->module_load( {module=>"Net::DNS", ports_name=>"p5-Net-DNS", ports_group=>"dns"} );
 
-	my $r  = Net::DNS::Resolver->new;
+	my $res  = Net::DNS::Resolver->new;
 
-	$r->tcp_timeout(5);   # really shouldn't matter
-	$r->udp_timeout(5);
+	$res->tcp_timeout(5);   # really shouldn't matter
+	$res->udp_timeout(5);
 
 	# First we make sure their zone has active name servers
 
-	my $ns      = 0;
-	my $query   = $r->query( GetRblTestNS($zone), "NS");
+	my $ns    = 0;
+	my $query = $res->query( $self->rbl_test_ns($zone), "NS");
 
 	if ( $query )
 	{
@@ -83,7 +88,7 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 	} 
 	else 
 	{ 
-		carp "ns query failed for $zone: ", $r->errorstring if $debug;
+		carp "ns query failed for $zone: ", $res->errorstring if $debug;
 		return 0; 
 	};
 
@@ -94,7 +99,7 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 	# for most RBL's this is 127.0.0.2, (2.0.0.127.bl.example.com)
 
 	my $ip      = 0;
-	my $test_ip = GetRblTestPositiveIP($zone);
+	my $test_ip = $self->rbl_test_positive_ip($zone);
 
 	if ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
 	{
@@ -102,7 +107,7 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 
 		print "querying $test..." if $debug;
 
-		my $query = $r->query($test, "A" );
+		my $query = $res->query($test, "A" );
 		if ( $query )
 		{
 			foreach my $rr ( $query->answer )
@@ -117,7 +122,7 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 		} 
 		else 
 		{ 
-			carp "query failed for $zone: ", $r->errorstring if $debug;
+			carp "query failed for $zone: ", $res->errorstring if $debug;
 			return 0;
 		};
 	} 
@@ -134,7 +139,7 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 	# Now we test an IP that should always yield a negative response
 
 	my $fip    = 0;
-	$test_ip   = GetRblTestNegativeIP($zone);
+	$test_ip   = $self->rbl_test_negative_ip($zone);
 
 	if ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
 	{
@@ -142,20 +147,18 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 
 		print "querying $test..." if $debug;
 
-		my $query = $r->query($test, "A" );
-		if ( $query )
+		my $query = $res->query($test, "A" );
+		return 1 unless $query;  # it's OK if this fails
+
+		foreach my $rr ( $query->answer )
 		{
-			foreach my $rr ( $query->answer )
-			{
-				print "found: ", $rr->type, " = ", $rr->address if $debug;
-				next unless $rr->type eq "A";
-				next unless $rr->address =~ /127\.0\.0/;
-				$ip++;
-				# print " from ", $query->answerfrom if $debug;
-				print " matched.\n" if $debug;
-			};
-		} 
-		else { return 1 };  # it's all good if this fails
+			print "found: ", $rr->type, " = ", $rr->address if $debug;
+			next unless $rr->type eq "A";
+			next unless $rr->address =~ /127\.0\.0/;
+			$ip++;
+			# print " from ", $query->answerfrom if $debug;
+			print " matched.\n" if $debug;
+		};
 	} 
 	else 
 	{ 
@@ -166,38 +169,38 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 	if ( $fip > 0 ) { return 0 } else { return 1 };
 };
 
-sub GetRblTestNS
-{
 
-=head2 GetRblTestNS
+=head2 rbl_test_ns
 
-	use Mail::Toaster::DNS;
-	GetRblTestNS($rbl);
+	$t_dns->rbl_test_ns($rbl);
 
 $rbl is the reverse zone we use to test this rbl.
 
 =cut
 
-	my ($rbl) = @_;
+sub rbl_test_ns
+{
+	my ($self, $rbl) = @_;
 
 	if    ( $rbl eq "korea.services.net"     ) { return "69.$rbl" } 
 	elsif ( $rbl =~ /rbl\.cluecentral\.net$/ ) { return "rbl.cluecentral.net" } 
 	else                                       { return $rbl };
 };
 
-sub GetRblTestPositiveIP
-{
 
-=head2 GetRblTestPositiveIP
+=head2 rbl_test_positive_ip
 
-	use Mail::Toaster::DNS;
-	GetRblTestPositiveIP($rbl);
+	$t_dns->rbl_test_positive_ip($rbl);
 
 $rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.
 
+Some RBLs have test IP's to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.
+
 =cut
 
-	my ($rbl) = @_;
+sub rbl_test_positive_ip
+{
+	my ($self, $rbl) = @_;
 
 	if    ( $rbl eq "korea.services.net"     ) { return "61.96.1.1"    } 
 	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { return "61.96.1.1"    }
@@ -205,19 +208,18 @@ $rbl is the reverse zone we use to test this rbl. Positive test is a test that s
 	else                                       { return "127.0.0.2"    };
 };
 
-sub GetRblTestNegativeIP
+sub rbl_test_negative_ip
 {
 
-=head2 GetRblTestNegativeIP
+=head2 rbl_test_negative_ip
 
-	use Mail::Toaster::DNS;
-	GetRblTestNegativeIP($rbl);
+	$t_dns->rbl_test_negative_ip($rbl);
 
-This test is difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.
+This test is a little more difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.
 
 =cut
 
-	my ($rbl) = @_;
+	my ($self, $rbl) = @_;
 
 	if    ( $rbl eq "korea.services.net"     ) { return "207.89.154.94"  } 
 	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { return "207.89.154.94"  }
@@ -246,16 +248,26 @@ None known. Report any to author.
 =head1 SEE ALSO
 
 http://www.tnpi.biz/computing/
-http://www.tnpi.biz/computing/perl/MATT-Bundle/
 
-Mail::Toaster::CGI, Mail::Toaster::DNS, 
-Mail::Toaster::Logs, Mail::Toaster::Qmail, 
-Mail::Toaster::Setup
+  Mail::Toaster::CGI, Mail::Toaster::DNS, 
+  Mail::Toaster::Logs, Mail::Toaster::Qmail, 
+  Mail::Toaster::Setup
 
 
 =head1 COPYRIGHT
 
-Copyright 2003, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2004, The Network People, Inc.
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 

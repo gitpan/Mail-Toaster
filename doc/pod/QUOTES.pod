@@ -1,0 +1,53 @@
+
+#
+# $Id: QUOTES.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
+#
+
+
+=head1 TWA - Feb 19, 2004
+
+We wanted to throw out our NT4.0/Exchange 5.5 combo, and we wanted to see if we could build the replacement with open source software. If nothing else, we techies would piss off some of the powerpoint heads. Someone pointed us to qmail, and an innocent little link on one of Bernstein's pages introduced me to Mr. Simerson here ;) 
+
+We ran the version 1.7 toaster on an old P166 with 32MB RAM for over a year without a single incident (and no spam and virusfiltering). We had about ten accounts on the box, each subscribed to every high volume mailing list we could find. In all, the little scrapped PC received over 300.000 mails that year, and most of them were forwarded to other accounts both on and off the server as part of the testing. That disk swapped like there was no tomorrow... 
+
+The toaster is a very hands-off kind of system, something I highly appreciate after being in the sysadmin trenches for nearly 15 years. The fact that Matt run live toasters also helps. You just know that every new little widget and knob on new toasters are useful one way or another. 
+
+
+ "What the hell happened to all the spam ?!?" 
+ - some guy in my company
+
+
+=head1 hertie - 02 Feb 2004
+
+I simply gave it a shot and was very surprised that all of a sudden I had a working mailserver at my disposal without knowing what I was doing.. 
+
+Just the kind of user you like on a support forum, eh?
+
+=head1 chny - 02 Feb 2004
+
+It came highly recomended by a friend I trust who run email servers with, compared to my setup, very many users. 
+
+After having batteled trough the install back then I got kind of hooked seeing as it's mostly a "do and forget" setup. 
+
+Stability is also nice and the features it supports, allthough appearing to me as a whee bit undocumentet at times, are great. 
+
+Mail list support is also great and the general knowledge of the list combined is very impressive. 
+
+Friendlyness in the comunity is also a great aspect of this project. Continuous support and possiblity to actually buy expertise is reassuring for those who use it (me not included). Even for us who doesn't actually use your purchased services, it's comforting to know that people actually do and find your time worth their money. This puts some weight behind the project. 
+
+The fact that it's activly developed is also really great.
+
+=head1 Robert C
+
+I had always needed to install everything manually on all new machines. It took some time to install FreeBSD, update everything, install all the programs, make sure all the configs are correct, etc. But with the toaster I wrote a script to do all this for me based on your toaster setup. It automates it. All I have to do now is install FreeBSD via CDROM, then put the script on the box and execute. I can then walk away and come back later to a completely running machine. (Things of course have to be tweaked for this to work). If a one word answer was required, it would simply be "time." Thanks matt! =]
+
+=head1 Adam
+
+Having never built high-traffic mail server before, I was looking for something that would grow with our company. The mail server I was tasked to build had to be stable and perform well. After doing a ton of research into mail servers that supported virtual domains, I came across Matt's Toaster. I evaluated the toaster and it met each of our requirements. It's proven to be extremely stable, easy to upgrade and configure, feature-rich and a strong performer under load. We eventually moved the toaster into production and haven't looked back since.
+
+=head1 krueger
+
+Why repeat someones good work? Matt's toaster script had some features I wanted and by all mean it saved me time not to figure out the quirks to make them work. I'm a long time FreeBSD fan and now Apple OSX. Gives me more time to work on XF86 drivers.
+
+=cut
+

@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: CGI.t,v 1.1 2003/11/21 02:27:41 matt Exp $
+# $Id: CGI.t,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -10,7 +10,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..1\n"; }
+BEGIN { $| = 1; print "1..2\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use Mail::Toaster::CGI;
 $loaded = 1;
@@ -22,4 +22,5 @@ print "ok 1 - Mail::Toaster::CGI\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-
+my $t = new Mail::Toaster::CGI;
+$t ? print "ok 2 - new\n" : print "not ok 2 - new\n";

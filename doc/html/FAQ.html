@@ -37,6 +37,15 @@
 	<li><a href="#what_needs_to_be_in__etc_rc_conf">What needs to be in /etc/rc.conf?</a></li>
 	<li><a href="#should_i_use_rbls">Should I use RBLs?</a></li>
 	<li><a href="#how_do_i_get_qmailscanner_statistics_to_work">How do I get QmailScanner Statistics to work?</a></li>
+	<li><a href="#rbl_s_work__but_i_need_email_from_a_rbl_ed_server_">RBL's work, but I need email from a RBL'ed server.</a></li>
+	<li><a href="#how_do_i_sent_test_spam_to_myself_remotely">How do I sent test spam to myself remotely?</a></li>
+	<li><a href="#what_is_the_mysql_query_command_for_setting_up_vpopmail">What is the MySQL query command for setting up Vpopmail?</a></li>
+	<li><a href="#help__i_m_having_problems_installing_freebsd_on_my_kitchenaid_toaster">Help, I'm having problems installing FreeBSD on my Kitchenaid toaster</a></li>
+	<li><a href="#how_do_i_upgrade_my_hard_drive">How do I upgrade my hard drive?</a></li>
+	<li><a href="#how_do_i_migrate_my_mail__toaster_from_one_server_to_another_">How do I migrate my Mail::Toaster from one server to another.</a></li>
+	<li><a href="#how_do_users_access_their_spam_folder">How do users access their Spam folder?</a></li>
+	<li><a href="#i_enabled_spam_filtering_in_qmailadmin__where_is_the_spam_folder">I enabled spam filtering in Qmailadmin. Where is the Spam folder?</a></li>
+	<li><a href="#how_do_i_route_outgoing_mail_through_my_isp_s_smtp_server">How do I route outgoing mail through my ISP's SMTP server?</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -51,18 +60,27 @@
   Virtual Domain Users
   Mailing List (Ezmlm)
   AutoResponder
-  Web Based E-Mail (multiple options)
+  Web Based E-Mail (Sqwebmail, Squirrelmail, V-Webmail)
   Web Based Domain Administration
   Mail Filtering (rblsmtpd, SpamAssassin, Qmail-Scanner)
+  Virus Scanning (ClamAV, F-Prot, Uvscan)
   SMTP roaming via SMTP-AUTH, POP-AUTH, &amp; IMAP-AUTH
   POP3, POP3-SSL
-  IMAP, IMAP-SSL</pre>
+  IMAP, IMAP-SSL (Courier IMAP)
+  CGI frontend to mail features
+  Log processing and pretty graphs (via RRDutil)
+  Auto-Installs of MySQL, Apache, phpMyAdmin, and more
+  Centralized configuration files
+  Support for clusters of qmail servers
+  Builds self-signed SSL certs for Apache (HTTPS), 
+    Qmail (SMTP TLS), &amp; Courier (IMAPS/POP3S)</pre>
 <p>
 </p>
 <hr />
 <h1><a name="what_programs_will_be_installed">What programs will be installed?</a></h1>
+<p>All of the following *can* be installed but you have control via toaster-watcher.conf over many of the optional installs. You also have control over many of the popular options for building certain programs like MySQL, Apache, Vpopmail, etc.</p>
 <pre>
-  Qmail 1.03   : Secure, fast, and reliable MTA
+  Qmail        : Secure, fast, and reliable MTA
   MySQL (3,4)  : Database engine
   ucspi-tcp    : Inetd replacement
   daemontools  : Tools for managing daemons
@@ -71,7 +89,8 @@
   Apache mods  : mod_php, mod_ssl, mod_perl
   OpenLDAP     : LDAP client
   vpopmail     : Virtual Domain module
-  qmailadmin   : Vpopmail domain administration CGI
+  qmailadmin   : Vpopmail domain administration
+  vqadmin      : Vpopmai system admin panel
   autorespond  : Auto Responder &amp; vacation
   gdbm         : Database routines
   ispell       : Spell checking for web mail
@@ -86,7 +105,24 @@
   maillogs     : mail log processor
   rrdutil      : MRTG like graphs
   Mail::Toaster: Perl modules for mail systems
-  MATT::Bundle : Perl modules for unix systems</pre>
+  MATT::Bundle : Perl modules for unix systems
+  razor        : Spam signatures database
+  pyzor        : Python spam signatures database
+  dcc          : Spam fighting tool
+  procmail     : mail delivery agent
+  maildrop     : Procmail like mail delivery agent
+  socklog      : pipe qmail logs to another host
+  cronolog     : automatic log rotater
+  qmailanalog  : useful for summarizing qmail logs
+  isoqlog      : qmail log processor, pretty HTML
+  gnupg        : GNU version of PGP
+  automake     : GNU automake
+  autoconf     : GNU autoconf
+  gmake        : GNU make</pre>
+<pre>
+  Perl modules:</pre>
+<p>Compress::Zlib, HTML::Template, Crypt::PasswdMD5, Net::DNS, Crypt-OpenSSL-DSA, Crypt-OpenSSL-RSA, DBI, DBD::mysql, TimeDate</p>
+<p></p>
 <p>
 </p>
 <hr />
@@ -112,8 +148,8 @@
 </p>
 <hr />
 <h1><a name="where_do_i_find_the_maildomain_script">Where do I find the maildomain script?</a></h1>
-<p>maildomain perl script - Front end to nearly everything you can do with the vpopmail programs and a bunch of handy fixup utilities for qmail systems. <a href="http://localhost.tnpi.biz/internet/mail/toaster/maildomain/maildomain.pl">http://localhost.tnpi.biz/internet/mail/toaster/maildomain/maildomain.pl</a></p>
-<p>UPDATE: This is now part of Mail::Toaster and has been renamed mailadmin.</p>
+<p>This is now part of Mail::Toaster and has been renamed mailadmin. If you have installed Mail::Toaster recently, you'll find the latest copy in /usr/local/sbin/mailadmin.</p>
+<p>mailadmin perl script - Front end to nearly everything you can do with the vpopmail programs and a bunch of handy fixup utilities for qmail systems. <a href="http://www.tnpi.biz/internet/mail/toaster/maildomain/maildomain.pl">http://www.tnpi.biz/internet/mail/toaster/maildomain/maildomain.pl</a></p>
 <p>
 </p>
 <hr />
@@ -153,7 +189,7 @@
 </p>
 <hr />
 <h1><a name="when_will_you_add_support_for_my_platform">When will you add support for my platform?</a></h1>
-<p>The scripts are extensible in anticipation of using them on platforms other than FreeBSD where they were developed. My next ``supported'' OS will likely be Mac OS X and then probably Linux. Linux fans might want to check out Bill Shupp's toaster pages. Here's a couple URLs for you: <a href="http://www.shupp.org/toaster/">http://www.shupp.org/toaster/</a> and <a href="http://qmailtoaster.clikka.com/.">http://qmailtoaster.clikka.com/.</a></p>
+<p>The scripts are extensible in anticipation of using them on platforms other than FreeBSD where they were developed. My next ``supported'' OS is Mac OS X and much support is already included for it. Linux may follow but Linux fans might want to check out Bill Shupp's toaster pages. Here's a couple URLs for you: <a href="http://www.shupp.org/toaster/">http://www.shupp.org/toaster/</a> and <a href="http://qmailtoaster.clikka.com/.">http://qmailtoaster.clikka.com/.</a></p>
 <p>
 </p>
 <hr />
@@ -203,10 +239,7 @@ Mar 27 08:42:41 seattle qmail: 1048783361.270564 end msg 6475</p>
 </p>
 <hr />
 <h1><a name="how_do_i_delete_old_messages_in_the_spam_folders">How do I delete old messages in the Spam folders?</a></h1>
-<p>find /usr/local/vpopmail/domains/*/*/Maildir/.SPAM/cur -type f -mtime +30 -exec rm -f {} \;</p>
-<p>deletes files older than 30d</p>
-<p>no guarantee, that just came off from the top of my head :) haven't tested, but worth the try :D regards, Andryan.</p>
-<p>UPDATE: Matt thinks is a partial solution, as it won't find files within numbered buckets which you'll find on any domains with a large number of users.</p>
+<p>toaster_watcher.pl now includes this functionality. Simply enable it within toaster-watcher.conf and it will do the job for you.</p>
 <p>
 </p>
 <hr />
@@ -486,7 +519,12 @@ Modify spamd's flags. The best way is to modify /etc/rc.conf and add the followi
 </p>
 <hr />
 <h1><a name="how_do_i_get_qmailscanner_statistics_to_work">How do I get QmailScanner Statistics to work?</a></h1>
-<p>I did as follows:</p>
+<p>Easy way:</p>
+<pre>
+  Upgrade to Mail::Toaster 3.37 or higher.
+  rm -rf /usr/local/www/data/qss
+  toaster_setup.pl -s qss</pre>
+<p>The long way:</p>
 <pre>
   cd /usr/local/www/data
   mkdir qss; cd qss
@@ -515,7 +553,136 @@ Modify spamd's flags. The best way is to modify /etc/rc.conf and add the followi
    {
       $date = strtotime ($val[0]);
    };</pre>
-<p>Point your browser at <a href="http://mail.example.com/qss/">http://mail.example.com/qss/</a> and voila! If you can't get it working, just look at mine and pretend: <a href="https://mail.cadillac.net/qss/.">https://mail.cadillac.net/qss/.</a> ;-)</p>
+<p>Point your browser at <a href="http://mail.example.com/qss/">http://mail.example.com/qss/</a> and voila! A working example is provided here: <a href="https://mail.cadillac.net/qss/">https://mail.cadillac.net/qss/</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="rbl_s_work__but_i_need_email_from_a_rbl_ed_server_">RBL's work, but I need email from a RBL'ed server.</a></h1>
+<p>You have a couple options:</p>
+<pre>
+  1. Remove the offending RBL from toaster-watcher.conf</pre>
+<pre>
+  2. set RBLSMTPD=&quot;&quot; for the IP(s) in tcp.smtp</pre>
+<p>The latter is the better approach.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_i_sent_test_spam_to_myself_remotely">How do I sent test spam to myself remotely?</a></h1>
+<p>Grab the spam, including all headers, and paste it into a telnet session 
+as described on Matt's ``mail forge'' page.</p>
+<p><a href="http://www.tnpi.biz/internet/mail/forge.shtml">http://www.tnpi.biz/internet/mail/forge.shtml</a></p>
+<pre>
+   % telnet mail.domain.com smtp
+   Trying 64.224.19.12...
+   Connected to mail.zone.com.
+   Escape character is '^]'.
+   220 mail.zone.net ESMTP
+   ehlo
+   250-mail.zone.net
+   250-AUTH LOGIN PLAIN
+   250-AUTH=LOGIN PLAIN
+   250-PIPELINING
+   250-STARTTLS
+   250 8BITMIME
+   mail from: &lt;user@domain.com&gt;
+   250 ok
+   rcpt to: &lt;user@domain.com&gt;
+   250 ok
+   data
+   354 go ahead
+   PASTE SPAM HERE
+   .
+   250 ok 1016471746 qp 9246</pre>
+<p>
+</p>
+<hr />
+<h1><a name="what_is_the_mysql_query_command_for_setting_up_vpopmail">What is the MySQL query command for setting up Vpopmail?</a></h1>
+<p>This command is run automatically by the vpopmail install section of toaster_setup. If if fails (because it can't connect to the database, mysql isn't running, etc) it prints out this message with the values filled in place of the variables show below.</p>
+<pre>
+  CREATE DATABASE vpopmail;
+  GRANT ALL PRIVILEGES ON $db.* TO $user@&quot;$host&quot; IDENTIFIED BY '$pass';
+  use vpopmail;
+  CREATE TABLE relay (
+    ip_addr char(18) NOT NULL default '', 
+    timestamp char(12) default NULL,
+    name char(64) default NULL, PRIMARY KEY (ip_addr)
+  ) TYPE=ISAM PACK_KEYS=1;
+  quit;</pre>
+<p>The values are filled in from your settings in toaster-watcher.conf.</p>
+<p>
+</p>
+<hr />
+<h1><a name="help__i_m_having_problems_installing_freebsd_on_my_kitchenaid_toaster">Help, I'm having problems installing FreeBSD on my Kitchenaid toaster</a></h1>
+<p>Well, if you can get FreeBSD installed without the install CD melting, then you've gotten a step further than we have in our test labs.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_i_upgrade_my_hard_drive">How do I upgrade my hard drive?</a></h1>
+<p>I have used this procedure on many, many production systems without incident. These instructions are what works for me. YMMV. Use at your own risk. There is a strong possibility that you will hose your system during this upgrade so try it on a test server! If you don't have a test server, hire someone that's done it before. Preferably someone whose done it many times before! Like me, who has screwed up this process on my own systems in every conceivable way, thus learning how to avoid messing up yours.</p>
+<pre>
+  1. Insert the new hot-swap SCSI disk in your server
+  2. Use camcontrol rescan to tell FreeBSD to detect it.
+  3. Use sysinstall to configure and partition it.</pre>
+<p>I mount the new partitions on /mnt:  /mnt/root, /mnt/usr, etc.  Once the new partitions are mounted, I use pax (pax -rwpeX) to copy all the files from the old to the new partition (while the server is still online).</p>
+<pre>
+  cd /
+  pax -rwpeX . /mnt/root/
+  cd /usr
+  pax -rwpeX . /mnt/usr/
+  cd /var
+  pax -rwpeX . /mnt/var/</pre>
+<p>Once that's done, I have a 10 minute old copy of the active (old) drive on the new one. A few files won't copy properly (they'll be in use), etc but I'll have 99% of the file system copied with negligible system impact and no down time. Now it's time to drop to single user mode and use rsync to sync up the disks.</p>
+<pre>
+  shutdown now
+  rsync -avxW --delete /    /mnt/root
+  rsync -avxW --delete /usr /mnt/usr
+  rsync -avxW --delete /var /mnt/var
+  shutdown -h now</pre>
+<p>You're ready to boot off the new disk. Turn off the power, remove the old SCSI disk, insert the new one in it's hot-swap bay (so it get's the same SCSI device ID), and turn your server back on. Voila, you just upgraded your disk with only 2 minutes of down time.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_i_migrate_my_mail__toaster_from_one_server_to_another_">How do I migrate my Mail::Toaster from one server to another.</a></h1>
+<p>The easiest way is to simply remove the hot swap SCSI drive from the old server and stick it in the new one. If you are using RAID, move the RAID card too, along with all the drives. Grin, and pat yourself on the back for thinking so far ahead and buying good equipment. :)</p>
+<p>Assuming you can't use the above instructions for whatever reasons, the following info might prove helpful. Your users account information is stored in several places, all of which need to be moved to the new server. Here are the critical directories:</p>
+<pre>
+  /var/qmail/control
+  /var/qmail/users
+  /usr/local/vpopmail
+  /var/db/mysql</pre>
+<p>A thorough checklist would look something like this:</p>
+<pre>
+  1. Upgrade exiting Mail::Toaster to latest version
+  2. Wait a day or two (make sure nothing broke)
+  3. Build the new Mail::Toaster
+  4. Stop all the services on both systems.
+  5. Copy the directories above from old to new server
+  6. Start up the new system</pre>
+<p>If there is mail on the old systems queue, give it a new IP and leave it online until it's finished emptying it's queue (up to a week).</p>
+<p>This assumes the new server will inherit the IP and hostname from the old one. If that's not the case, then you have DNS entries to update, config files to alter, etc.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_users_access_their_spam_folder">How do users access their Spam folder?</a></h1>
+<p>When you enable spam filtering in qmailadmin, what you actually do is change the way qmail delivers the mail to the user's inbox. SpamAssassin isn't concerned with this seemmingly magic button.</p>
+<p>With the spam filtering box unchecked in qmailadmin, the mail is placed directly in the user's maildir. Whatever SpamAssassin did to it does not matter. It's the user's job to handle it from here.</p>
+<p>When you tick the spam filter box, a file named /usr/local/vpopmail/domains/example.com/username/.qmail is generated. This file gives instructions to the program delivering mail (vdelivermail) to the user. In (at least) the 3.3x toasters, the mail is fed through a program called maildrop. Maildrop takes *its* instructions from a script-ish file named /usr/local/etc/mail/mailfilter.</p>
+<p>The current mailfilter file looks at the mail headers added by SpamAssassin to see if it's a spam or not (false positives notwithstanding), placing it in a folder called ``/usr/local/vpopmail/domains/example.com/username/.Spam'' if it is. If the spam folder doesn't exist, maildrop creates it and subscribes the user to the folder so he/she can see it and manipulate it.</p>
+<p>The mailfilter also checks quotas and some other stuff.</p>
+<p>The Spam folder is only available from an IMAP client. Squirrelmail is an IMAP client.</p>
+<p>
+</p>
+<hr />
+<h1><a name="i_enabled_spam_filtering_in_qmailadmin__where_is_the_spam_folder">I enabled spam filtering in Qmailadmin. Where is the Spam folder?</a></h1>
+<p>It get's automatically created when the first spam message arrives. It is automatically subscribed to your IMAP folders.</p>
+<p>
+</p>
+<hr />
+<h1><a name="how_do_i_route_outgoing_mail_through_my_isp_s_smtp_server">How do I route outgoing mail through my ISP's SMTP server?</a></h1>
+<p>A: If your ISP's mailserver is mail.someisp.net, add</p>
+<pre>
+  :mail.someisp.net</pre>
+<p>to the bottom of /var/qmail/control/smtproutes. This will only work if your ISP allows relaying from its entire dynamic IP range. This is usually the case. -- Tor Willy Austeratt</p>
 
 </body>
 

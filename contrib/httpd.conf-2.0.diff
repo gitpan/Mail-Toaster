@@ -1,23 +1,27 @@
-218c218
-< Listen 80
----
-> Listen 
-277a278
-> LoadModule php4_module        libexec/apache2/libphp4.so
-391c392
+389c389
 <     Options Indexes FollowSymLinks
 ---
 >     Options Indexes FollowSymLinks ExecCGI
-439c440
+405a406,412
+> <Directory "/usr/local/www/squirrelmail">
+>     Options Indexes ExecCGI
+>     AllowOverride None
+>     Order allow,deny
+>     Allow from all
+> </Directory>
+> 
+442c449
 < DirectoryIndex index.html index.html.var
 ---
 > DirectoryIndex index.cgi index.shtml index.html index.htm index.html.var
-594a596,597
+597a605,607
 > Alias /squirrelmail/ "/usr/local/www/squirrelmail/"
 > Alias /isoqlog/images/ "/usr/local/share/isoqlog/htmltemp/images/"
-908c911,913
+> Alias /phpMyAdmin/ "/usr/local/www/phpMyAdmin
+906c916,918
 < #AddHandler cgi-script .cgi
 ---
 > AddHandler cgi-script .cgi
 > AddType application/x-httpd-php .php
 > AddType application/x-httpd-php-source .phps
+

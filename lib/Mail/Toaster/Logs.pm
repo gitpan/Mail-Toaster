@@ -2,58 +2,26 @@
 use strict;
 
 #
-# $Id: Logs.pm,v 1.9 2004/01/31 19:11:27 matt Exp $
+# $Id: Logs.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
 #
 
 package Mail::Toaster::Logs;
 
 use Carp;
-use Exporter;
-use vars qw($VERSION @ISA @EXPORT @EXPORT_OK);
 
-$VERSION = "2.66";
+use vars qw( $VERSION);
+$VERSION = "4.0";
 
-@ISA     = qw(Exporter);
-@EXPORT  = qw(
-	CheckForFlags
-	CheckSetup
-	RollSendLogs
-	RollRblLogs
-	RollPOP3Logs
-	SetSyslog
-	WhatAmI
-);
-
-@EXPORT_OK = qw(
-	CheckLogFiles 
-	CountIMAP 
-	CountQMS
-	CountRblLine
-	CountRBL
-	CountSendLine
-	CountSend
-	CountSMTP
-	CountSpamA
-	CountPOP3
-	CountWebMail
-	CompressYesterdaysLogfile
-	ProcessPOP3Logs
-	ProcessRblLogs
-	ProcessSendLogs
-	PurgeLastMonthLogs 
-	ReadCounters
-	RotateMailLogs 
-	SetupDateVariables
-	WriteCounters
-);
-
-use MATT::Utility;
-use MATT::Perl;
+use lib "lib";
+use lib "../..";
+use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Perl;    my $perl    = Mail::Toaster::Perl->new;
 
 use File::Path;
 use Getopt::Std;
-use POSIX;
-#use Date::Parse;
+#use POSIX;
+
+my $os = $^O;
 
 =head1 NAME
 
@@ -61,33 +29,118 @@ Mail::Toaster::Logs
 
 =head1 SYNOPSIS
 
-Perl modules related to mail logging. These modules are used primarily in maillogs but will be used in ttoaster-watcher.pl and toaster_setup.pl as well.
+Perl modules related to mail logging. These modules are used primarily in maillogs but may be used in toaster-watcher.pl and toaster_setup.pl as well.
+
+=head1 METHODS
+
+=head2 new
+
+Create a new Mail::Toaster::Logs object.
+
+    use Mail::Toaster::Logs;
+    $logs = Mail::Toaster::Logs->new;
 
 =cut
 
-
-sub CheckSetup($)
+sub new
 {
+	my ($class) = @_;
+	my $self = { class=>$class };
+	bless ($self, $class);
+	return $self;
+};
+
+
+=head2 ReportYesterday
+
+email a report of yesterdays email traffic.
+
+=cut
+
+sub ReportYesterday($)
+{
+	my ($conf) = @_;
+
+	my $debug   = $conf->{'debug'};
+	my $qmadir  = $conf->{'qmailanalog_bin'};     $qmadir  ||= "/usr/local/qmailanalog/bin";
+	my $email   = $conf->{'toaster_admin_email'}; $email   ||= "postmaster";
+	my $logbase = $conf->{'logs_base'};           $logbase ||= $conf->{'qmail_log_base'};
+	$logbase ||= "/var/log/mail";
+
+	my ($dd, $mm, $yy) = SetupDateVariables();
+	my $file = "sendlog";
+	my $log  = "$logbase/$yy/$mm/$dd/$file";
+	print "ReportYesterday: updating todays symlink for sendlogs\n" if $debug;
+	unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
+	symlink($log, "$logbase/sendlog");
+
+	($dd, $mm, $yy) = SetupDateVariables(-86400);
+
+	$file = "sendlog.gz";
+	$log  = "$logbase/$yy/$mm/$dd/$file";
+	print "ReportYesterday: updating yesterdays symlink for sendlogs\n" if $debug;
+	unlink ("$logbase/sendlog.0.gz") if ( -l "$logbase/sendlog.0.gz");
+	symlink($log, "$logbase/sendlog.0.gz");
+
+	print "processing log: $log\n" if $debug;
+	my $gzcat = $utility->find_the_bin("gzcat");
+
+	print "calculating overall stats with:\n" if $debug;
+	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`\n" if $debug;
+	my $overall   = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`;
+	print "calculating failure stats with:\n" if $debug;
+	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`\n" if $debug;
+	my $failures  = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`;
+	print "calculating deferral stats\n" if $debug;
+	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`\n" if $debug;
+	my $deferrals = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`;
+
+	my $date = "$yy.$mm.$dd";
+	print "date: $yy.$mm.$dd\n" if $debug;
+
+	open EMAIL, "| /var/qmail/bin/qmail-inject";
+	print EMAIL "To: $email\n";
+	print EMAIL "From: postmaster\n";
+	print EMAIL "Subject: Daily Mail Toaster Report for $date\n";
+	print EMAIL "\n";
+	print EMAIL "           OVERALL MESSAGE DELIVERY STATISTICS\n\n";
+	print EMAIL $overall;
+	print EMAIL "\n\n\n            MESSAGE FAILURE REPORT\n\n";
+	print EMAIL $failures;
+	print EMAIL "\n\n\n            MESSAGE DEFERRAL REPORT  \n\n";
+	print EMAIL $deferrals;
+	close EMAIL;
+
+	print "all done!\n";
+};
 
 =head2 CheckSetup
 
-	use Mail::Toaster::Logs;
-	CheckSetup($conf);
+Does some checks to make sure things are set up correctly.
+
+    $logs->CheckSetup($conf);
+
+tests: 
+
+  logs base directory exists
+  logs based owned by qmaill
+  counters directory exists
+  maillogs is installed
 
 =cut
 
-	my ($conf) = @_;
+sub CheckSetup($)
+{
+	my ($self, $conf) = @_;
 
-	my $logbase  = $conf->{'logs_base'};
-	my $counters = $conf->{'logs_counters'};
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
-	unless ($counters) { $counters = "counters"; };
+	my $logbase  = $conf->{'logs_base'};     $logbase  ||= $conf->{'qmail_log_base'};
+	my $counters = $conf->{'logs_counters'}; $counters ||= "counters";
+	$logbase  ||= "/var/log/mail";
 
-	my $user  = $conf->{'logs_user'};  unless ($user)  { $user  = "qmaill"   };
-	my $group = $conf->{'logs_group'}; unless ($group) { $group = "qnofiles" };
-
-	my $uid = getpwnam($user);
-	my $gid = getgrnam($group);
+	my $user  = $conf->{'logs_user'};     $user  ||= "qmaill"  ;
+	my $group = $conf->{'logs_group'};    $group ||= "qnofiles";
+	my $uid   = getpwnam($user);
+	my $gid   = getgrnam($group);
 
 	unless ( -e $logbase ) 
 	{
@@ -96,7 +149,9 @@ sub CheckSetup($)
 	} 
 	else 
 	{
-		chown($uid, $gid, $logbase) or warn "Couldn't chown $logbase to $uid: $!\n";
+		if ( $uid && -w $logbase ) {
+			chown($uid, $gid, $logbase) or warn "Couldn't chown $logbase to $uid: $!\n";
+		};
 	};
 
 	my $dir = "$logbase/$counters";
@@ -123,35 +178,40 @@ sub CheckSetup($)
 	};
 };
 
-sub CheckForFlags($$;$)
-{
-
 =head2 CheckForFlags
 
-	use Mail::Toaster::Logs;
-	CheckForFlags($conf, $prot, $debug);
+Do the appropriate things based on what argument is passed on the command line.
 
-$conf is a hashref of configuration values, assumed to be pulled from toaster-watcher.conf.$prot is the protocol we're supposed to work on. Do the appropriate things based on what argument is passed on the command line.
+	$logs->CheckForFlags($conf, $prot, $debug);
+
+$conf is a hashref of configuration values, assumed to be pulled from toaster-watcher.conf.
+
+$prot is the protocol we're supposed to work on. 
 
 =cut
 
-	my ($conf, $prot, $debug) = @_;
+sub CheckForFlags($$;$)
+{
+	my ($self, $conf, $prot, $debug) = @_;
 
-	my $syslog  = SetSyslog();
+	my $syslog  = $self->syslog_locate($debug);
 
 	print "CheckForFlags: prot is $prot\n" if $debug;
+
+	if ($debug) { $conf->{'debug'} = 1 };
 
 	if ($prot) 
 	{
 		print "working on protocol: $prot\n" if $debug;
-		if    ( $prot eq "smtp"         ) { CountSMTP  ( $conf, $syslog, $debug ) }
-		elsif ( $prot eq "rbl"          ) { CountRBL   ( $conf, $debug  ) }
-		elsif ( $prot eq "send"         ) { CountSend  ( $conf, $debug  ) }
-		elsif ( $prot eq "pop3"         ) { CountPOP3  ( $conf, $syslog, $debug ) } 
-		elsif ( $prot eq "imap"         ) { CountIMAP  ( $conf, $syslog, $debug ) } 
-		elsif ( $prot eq "spamassassin" ) { CountSpamA ( $conf, $syslog, $debug ) }
-		elsif ( $prot eq "qmailscanner" ) { CountQMS   ( $conf, $syslog, $debug ) }
-		elsif ( $prot eq "webmail"      ) { CountWebMail($conf, $syslog, $debug ) }; 
+		if    ( $prot eq "smtp"         ) { $self->smtp_count  ( $conf, $syslog ) }
+		elsif ( $prot eq "rbl"          ) { $self->rbl_count   ( $conf          ) }
+		elsif ( $prot eq "send"         ) { $self->send_count  ( $conf          ) }
+		elsif ( $prot eq "pop3"         ) { $self->pop3_count  ( $conf, $syslog ) } 
+		elsif ( $prot eq "imap"         ) { $self->imap_count  ( $conf, $syslog ) } 
+		elsif ( $prot eq "spamassassin" ) { $self->spama_count ( $conf, $syslog ) }
+		elsif ( $prot eq "qmailscanner" ) { $self->qms_count   ( $conf, $syslog ) }
+		elsif ( $prot eq "webmail"      ) { $self->webmail_count($conf, $syslog ) }
+		elsif ( $prot eq "yesterday"    ) { ReportYesterday ($conf      ) };
 	}
 	else
 	{
@@ -159,36 +219,42 @@ $conf is a hashref of configuration values, assumed to be pulled from toaster-wa
 		print "\nI need you to pass me a command like this:\n\n";
 		die "maillog <protocol> [-r] [-v]
 
-<protocol> is one of: smtp, rbl, send, pop3, imap, spamassassin, qmailscanner, webmail\n\n";
+<protocol> is one of: 
+
+          smtp - report SMTP AUTH attempts and successes
+           rbl - report RBL blocks
+          send - report qmail-send counters
+          pop3 - report pop3 counters
+          imap - report imap counters
+  spamassassin - report spamassassin counters
+  qmailscanner - report qmailscanner counters
+       webmail - count webmail authentications
+
+     yesterday - mail an activity report to the admin\n\n";
 	};
 };
 
-sub CountRBL($;$)
+sub rbl_count($)
 {
 
-=head2 CountRBL
-
-	use Mail::Toaster::Logs;
-	CountRBL($conf, $debug);
+=head2 rbl_count
 
 Count the number of connections we've blocked (via rblsmtpd) for each RBL that we use.
 
+	$logs->rbl_count($conf, $debug);
+
 =cut
 
-	my ($conf, $debug) = @_;
+	my ($self, $conf) = @_;
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $rbl_log   = $conf->{'logs_rbl_count'};
-	my $supervise = $conf->{'logs_supervise'};
-
-	unless ($logbase)   { $logbase   = "/var/log/mail"; };
-	unless ($counters)  { $counters  = "counters"; };
-	unless ($rbl_log)   { $rbl_log   = "smtp_rbl.txt"; };
-	unless ($supervise) { $supervise = "/var/qmail/supervise"; };
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};      $logbase   ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};  $counters  ||= "counters";
+	my $rbl_log   = $conf->{'logs_rbl_count'}; $rbl_log   ||= "smtp_rbl.txt";
+	my $supervise = $conf->{'logs_supervise'}; $supervise ||= "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$rbl_log";
-	my %spam      = ReadCounters($countfile, $debug);
+	my %spam      = $self->counter_read($countfile, $debug);
 
 	ProcessRblLogs(\%spam, $conf, "0", $debug, CheckLogFiles("$logbase/smtp/current") );
 
@@ -207,40 +273,35 @@ Count the number of connections we've blocked (via rblsmtpd) for each RBL that w
 	CompressYesterdaysLogfile( $conf, "smtplog" );
 };
 
-sub CountSMTP($$;$)
+sub smtp_count($$)
 {
 
-=head2 CountSMTP
+=head2 smtp_count
 
-	use Mail::Toaster::Logs;
-	CountSMTP($conf, $syslog, $debug);
+	$logs->smtp_count($conf, $syslog);
 
 Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd daemon.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $smtp_log  = $conf->{'logs_smtp_count'};
-	my $supervise = $conf->{'logs_supervise'};
-
-	unless ($logbase)   { $logbase   = "/var/log/mail"; };
-	unless ($counters)  { $counters  = "counters"; };
-	unless ($smtp_log)  { $smtp_log  = "smtp_rbl.txt"; };
-	unless ($supervise) { $supervise = "/var/qmail/supervise"; };
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
+	my $smtp_log  = $conf->{'logs_smtp_count'}; $smtp_log  ||= "smtp_rbl.txt";
+	my $supervise = $conf->{'logs_supervise'};  $supervise ||= "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$smtp_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	print "      SMTP Counts\n\n" if ($debug);
-	
+
 	my @logfiles = CheckLogFiles( $syslog );
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\nCountSMTP: Ack, no logfiles!\n\n";
+		warn "\nsmtp_count: Ack, no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -268,37 +329,31 @@ Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd da
 
 	print "smtp_auth_connect:$count{'connect'}:smtp_auth_success:$count{'success'}\n";
 
-	WriteCounters($countfile, %count);	
+	$self->counter_write($countfile, %count);	
 };
 
-sub CountSend($;$)
+sub send_count($)
 {
 
-=head2 CountSend
+=head2 send_count
 
-	use Mail::Toaster::Logs;
-	CountSend($conf, $debug);
+	$logs->send_count($conf);
 
 Count the number of messages we deliver, and a whole mess of stats from qmail-send.
 
 =cut
 
-	my ($conf, $debug) = @_;
+	my ($self, $conf) = @_;
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $send_log  = $conf->{'logs_send_count'};
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
+	my $send_log  = $conf->{'logs_send_count'}; $send_log ||= "send.txt";
 	my $isoqlog   = $conf->{'logs_isoqlog'};
-	my $supervise = $conf->{'logs_supervise'};
-
-	unless ($counters)  { $counters= "counters"; };
-	unless ($logbase)   { $logbase = "/var/log/mail"; };
-	unless ($send_log)  { $send_log = "send.txt"; };
-	unless ($isoqlog)   { $isoqlog = 1; };
-	unless ($supervise) { $supervise = "/var/qmail/supervise"; };
+	my $supervise = $conf->{'logs_supervise'};  $supervise = "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$send_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	ProcessSendLogs(0, $conf, \%count, $debug, CheckLogFiles("$logbase/send/current") );
 
@@ -320,45 +375,41 @@ Count the number of messages we deliver, and a whole mess of stats from qmail-se
 	RotateMailLogs( "$supervise/send/log" );
 	if ( $isoqlog ) 
 	{
-		my $isoqlogbin = FindTheBin("isoqlog");
-		SysCmd($isoqlogbin) if ( -x $isoqlogbin );
+		my $isoqlogbin = $utility->find_the_bin("isoqlog");
+		$utility->syscmd($isoqlogbin) if ( -x $isoqlogbin );
 	};
 
 	CompressYesterdaysLogfile( $conf, "sendlog" );
 	PurgeLastMonthLogs();
 };
 
-sub CountIMAP($$;$)
+sub imap_count($$)
 {
 
-=head2 CountIMAP
+=head2 imap_count
 
-	use Mail::Toaster::Logs;
-	CountIMAP($conf, $syslog, $debug);
+	$logs->imap_count($conf, $syslog);
 
 Count the number of connections and successful authentications via IMAP and IMAP-SSL.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 
 	my ($imap_success, $imap_connect, $imap_ssl_success, $imap_ssl_connect);
 	my @logfiles = CheckLogFiles( $syslog );
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $imap_log  = $conf->{'logs_imap_count'};
-
-	unless ($logbase)   { $logbase = "/var/log/mail"; };
-	unless ($counters)  { $counters= "counters"; };
-	unless ($imap_log)  { $imap_log = "imap.txt"; };
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
+	my $imap_log  = $conf->{'logs_imap_count'}; $imap_log ||= "imap.txt";
 
 	my $countfile = "$logbase/$counters/$imap_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n   CountIMAP ERROR: no logfiles!\n\n";
+		warn "\n   imap_count ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -397,40 +448,34 @@ Count the number of connections and successful authentications via IMAP and IMAP
 	print "connect_imap:$count{'imap_connect'}:connect_imap_ssl:$count{'imap_ssl_connect'}:" .
 		"imap_connect_success:$count{'imap_success'}:imap_ssl_success:$count{'imap_ssl_success'}\n";
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 };
 
-sub CountPOP3($$;$)
+sub pop3_count($$)
 {
 
-=head2 CountPOP3
+=head2 pop3_count
 
-	use Mail::Toaster::Logs;
-	CountPOP3($conf, $syslog, $debug);
+	$logs->pop3_count($conf, $syslog);
 
 Count the number of connections and successful authentications via POP3 and POP3-SSL.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 
 	my @logfiles = CheckLogFiles( $syslog );
 	my ($pop3_success, $pop3_connect, $pop3_ssl_success, $pop3_ssl_connect);
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $qpop_log  = $conf->{'logs_pop3_count'};
-	my $supervise = $conf->{'logs_supervise'};
-	my $pop3_logs = $conf->{'logs_pop3d'};
-
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
-	unless ($counters) { $counters = "counters"; };
-	unless ($qpop_log) { $qpop_log = "pop3.txt"; };
-	unless ($supervise) { $supervise = "/var/qmail/supervise"; };
-	unless ($pop3_logs) { $pop3_logs = "courier" };
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
+	my $qpop_log  = $conf->{'logs_pop3_count'}; $qpop_log  ||= "pop3.txt";
+	my $supervise = $conf->{'logs_supervise'};  $supervise ||= "/var/qmail/supervise";
+	my $pop3_logs = $conf->{'logs_pop3d'};      $pop3_logs ||= "courier";
 
 	my $countfile = "$logbase/$counters/$qpop_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	if ( $logfiles[0] eq "" ) 
 	{
@@ -483,7 +528,7 @@ Count the number of connections and successful authentications via POP3 and POP3
 
 	print "pop3_connect:$count{'pop3_connect'}:pop3_ssl_connect:$count{'pop3_ssl_connect'}:pop3_success:$count{'pop3_success'}:pop3_ssl_success:$count{'pop3_ssl_success'}\n";
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 
 	if ( $pop3_logs eq "qpop3d" ) 
 	{
@@ -492,34 +537,30 @@ Count the number of connections and successful authentications via POP3 and POP3
 	};
 };
 
-sub CountWebMail($$;$)
+sub webmail_count($$)
 {
 
-=head2 CountWebMail
+=head2 webmail_count
 
-	use Mail::Toaster::Logs;
-	CountWebMail($conf, $syslog, $debug);
+	$logs->webmail_count($conf, $syslog);
 
 Count the number of webmail authentications.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 	my ($success, $connect);
 
 	my @logfiles = CheckLogFiles( $syslog );
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $web_log   = $conf->{'logs_web_count'};
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};      $logbase  ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};  $counters ||= "counters";
+	my $web_log   = $conf->{'logs_web_count'}; $web_log  ||= "webmail.txt";
 	#my $supervise = $conf->{'logs_supervise'};
 
-	unless ($logbase)  { $logbase  = "/var/log/mail"; };
-	unless ($counters) { $counters = "counters"; };
-	unless ($web_log)  { $web_log  = "webmail.txt"; };
-
 	my $countfile = "$logbase/$counters/$web_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	if ( $logfiles[0] eq "" ) 
 	{
@@ -546,39 +587,35 @@ Count the number of webmail authentications.
 
 	print "connect:$count{'connect'}:success:$count{'success'}\n";
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 };
 
-sub CountSpamA($$;$)
+sub spama_count($$)
 {
 
-=head2 CountSpamA
+=head2 spama_count
 
-	use Mail::Toaster::Logs;
-	CountSpamA($conf, $syslog, $debug);
+	$logs->spama_count($conf, $syslog);
 
 Count statistics logged by SpamAssassin.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 	my ($sa_clean, $sa_spam, $sa_clean_score, $sa_spam_score, $sa_threshhold);
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $spam_log  = $conf->{'logs_spam_count'};
-
-	unless ($logbase)  { $logbase   = "/var/log/mail"; };
-	unless ($counters) { $counters  = "counters"; };
-	unless ($spam_log) { $spam_log  = "spam.txt"; };
+	my $debug     = $conf->{'debug'};
+	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
+	my $spam_log  = $conf->{'logs_spam_count'}; $spam_log  ||= "spam.txt";
 
 	my $countfile = "$logbase/$counters/$spam_log";
 	my @logfiles  = CheckLogFiles( $syslog );
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n   CountSpamAssassin ERROR: no logfiles!\n\n";
+		warn "\n   spamassassin_count ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -618,37 +655,32 @@ Count statistics logged by SpamAssassin.
 
 	print "sa_spam:$count{'sa_spam'}:sa_clean:$count{'sa_clean'}:sa_spam_score:$sa_spam_score:sa_clean_score:$sa_clean_score:sa_threshhold:$sa_threshhold\n";
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 };
 
-sub CountQMS($$;$)
+sub qms_count($$)
 {
 
-=head2 CountQMS
+=head2 qms_count
 
-	use Mail::Toaster::Logs;
-	CountQMS($conf, $syslog, $debug);
+	$logs->qms_count($conf, $syslog);
 
 Count statistics logged by qmail scanner.
 
 =cut
 
-	my ($conf, $syslog, $debug) = @_;
+	my ($self, $conf, $syslog) = @_;
 	my ($qs_clean, $qs_virus, $qs_all);
 
-	my $logbase    = $conf->{'logs_base'};
-	my $counters   = $conf->{'logs_counters'};
-	my $virus_log  = $conf->{'logs_virus_count'};
-
-	unless ($logbase)   { $logbase = "/var/log/mail"; };
-	unless ($counters)  { $counters = "counters" };
-	unless ($virus_log) { $virus_log = "virus.txt" };
-
+	my $debug      = $conf->{'debug'};
+	my $logbase    = $conf->{'logs_base'};        $logbase   ||= "/var/log/mail";
+	my $counters   = $conf->{'logs_counters'};    $counters  ||= "counters";
+	my $virus_log  = $conf->{'logs_virus_count'}; $virus_log ||= "virus.txt";
 	#my $supervise = $conf->{'logs_supervise'};
 
 	my $countfile = "$logbase/$counters/$virus_log";
 	my @logfiles  = CheckLogFiles( $syslog );
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	if ( $logfiles[0] eq "" ) 
 	{
@@ -675,7 +707,7 @@ Count statistics logged by qmail scanner.
 
 	print "qs_clean:$qs_clean:qs_virii:$qs_virus\n";
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 };
 
 sub RollSendLogs($;$)
@@ -683,29 +715,24 @@ sub RollSendLogs($;$)
 
 =head2 RollSendLogs
 
-	use Mail::Toaster::Logs;
-	RollSendLogs($conf, $debug);
+	$logs->RollSendLogs($conf, $debug);
 
 Roll the qmail-send multilog logs. Update the maillogs counter.
 
 =cut
 
-	my ($conf, $debug) = @_;
+	my ($self, $conf, $debug) = @_;
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $send_log  = $conf->{'logs_send_count'};
-
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
-	unless ($counters) { $counters = "counters"; };
-	unless ($send_log) { $send_log = "send.txt"; };
+	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
+	my $send_log  = $conf->{'logs_send_count'}; $send_log ||= "send.txt";
 
 	my $countfile = "$logbase/$counters/$send_log";
-	my %count     = ReadCounters($countfile, $debug);
+	my %count     = $self->counter_read($countfile, $debug);
 
 	ProcessSendLogs("1", $conf, \%count, $debug, CheckLogFiles("$logbase/send/current") );
 
-	WriteCounters($countfile, %count);
+	$self->counter_write($countfile, %count);
 };
 
 sub RollRblLogs($;$)
@@ -713,30 +740,35 @@ sub RollRblLogs($;$)
 
 =head2 RollRblLogs
 
-	use Mail::Toaster::Logs;
-	RollRblLogs($conf, $debug);
+	$logs->RollRblLogs($conf, $debug);
 
 Roll the qmail-smtpd logs (without 2>&1 output generated by rblsmtpd).
 
 =cut
 
-	my ($conf, $debug) = @_;
+	my ($self, $conf, $debug) = @_;
 
-	my $logbase   = $conf->{'logs_base'};
-	my $counters  = $conf->{'logs_counters'};
-	my $rbl_log   = $conf->{'logs_rbl_count'};
+	my $logbase   = $conf->{'logs_base'};      $logbase  ||= "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'};  $counters ||= "counters";
+	my $rbl_log   = $conf->{'logs_rbl_count'}; $rbl_log  ||= "smtp_rbl.txt";
 
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
-	unless ($counters) { $counters = "counters"; };
-	unless ($rbl_log)  { $rbl_log =  "smtp_rbl.txt" };
-
-	my $cronolog  = FindTheBin("cronolog");
+	my $cronolog  = $utility->find_the_bin("cronolog");
 	my $countfile = "$logbase/$counters/$rbl_log";
-	my %spam      = ReadCounters($countfile, $debug);
+	my %spam      = $self->counter_read($countfile, $debug);
 
-	ProcessRblLogs(\%spam, $conf, "1", $debug, "| $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
+	my $tai64nlocal;
+	if ( $conf->{'logs_archive_untai'} ) {
+		my $taibin = $utility->find_the_bin("tai64nlocal");
+		if ( $taibin && -x $taibin ) { $tai64nlocal = $taibin; };
+	};
 
-	WriteCounters($countfile, %spam);
+	if ($tai64nlocal) {
+		ProcessRblLogs(\%spam, $conf, "1", $debug, "| $tai64nlocal | $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
+	} else {
+		ProcessRblLogs(\%spam, $conf, "1", $debug, "| $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
+	};
+
+	$self->counter_write($countfile, %spam);
 };
 
 sub RollPOP3Logs($;$)
@@ -744,24 +776,22 @@ sub RollPOP3Logs($;$)
 
 =head2 RollPOP3Logs
 
-	use Mail::Toaster::Logs;
-	RollPOP3Logs($conf);
+	$logs->RollPOP3Logs($conf);
 
 These logs will only exist if tcpserver debugging is enabled. Rolling them is not likely to be necessary but the code is here should it ever prove necessary.
 
 =cut
 
 #	my $countfile = "$logbase/$counters/$qpop_log";
-#	%count        = ReadCounters($countfile, $debug);
+#	%count        = $self->counter_read($countfile, $debug);
 
-	my ($conf, $debug) = @_;
+	my ($self, $conf, $debug) = @_;
 
-	my $logbase = $conf->{'logs_base'};
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
+	my $logbase = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
 
-	ProcessPOP3Logs("1", CheckLogFiles("$logbase/pop3/current") );
+	ProcessPOP3Logs($conf, "1", CheckLogFiles("$logbase/pop3/current") );
 
-#	WriteCounters($countfile, %count);
+#	$self->counter_write($countfile, %count);
 #	RotateMailLogs( "$supervise/pop3/log" );
 	CompressYesterdaysLogfile( $conf, "pop3log" );
 };
@@ -771,7 +801,6 @@ sub CompressYesterdaysLogfile($$;$)
 
 =head2 CompressYesterdaysLogfile
 
-	use Mail::Toaster::Logs;
 	CompressYesterdaysLogfile($conf, $file, $debug);
 
 You'll have to guess what this does. ;)
@@ -781,11 +810,10 @@ You'll have to guess what this does. ;)
 	my ($conf, $file, $debug) = @_;
 	my ($dd, $mm, $yy) = SetupDateVariables(-86400);
 
-	my $logbase = $conf->{'logs_base'};
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
+	my $logbase = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
 
 	my $log  = "$logbase/$yy/$mm/$dd/$file";
-	my $gzip = FindTheBin("gzip");
+	my $gzip = $utility->find_the_bin("gzip");
 
 	if ( -s $log && ! -e "$log.gz") 
 	{
@@ -805,7 +833,6 @@ sub PurgeLastMonthLogs($$;$)
 
 =head2 PurgeLastMonthLogs
 
-	use Mail::Toaster::Logs;
 	PurgeLastMonthLogs($conf, $protdir, $debug);
 
 Keep guessing... 
@@ -816,8 +843,7 @@ Keep guessing...
 
 	my ($dd, $mm, $yy) = SetupDateVariables(-2592000);
 
-	my $logbase = $conf->{'logs_base'};
-	unless ($logbase)  { $logbase = "/var/log/mail"; };
+	my $logbase = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
 
 	my $last_m_log = "$logbase/$yy/$mm";
 
@@ -838,7 +864,6 @@ sub RotateMailLogs(@)
 
 =head2 RotateMailLogs
 
-	use Mail::Toaster::Logs;
 	RotateMailLogs(@dirs);
 
 Tell multilog to rotate the maillogs for the array of dirs supplied.
@@ -847,8 +872,8 @@ Tell multilog to rotate the maillogs for the array of dirs supplied.
 
 	my (@dirs) = @_;
 
-	my $svc        = FindTheBin("svc");
-	foreach my $dir ( @dirs ) { system "$svc -a $dir" };
+	my $svc = $utility->find_the_bin("svc");
+	for ( @dirs ) { system "$svc -a $_" };
 };
  
 sub SetupDateVariables($)
@@ -856,7 +881,6 @@ sub SetupDateVariables($)
 
 =head2 SetupDateVariables
 
-	use Mail::Toaster::Logs;
 	SetupDateVariables($offset);
 
 =cut
@@ -865,7 +889,7 @@ sub SetupDateVariables($)
 
 	$offset = 0 unless ($offset);
 
-	MATT::Perl::LoadModule("Date::Format");
+	$perl->module_load( {module=>"Date::Format"} );
 
 	my $dd = Date::Format::time2str( "%d", (time + $offset) );
 	my $mm = Date::Format::time2str( "%m", (time + $offset) );
@@ -879,7 +903,6 @@ sub CheckLogFiles(@)
 
 =head2 CheckLogFiles
 
-	use Mail::Toaster::Logs;
 	CheckLogFiles(@check);
 
 =cut
@@ -889,7 +912,8 @@ sub CheckLogFiles(@)
 
 	foreach my $logfile ( @check ) 
 	{
-		if ( -s $logfile ) { push @result, $logfile };
+		if ( -e $logfile ) { push @result, $logfile };
+#		if ( -s $logfile ) { push @result, $logfile };
 	};
 	return @result;
 };
@@ -902,7 +926,7 @@ sub ProcessPOP3Logs($$@)
 =cut
 
 	my ($conf, $roll, @files) = @_;
-	my $cronolog   = FindTheBin("cronolog");
+	my $cronolog   = $utility->find_the_bin("cronolog");
 
 	if ($roll) 
 	{
@@ -986,15 +1010,25 @@ sub ProcessSendLogs($$$$@)
 
 	my ($roll, $conf, $count, $debug, @files) = @_;
 
-	my $logbase  = $conf->{'logs_base'};
-	unless ($logbase) { $logbase = "/var/log/mail"; };
+	my $logbase  = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
 
-	my $cronolog   = FindTheBin("cronolog");
+	my $cronolog   = $utility->find_the_bin("cronolog");
 	unless ( -x $cronolog ) { carp "Couldn't find cronolog!\n"; };
+
+	my $tai64nlocal;
+	if ( $conf->{'logs_archive_untai'} ) {
+		my $taibin = $utility->find_the_bin("tai64nlocal");
+		if ( $taibin && -x $taibin ) { $tai64nlocal = $taibin; };
+	};
 
 	if ($roll) 
 	{
-		open OUT, "| $cronolog $logbase/\%Y/\%m/\%d/sendlog";
+		if ( $tai64nlocal ) {
+			open OUT, "| $tai64nlocal | $cronolog $logbase/\%Y/\%m/\%d/sendlog";
+		} else {
+			open OUT, "| $cronolog $logbase/\%Y/\%m/\%d/sendlog";
+		};
+
 		while (<STDIN>) 
 		{
 			chomp;
@@ -1076,30 +1110,29 @@ sub CountSendLine($$)
 	};
 };
 
-sub ReadCounters($;$)
+sub counter_read($;$)
 {
 
-=head2 ReadCounters
+=head2 counter_read
 
-	use Mail::Toster::Logs;
-	ReadCounters($file, $debug);
+	$logs->counter_read($file, $debug);
 
 $file is the file to read from. $debug is optional, it prints out verbose messages during the process. The sub returns a hashref full of key value pairs.
 
 =cut
 
-	my ($file, $debug) = @_;
+	my ($self, $file, $debug) = @_;
 	my %hash;
 
-	print "ReadCounters: fetching counters from $file..." if $debug;
+	print "counter_read: fetching counters from $file..." if $debug;
 
-	my @lines = ReadFile($file);
+	my @lines = $utility->file_read($file);
 	unless ( $lines[0]) 
 	{
 		print "\n\nWARN: the file $file is empty! Creating...";
 
 		my %spam = ( "created" => time() );
-		WriteCounters($file, %spam);
+		$self->counter_write($file, %spam);
 
 		print "done.\n";
 		return 0;
@@ -1118,32 +1151,31 @@ $file is the file to read from. $debug is optional, it prints out verbose messag
 	return %hash;
 };
 
-sub WriteCounters($%)
+sub counter_write($%)
 {
 
-=head2 WriteCounters
+=head2 counter_write
 
-	use Mail::Toster::Logs;
-	WriteCounters($file, %values);
+	$logs->counter_write($file, %values);
 
 $file is the logfile to write to.
 
 %values is a hash of value=count style pairs.
 
+returns 1 if writable, 0 if not.
+
 =cut
 
-	my ($log, %hash) = @_;
+	my ($self, $log, %hash) = @_;
 	my @lines;
 
-	if ( -d $log ) { print "FAILURE: WriteCounters $log is a directory!\n"; };
+	if ( -d $log ) { print "FAILURE: counter_write $log is a directory!\n"; };
+
+	return 0 unless $utility->file_check_writable($log);
 
 	unless ( -e $log ) {
-		print "WARNING: WriteCounters $log does not exist! Creating...";
+		print "WARNING: counter_write $log does not exist! Creating...";
 	};
-
-	unless ( -w  $log) {
-		print "FAILURE: WriteCounters $log is  not writable!\n";
-	}
 
 	# it might be necessary to wrap the counters at some point
 	#
@@ -1161,44 +1193,69 @@ $file is the logfile to write to.
 		};
 	};
 
-	WriteFile($log, @lines);
+	my $r = $utility->file_write($log, @lines);
+	$r ? return 1 : return 0;
 };
 
-sub WhatAmI(;$)
+sub what_am_i(;$)
 {
 
-=head2 WhatAmI
+=head2 what_am_i
 
-	use Mail::Toaster::Logs;
-	WhatAmI(;$debug)
+	$logs->what_am_i(;$debug)
 
 Determine what the filename of this program is. This is used in maillogs, as maillogs gets renamed in order to function as a log post-processor for multilog.
 
 =cut
 
-	my ($debug) = @_;
+	my ($self, $debug) = @_;
 
-	print "WhatAmI: $0 \n" if $debug;
-	$0 =~ /([a-zA-Z0-9]*)$/;
-	print "WhatAmI: returning $1\n" if $debug;
+	print "what_am_i: $0 \n" if $debug;
+	$0 =~ /([a-zA-Z0-9\.]*)$/;
+	print "what_am_i: returning $1\n" if $debug;
 	return $1;
 };
 
-sub SetSyslog()
+sub syslog_locate(;$)
 {
 
-=head2 SetSyslog
+=head2 syslog_locate
 
-	use Mail::Toaster::Logs;
-	SetSyslog();
+	$logs->syslog_locate($debug);
 
 Determine where syslog.mail is logged to. Right now we just test based on the OS you're running on and assume you've left it in the default location. This is easy to expand later.
 
 =cut
 
-	if    ( (uname)[0] eq "FreeBSD" ) { return "/var/log/maillog"; }
-	elsif ( (uname)[0] eq "Darwin"  ) { return "/var/log/mail.log" }
-	else  { return "/var/log/maillog" };
+	my ($self, $debug) = @_;
+
+	if    ( $os eq "freebsd" )
+	{
+		if ( -e "/var/log/maillog" ) {
+			print "syslog_locate: FreeBSD detected...using /var/log/maillog\n" if $debug;
+			return "/var/log/maillog"; 
+		} else {
+			croak "syslog_locate: can't find your syslog mail log\n";
+		};
+	}
+	elsif ( $os eq "darwin"  ) 
+	{ 
+		if ( -e "/var/log/mail.log" ) {
+			print "syslog_locate: Darwin detected...using /var/log/mail.log\n" if $debug;
+			return "/var/log/mail.log";
+		} else {
+			croak "syslog_locate: can't find your syslog mail log\n";
+		};
+	}
+	else  
+	{ 
+		if ( -e "/var/log/maillog" ) {
+			print "syslog_locate: Darwin detected...using /var/log/mail.log\n" if $debug;
+			return "/var/log/maillog";
+		} else {
+			croak "syslog_locate: can't find your syslog mail log\n";
+		};
+	};
 };
 
 1;
@@ -1243,9 +1300,17 @@ Mail::Toaster::Qmail, Mail::Toaster::Setup
 
 =head1 COPYRIGHT
 
-Copyright 2003, The Network People, Inc.
+Copyright (c) 2004, The Network People, Inc.
+All rights reserved.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut

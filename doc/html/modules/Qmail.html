@@ -15,28 +15,35 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#methods">METHODS</a></li>
 	<ul>
 
-		<li><a href="#getlistofrwls">GetListOfRWLs</a></li>
-		<li><a href="#testeachrbl">TestEachRBL</a></li>
-		<li><a href="#getlistofrbls">GetListOfRBLs</a></li>
-		<li><a href="#buildsendrun">BuildSendRun</a></li>
-		<li><a href="#buildpop3run">BuildPOP3Run</a></li>
-		<li><a href="#testsmtpdconfigvalues">TestSmtpdConfigValues</a></li>
-		<li><a href="#setservicedir">SetServiceDir</a></li>
-		<li><a href="#buildsmtprun">BuildSmtpRun</a></li>
-		<li><a href="#buildsubmitrun">BuildSubmitRun</a></li>
-		<li><a href="#installqmailservicerun">InstallQmailServiceRun</a></li>
-		<li><a href="#restartqmailsmtpd">RestartQmailSmtpd</a></li>
-		<li><a href="#stopqmailsend">StopQmailSend</a></li>
-		<li><a href="#startqmailsend">StartQmailSend</a></li>
-		<li><a href="#processqmailqueue">ProcessQmailQueue</a></li>
-		<li><a href="#checkrcpthosts">CheckRcpthosts</a></li>
-		<li><a href="#configqmail">ConfigQmail</a></li>
-		<li><a href="#configureqmailcontrol">ConfigureQmailControl</a></li>
-		<li><a href="#installqmailsuperviserunfiles">InstallQmailSuperviseRunFiles</a></li>
-		<li><a href="#installqmailsuperviselogrunfiles">InstallQmailSuperviseLogRunFiles</a></li>
-		<li><a href="#getdomainsfromassign">GetDomainsFromAssign</a></li>
+		<li><a href="#new">new</a></li>
+		<li><a href="#netqmail_virgin">netqmail_virgin</a></li>
+		<li><a href="#set_supervise_dir">set_supervise_dir</a></li>
+		<li><a href="#netqmail">netqmail</a></li>
+		<li><a href="#install_qmail">install_qmail</a></li>
+		<li><a href="#get_list_of_rwls">get_list_of_rwls</a></li>
+		<li><a href="#test_each_rbl">test_each_rbl</a></li>
+		<li><a href="#get_list_of_rbls">get_list_of_rbls</a></li>
+		<li><a href="#build_send_run">build_send_run</a></li>
+		<li><a href="#build_pop3_run">build_pop3_run</a></li>
+		<li><a href="#test_smtpd_config_values">test_smtpd_config_values</a></li>
+		<li><a href="#set_service_dir">set_service_dir</a></li>
+		<li><a href="#build_smtp_run">build_smtp_run</a></li>
+		<li><a href="#build_submit_run">build_submit_run</a></li>
+		<li><a href="#install_qmail_service_run">install_qmail_service_run</a></li>
+		<li><a href="#smtpd_restart">smtpd_restart</a></li>
+		<li><a href="#restart">restart</a></li>
+		<li><a href="#send_stop">send_stop</a></li>
+		<li><a href="#send_start">send_start</a></li>
+		<li><a href="#queue_process">queue_process</a></li>
+		<li><a href="#check_rcpthosts">check_rcpthosts</a></li>
+		<li><a href="#config">config</a></li>
+		<li><a href="#configure_qmail_control">configure_qmail_control</a></li>
+		<li><a href="#install_supervise_run">install_supervise_run</a></li>
+		<li><a href="#install_supervise_log_run">install_supervise_log_run</a></li>
+		<li><a href="#get_domains_from_assign">get_domains_from_assign</a></li>
 	</ul>
 
 	<li><a href="#author">AUTHOR</a></li>
@@ -61,203 +68,262 @@
 </p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
-<p>This module has all sorts of goodies, the most useful of which are the Build????Run modules which build your qmail control files for you.</p>
+<p>This module has all sorts of goodies, the most useful of which are the build_????_run modules which build your qmail control files for you.</p>
 <p>
 </p>
-<h2><a name="getlistofrwls">GetListOfRWLs</a></h2>
-<pre>
-        use Mail::Toaster::Qmail
-        my $list = GetListOfRWLs($conf, $debug);</pre>
-<p>Here we collect a list of the RWLs from the configuration file that get's passed to us. We return an arrayref with a list of the enabled ones.</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
 <p>
 </p>
-<h2><a name="testeachrbl">TestEachRBL</a></h2>
-<pre>
-        use Mail::Toaster::Qmail
-        my $list = TestEachRBL($arrayref, $debug);</pre>
-<p>We get a list of RBL's in an arrayref and we run some tests on them to determine if they are working correctly. We return a list of the correctly functioning RBLs.</p>
-<p>
-</p>
-<h2><a name="getlistofrbls">GetListOfRBLs</a></h2>
-<pre>
-        use Mail::Toaster::Qmail
-        my $list = GetListOfRBLs($arrayref, $debug);</pre>
-<p>We get passwd a configuration file (toaster-watcher.conf) and from it we extract all the RBL's the user has selected and return them as an array ref.</p>
-<p>
-</p>
-<h2><a name="buildsendrun">BuildSendRun</a></h2>
+<h2><a name="new">new</a></h2>
+<p>To use any of the methods following, you need to create a qmail object:</p>
 <pre>
         use Mail::Toaster::Qmail;
-        if ( BuildSendRun($conf, $file, $debug) ) { print &quot;success&quot;};</pre>
-<p>BuildSendRun generates a supervise run file for qmail-send. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
+        my $qmail = Mail::Toaster::Qmail-&gt;new();</pre>
+<p>
+</p>
+<h2><a name="netqmail_virgin">netqmail_virgin</a></h2>
+<p>Builds and installs a pristine net-qmail. This is necessary to resolve a chicken and egg problem. You can't apply the toaster patches (specifically chkuser) against NetQmail until vpopmail is installed, and you can't install vpopmail without qmail being installed. After installing this, and then vpopmail, you can rebuild NetQmail with the toaster patches.</p>
+<pre>
+        $qmail-&gt;netqmail_virgin($conf, $package);</pre>
+<p>$conf is a hash of values from toaster-watcher.conf used to determine how to configure qmail.</p>
+<p>$package is the name of the program. It defaults to ``qmail-1.03''</p>
+<p>
+</p>
+<h2><a name="set_supervise_dir">set_supervise_dir</a></h2>
+<pre>
+        my $dir = $qmail-&gt;set_supervise_dir($conf, &quot;smtp&quot;, $debug);</pre>
+<p>This sub just sets the supervise directory used by the various qmail
+services (qmail-smtpd, qmail-send, qmail-pop3d, qmail-submit). It sets
+the values according to your preferences in toaster-watcher.conf. If
+any settings are missing from the config, it chooses reasonable defaults.</p>
+<p>This is used primarily to allow you to set your mail system up in ways
+that are a different than mine, like a LWQ install.</p>
+<p>
+</p>
+<h2><a name="netqmail">netqmail</a></h2>
+<p>Builds net-qmail with patches (based on your settings in toaster-watcher.conf), installs the SSL certs, adjusts the permissions of several files that need it.</p>
+<pre>
+        $qmail-&gt;netqmail($conf, $package);</pre>
+<p>$conf is a hash of values from toaster-watcher.conf</p>
+<p>$package is the name of the program. It defaults to ``qmail-1.03''</p>
+<p>Patch info is here: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/">http://www.tnpi.biz/internet/mail/toaster/patches/</a></p>
+<p>
+</p>
+<h2><a name="install_qmail">install_qmail</a></h2>
+<p>Builds qmail and installs qmail with patches (based on your settings in toaster-watcher.conf), installs the SSL certs, adjusts the permissions of several files that need it.</p>
+<pre>
+        $qmail-&gt;install_qmail($conf, $package);</pre>
+<p>$conf is a hash of values from toaster-watcher.conf</p>
+<p>$package is the name of the program. It defaults to ``qmail-1.03''</p>
+<p>Patch info is here: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/">http://www.tnpi.biz/internet/mail/toaster/patches/</a></p>
+<p>
+</p>
+<h2><a name="get_list_of_rwls">get_list_of_rwls</a></h2>
+<pre>
+        my $selected = $qmail-&gt;get_list_of_rwls($conf, $debug);</pre>
+<p>Here we collect a list of the RWLs from the configuration file that get's passed to us.</p>
+<p>returns an arrayref with a list of the enabled list from your config file.</p>
+<p>
+</p>
+<h2><a name="test_each_rbl">test_each_rbl</a></h2>
+<pre>
+        my $available = $qmail-&gt;test_each_rbl($selected, $debug);</pre>
+<p>We get a list of RBL's in an arrayref and we run some tests on them to determine if they are working correctly.</p>
+<p>returns a list of the correctly functioning RBLs.</p>
+<p>
+</p>
+<h2><a name="get_list_of_rbls">get_list_of_rbls</a></h2>
+<pre>
+        my $selected = $qmail-&gt;get_list_of_rbls($arrayref, $debug);</pre>
+<p>We get passed a configuration file (toaster-watcher.conf) and from it we extract all the RBL's the user has selected.</p>
+<p>returns an array ref.</p>
+<p>
+</p>
+<h2><a name="build_send_run">build_send_run</a></h2>
+<pre>
+        $qmail-&gt;build_send_run($conf, $file, $debug) ? print &quot;success&quot;;</pre>
+<p>build_send_run generates a supervise run file for qmail-send. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from toaster-watcher.conf. I typically use it like this:</p>
 <pre>
         my $file = &quot;/tmp/toaster-watcher-send-runfile&quot;;
-        if ( BuildSendRun($conf, $file ) )
+        if ( $qmail-&gt;build_send_run($conf, $file ) )
         {
-                InstallQmailServiceRun($file, &quot;$supervise/send/run&quot;);
+                $qmail-&gt;install_qmail_service_run( {file=&gt;$file, service=&gt;&quot;send&quot;}, $conf);
+                $qmail-&gt;restart($conf, $debug);
         };</pre>
 <p>If it succeeds in building the file, it will install it. You can optionally restart qmail after installing a new run file.</p>
 <p>
 </p>
-<h2><a name="buildpop3run">BuildPOP3Run</a></h2>
+<h2><a name="build_pop3_run">build_pop3_run</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        if ( BuildPOP3Run($conf, $file, $debug) ) { print &quot;success&quot;};</pre>
+        $qmail-&gt;build_pop3_run($conf, $file, $debug) ? print &quot;success&quot;;</pre>
 <p>Generate a supervise run file for qmail-pop3d. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
 <pre>
         my $file = &quot;/tmp/toaster-watcher-pop3-runfile&quot;;
-        if ( BuildPOP3Run($conf, $file ) )
+        if ( $qmail-&gt;build_pop3_run($conf, $file ) )
         {
-                InstallQmailServiceRun($file, &quot;$supervise/pop3/run&quot;);
+                $qmail-&gt;install_qmail_service_run( {file=&gt;$file, service=&gt;&quot;pop3&quot;}, $conf);
         };</pre>
 <p>If it succeeds in building the file, it will install it. You can optionally restart the service after installing a new run file.</p>
 <p>
 </p>
-<h2><a name="testsmtpdconfigvalues">TestSmtpdConfigValues</a></h2>
-<p>
-</p>
-<h2><a name="setservicedir">SetServiceDir</a></h2>
-<p>This is necessary because things such as service directories are now in /var by default but older versions of my toaster installed them in /. This will detect and adjust for that.</p>
-<p>
-</p>
-<h2><a name="buildsmtprun">BuildSmtpRun</a></h2>
+<h2><a name="test_smtpd_config_values">test_smtpd_config_values</a></h2>
+<p>Runs the following tests:</p>
 <pre>
-        use Mail::Toaster::Qmail;
-        if ( BuildSmtpRun($conf, $file, $debug) ) { print &quot;success&quot;};</pre>
+  make sure qmail_dir exists
+  make sure vpopmail home dir exists
+  make sure qmail_supervise is not a directory</pre>
+<p>
+</p>
+<h2><a name="set_service_dir">set_service_dir</a></h2>
+<p>This is necessary because things such as service directories are now in /var by default but older versions of my toaster installed them in /. This will detect and adjust for that.</p>
+<pre>
+  $qmail-&gt;set_service_dir($conf, $prot);</pre>
+<p>$prot is the protocol (smtp, pop3, submit, send).</p>
+<p>returned is the directory</p>
+<p>
+</p>
+<h2><a name="build_smtp_run">build_smtp_run</a></h2>
+<pre>
+        if ( $qmail-&gt;build_smtp_run($conf, $file, $debug) ) { print &quot;success&quot; };</pre>
 <p>Generate a supervise run file for qmail-smtpd. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
 <pre>
         my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;
-        if ( BuildSmtpRun($conf, $file ) )
+        if ( $qmail-&gt;build_smtp_run($conf, $file ) )
         {
-                InstallQmailServiceRun($file, &quot;$supervise/smtp/run&quot;);
+                $qmail-&gt;install_qmail_service_run( {file=&gt;$file, service=&gt;&quot;smtp&quot;}, $conf);
         };</pre>
 <p>If it succeeds in building the file, it will install it. You can optionally restart the service after installing a new run file.</p>
 <p>
 </p>
-<h2><a name="buildsubmitrun">BuildSubmitRun</a></h2>
+<h2><a name="build_submit_run">build_submit_run</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        if ( BuildSubmitRun($conf, $file, $debug) ) { print &quot;success&quot;};</pre>
+        if ( $qmail-&gt;build_submit_run($conf, $file, $debug) ) { print &quot;success&quot;};</pre>
 <p>Generate a supervise run file for qmail-smtpd running on submit. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
 <pre>
         my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;
-        if ( BuildSubmitRun($conf, $file ) )
+        if ( $qmail-&gt;build_submit_run($conf, $file ) )
         {
-                InstallQmailServiceRun($file, &quot;$supervise/submit/run&quot;);
+                $qmail-&gt;install_qmail_service_run( {file=&gt;$file, service=&gt;&quot;submit&quot;}, $conf);
         };</pre>
 <p>If it succeeds in building the file, it will install it. You can optionally restart the service after installing a new run file.</p>
 <p>
 </p>
-<h2><a name="installqmailservicerun">InstallQmailServiceRun</a></h2>
+<h2><a name="install_qmail_service_run">install_qmail_service_run</a></h2>
+<p>Installs a new supervise/run file for a supervised service.</p>
 <pre>
-        use Mail::Toaster::Qmail;</pre>
+        my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;</pre>
 <pre>
-        my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;
-        if ( BuildSmtpRun($conf, $file ) )
+        if ( $qmail-&gt;build_smtp_run($conf, $file, $debug ) )
         {
-                InstallQmailServiceRun($file, &quot;$supervise/smtp/run&quot;);
+                $qmail-&gt;install_qmail_service_run( {file=&gt;$file, service=&gt;&quot;smtp&quot;}, $debug);
         };</pre>
-<p>The code says it as well as I can.</p>
+<p>Input is a hashref with these values:</p>
+<pre>
+  file    - new file that was created (typically /tmp/something) 
+  service - one of (smtp, send, pop3, submit)</pre>
+<p>returns 1 on success, 0 on error</p>
 <p>
 </p>
-<h2><a name="restartqmailsmtpd">RestartQmailSmtpd</a></h2>
+<h2><a name="smtpd_restart">smtpd_restart</a></h2>
 <pre>
-        RestartQmailSmtpd($dir, $debug)</pre>
-<p>Use RestartQmailSmtpd to restart the qmail-smtpd process. It will send qmail-smtpd the TERM signal causing it to exit. It will restart immediately (supervise).</p>
+        $qmail-&gt;smtpd_restart($conf, &quot;smtp&quot;, $debug)</pre>
+<p>Use smtpd_restart to restart the qmail-smtpd process. It will send qmail-smtpd the TERM signal causing it to exit. It will restart immediately because it's supervised.</p>
 <p>
 </p>
-<h2><a name="stopqmailsend">StopQmailSend</a></h2>
+<h2><a name="restart">restart</a></h2>
 <pre>
-        StopQmailSend</pre>
-<p>Use StopQmailSend to quit the qmail-send process. It will send qmail-send the TERM signal and then wait until it's shut down before returning. If qmail-send fails to shut down within 100 seconds, then we force kill it, causing it to abort any outbound SMTP sessions that are active. This is safe, as qmail will attempt to deliver them again, and again until it succeeds.</p>
+        $qmail-&gt;restart()</pre>
+<p>Use to restart the qmail-send process. It will send qmail-send the TERM signal and then return.</p>
 <p>
 </p>
-<h2><a name="startqmailsend">StartQmailSend</a></h2>
+<h2><a name="send_stop">send_stop</a></h2>
 <pre>
-        StartQmailSend - Start up the qmail-send process.</pre>
+        $qmail-&gt;send_stop()</pre>
+<p>Use send_stop to quit the qmail-send process. It will send qmail-send the TERM signal and then wait until it's shut down before returning. If qmail-send fails to shut down within 100 seconds, then we force kill it, causing it to abort any outbound SMTP sessions that are active. This is safe, as qmail will attempt to deliver them again, and again until it succeeds.</p>
+<p>
+</p>
+<h2><a name="send_start">send_start</a></h2>
+<pre>
+        $qmail-&gt;send_start() - Start up the qmail-send process.</pre>
 <p>After starting up qmail-send, we verify that it's running before returning.</p>
 <p>
 </p>
-<h2><a name="processqmailqueue">ProcessQmailQueue</a></h2>
+<h2><a name="queue_process">queue_process</a></h2>
 <pre>
 
-ProcessQmailQueue - Tell qmail to process the queue immediately</pre>
+queue_process - Tell qmail to process the queue immediately</pre>
 <p>
 </p>
-<h2><a name="checkrcpthosts">CheckRcpthosts</a></h2>
+<h2><a name="check_rcpthosts">check_rcpthosts</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        CheckRcpthosts($qmaildir);</pre>
+        $qmail-&gt;check_rcpthosts($qmaildir);</pre>
 <p>Checks the rcpthosts file and compare it to users/assign. Any zones that are in users/assign but not in control/rcpthosts or control/morercpthosts will be presented as a list and you'll be expected to add them to morercpthosts.</p>
 <p>
 </p>
-<h2><a name="configqmail">ConfigQmail</a></h2>
+<h2><a name="config">config</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        ConfigQmail($qmaildir, $host, $postmaster, $conf);</pre>
+        $qmail-&gt;config($conf);</pre>
 <p>Qmail is fantastic because it's so easy to configure. Just edit files and put the right values in them. However, many find that a problem because it's not so easy to always know the sytax for what goes in every file, and exactly where that file might be. This sub takes your values from toaster-watcher.conf and puts them where they need to be. It modifies the following files:</p>
 <pre>
- /var/qmail/control/concurrencyremote
- /var/qmail/control/me
- /var/qmail/control/tarpitcount
- /var/qmail/control/tarpitdelay
- /var/qmail/control/sql
- /var/qmail/alias/.qmail-postmaster
- /var/qmail/alias/.qmail-root
- /var/qmail/alias/.qmail-mailer-daemon</pre>
+   /var/qmail/control/concurrencyremote
+   /var/qmail/control/me
+   /var/qmail/control/tarpitcount
+   /var/qmail/control/tarpitdelay
+   /var/qmail/control/sql
+   /var/qmail/alias/.qmail-postmaster
+   /var/qmail/alias/.qmail-root
+   /var/qmail/alias/.qmail-mailer-daemon</pre>
+<p>If you don't have toaster-watcher installed, it prompts you for each value.</p>
 <p>
 </p>
-<h2><a name="configureqmailcontrol">ConfigureQmailControl</a></h2>
+<h2><a name="configure_qmail_control">configure_qmail_control</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        ConfigureQmailControl($conf);</pre>
+        $qmail-&gt;configure_qmail_control($conf);</pre>
 <p>Installs the qmail control script as well as the startup (services.sh) script.</p>
 <p>
 </p>
-<h2><a name="installqmailsuperviserunfiles">InstallQmailSuperviseRunFiles</a></h2>
+<h2><a name="install_supervise_run">install_supervise_run</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        InstallQmailSuperviseRunFiles($conf, $supervise);</pre>
-<p>$conf is a hashref of values pulled from toaster-watcher.conf. $supervise is your qmail supervise directory.</p>
+        $qmail-&gt;install_supervise_run($conf);</pre>
+<p>$conf is a hashref of values pulled from toaster-watcher.conf.</p>
 <p>Generates the qmail/supervise/*/run files based on your settings.</p>
 <p>
 </p>
-<h2><a name="installqmailsuperviselogrunfiles">InstallQmailSuperviseLogRunFiles</a></h2>
+<h2><a name="install_supervise_log_run">install_supervise_log_run</a></h2>
 <pre>
-        use Mail::Toaster::Qmail;
-        InstallQmailSuperviseLogRunFiles($conf);</pre>
-<p>$conf is a hash of values. See ParseConfigFile or toaster-watcher.conf for config values.</p>
+        $qmail-&gt;install_supervise_log_run($conf);</pre>
+<p>$conf is a hash of values. See $utility-&gt;parse_config or toaster-watcher.conf for config values.</p>
 <p>Installs the files the control your supervised processes logging. Typically this consists of qmail-smtpd, qmail-send, and qmail-pop3d. The generated files are:
 </p>
 <pre>
 
- $supervise/pop3/log/run
- $supervise/smtp/log/run
- $supervise/send/log/run</pre>
+ qmail_supervise/pop3/log/run
+ qmail_supervise/smtp/log/run
+ qmail_supervise/send/log/run
+ qmail_supervise/submit/log/run</pre>
 <p>
 </p>
-<h2><a name="getdomainsfromassign">GetDomainsFromAssign</a></h2>
+<h2><a name="get_domains_from_assign">get_domains_from_assign</a></h2>
 <p>Fetch a list of domains from the qmaildir/users/assign file.</p>
 <pre>
-        use Mail::Toaster::Qmail;
-        GetDomainsFromAssign($assign, $debug, $match, $value);</pre>
+        $qmail-&gt;get_domains_from_assign($assign, $debug, $match, $value);</pre>
 <pre>
  $assign is the path to the assign file.
  $debug is optional
  $match is an optional field to match (dom, uid, dir)
  $value is the pattern to  match</pre>
+<p>returns an array</p>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<pre>
-        Matt Simerson &lt;matt@cadillac.net&gt;</pre>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
 <p>
 </p>
 <hr />
 <h1><a name="bugs">BUGS</a></h1>
-<pre>
-        None known. Report any to author.</pre>
+<p>None known. Report any to author.</p>
 <p>
 </p>
 <hr />
@@ -266,17 +332,28 @@ ProcessQmailQueue - Tell qmail to process the queue immediately</pre>
 </p>
 <hr />
 <h1><a name="see_also">SEE ALSO</a></h1>
-<p><a href="http://www.tnpi.biz/computing/">http://www.tnpi.biz/computing/</a>
-<a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a></p>
+<pre>
+ <a href="http://www.tnpi.biz/computing/">http://www.tnpi.biz/computing/</a>
+ <a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a></pre>
 <p>Mail::Toaster::CGI, Mail::Toaster::DNS, Mail::Toaster::Logs,
-Mail::Toaster::Qmail, Mail::Toaster::Setup
-
-</p>
+Mail::Toaster::Qmail, Mail::Toaster::Setup</p>
 <p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright 2003, The Network People, Inc. All Rights Reserved.
+<p>Copyright (c) 2004, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 </p>
 

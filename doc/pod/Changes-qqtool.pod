@@ -1,0 +1,50 @@
+#
+# $Id: Changes-qqtool.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
+#
+
+=head1  1.2   2004.03.09
+
+   - qqtool.pl is now integrated into Mail::Toaster
+     All future updates will be documented in the main
+     Mail::Toaster changes file.
+
+=head1  1.1.1 2003.12.04  
+
+   - Added : to getops for $opt_q (should have been there already!
+
+=head1  1.1   2003.09.10       
+
+  - Added more documenation, updated web site
+
+=head1  1.0.2 
+
+=head1  1.0.1 2003.07.09
+
+  - Moved ChangeLog into Changes file
+  - Added pod documentation
+  - Added depenency on MATT::Qmail & MATT::Utility
+  - Moved significant amounts of code to MATT::Qmail
+
+=head1  1.0.0 2003.05.12
+
+  - Only search headers for first match (don't print 
+    message details multiple times if search matches
+    multiple headers) - Michael Andreason found bug
+
+=head1  0.9.0 2003.05.03
+
+ - Added documentation to the script
+ - 22:59 - Added lots of sanity checks.
+ - 22:42 - Delete messages now works. Cool.
+ - 20:30 - Expire messages now works. I just expired two 
+   messages from my queue. Sweet. :)
+ - 20:06 Better reporting (including verbose).
+ - 19:22 Search function now works. Can list messages based on
+     any string found in the email headers.
+ - 18:46 Grabs headers for all messages. We can now very finely
+     specify what we want to work with.
+ - Now lists all message ids in local & remote queues
+
+=head1  0.1 2003.05.01 
+
+ - Initial authoring

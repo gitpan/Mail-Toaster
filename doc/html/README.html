@@ -15,6 +15,12 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#command_line_flags">command line flags</a></li>
+	</ul>
+
+	<li><a href="#usage">USAGE</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
@@ -38,9 +44,55 @@ the directions on the toaster page (see URL below).</p>
 </p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
-<p>A complete set of instructions for building a mail toaster are on the toaster install page. There is actually quite a bit of documenation available for the ``Matt Style'' toaster. Much of it is within the Perl code itself and is thus readable via ``perldoc Mail::Toaster'', and all the subsequent doc pages. Of course, don't forget to read the Install, Configure, and FAQ pages on the web site. If you still have questions, the mailing list archives are browseable and searchable for your convenience. Lastly, there is also a bit of documentation in the configuration files.</p>
+<p>A complete set of instructions for building a mail toaster are on the toaster install page. There is actually quite a bit of documenation available for the ``Matt Style'' toaster. Much of it is readable via ``perldoc Mail::Toaster'', and all the subsequent pages. Don't forget to read the Install, Configure, and FAQ pages on the web site. If you still have questions, the mailing list archives are browseable and searchable for your convenience.</p>
 <pre>
         <a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a></pre>
+<p>
+</p>
+<h2><a name="command_line_flags">command line flags</a></h2>
+<p>toaster_setup.pl can be passed several flags. 
+  -s [ section ] - run without a parameter to see the available options
+  -d [ debug   ] - enabled (very) verbose debugging output
+  -a [ action  ] - default action is ``install''.</p>
+<p>An -a upgrade option is planned.</p>
+<p>
+</p>
+<hr />
+<h1><a name="usage">USAGE</a></h1>
+<pre>
+  toaster_setup.pl -s [ section ] [-debug]</pre>
+<pre>
+           pre - installs a list of programs and libraries other toaster components need
+         ports - updates your ports tree, installs the pkg_* tools
+       sources - update your FreeBSD sources (/usr/src)
+         mysql - installs MySQL
+    phpmyadmin - installs phpMyAdmin
+        apache - installs Apache 
+     apachessl - installs self signed SSL certs for Apache
+    apacheconf - patches httpd.conf for use with Mail::Toaster
+         ucspi - install ucspi w/MySQL patch
+         ezmlm - install EzMLM idx
+      vpopmail - installs vpopmail
+     vpeconfig - configure ~vpopmail/etc/tcp.smtp
+     vpopmysql - run the vpopmail MySQL grant and db create commands
+         qmail - installs qmail with toaster patches
+     qmailconf - configure various /var/qmail/control/* files
+      netqmail - installs netqmail 
+    qmailadmin - installs qmailadmin
+     sqwebmail - installs sqwebmail (webmail app)
+       courier - installs courier imap &amp; pop3 daemons
+  squirrelmail - installs squirrelmail (webmail app)
+        filter - installs SpamAssassin, ClamAV, DCC, razor, and more
+        clamav - installs just ClamAV
+  qmailscanner - installs Qmail-Scanner &amp; qmailscanner stats
+           qss - installs qmailscanner stats
+     supervise - creates the directories to be used by svscan
+      maillogs - creates the mail logging directories
+       rrdutil - installs rrdutil
+    mattbundle - install MATT::Bundle
+       toaster - install Mail::Toaster
+       socklog - installs socklog
+           all - installs everything shown on the toaster INSTALL page</pre>
 <p>
 </p>
 <hr />
@@ -58,28 +110,31 @@ the directions on the toaster page (see URL below).</p>
 <hr />
 <h1><a name="todo">TODO</a></h1>
 <pre>
-        Start up daemons after we install them.
         Check if daemons are running before installs.
-        Add checks to pkg_add so that if pkg_add -r fails, install from ports
         Turn entire process into a ./install_it_all script
         Add -s dnscache section to install a DNS stub resolver</pre>
 <p>
 </p>
 <hr />
 <h1><a name="see_also">SEE ALSO</a></h1>
+<p>Mail::Toaster::CGI, Mail::Toaster::DNS, 
+Mail::Toaster::Logs, Mail::Toaster::Qmail, toaster.conf
+Mail::Toaster::Setup, Mail::Toaster::Conf, toaster-watcher.conf</p>
 <pre>
  <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
  <a href="http://matt.simerson.net/computing/mail/toaster/faq.shtml">http://matt.simerson.net/computing/mail/toaster/faq.shtml</a>
  <a href="http://matt.simerson.net/computing/mail/toaster/changelog.shtml">http://matt.simerson.net/computing/mail/toaster/changelog.shtml</a></pre>
-<p>Mail::Toaster::CGI, Mail::Toaster::DNS, 
-Mail::Toaster::Logs, Mail::Toaster::Qmail, 
-Mail::Toaster::Setup</p>
 <p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<pre>
-        Copyright 2001 - 2003, Matt Simerson. All Right Reserved.</pre>
+<p>Copyright (c) 2004, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

@@ -2,81 +2,193 @@
 use strict;
 
 #
-# $Id: toaster-watcher.pl,v 1.18 2004/02/13 02:11:59 matt Exp $
+# $Id: toaster-watcher.pl,v 4.1 2004/11/16 21:20:01 matt Exp $
 # 
 
 use vars qw/$VERSION/;
 
-$VERSION = "1.11";
+$VERSION = "4.00";
 
 =head1 NAME
 
-toaster-watcher.pl - Mail::Toaster::Watcher - monitors aspects of a qmail toaster
+toaster-watcher.pl - monitors and configure various aspects of a qmail toaster
 
 =head1 SYNOPSIS
 
-At the moment toaster-watcher is two things. First, it's a configuration file that stores settings about your mail system. Other scripts and programs use this configuration file to determine how to configure themselves and other parts of the mail toaster solution.
+toaster-watcher does several unique and important things. First, it includes a configuration file that stores settings about your mail system. You configure it to suit your needs and it goes about making sure all the settings on your system are as you selected. Various other scripts (like toaster_setup.pl) and programs use this configuration file to determine how to configure themselves and other parts of the mail toaster solution.
 
-The second part is a script that builds the control (run) file for qmail-smtpd. It takes into consideration all your settings, tests the RBL's you've selected to use, and builds a control file accordingly. It will soon be much, much more.
+The really cool part about toaster-watcher.pl is that it dynamically builds the run files for your qmail daemons (qmail-smtpd, qmail-send, and qmail-pop3). You choose all your settings in toaster-watcher.conf and toaster-watcher.pl builds your run files for you, on the fly. It tests the RBL's you've selected to use, and builds a control file based on your settings and dynamic information such as the availability of the RBLs you want to use.
+
 
 =head1 DESCRIPTION
 
+=over
+
 =cut
 
-use MATT::Utility 1.21;
-use MATT::DNS     1.0;
-use Mail::Toaster 3.33;
-use Mail::Toaster::Qmail 1.27 qw( SetServiceDir InstallQmailServiceRun 
-	RestartQmailSmtpd BuildSmtpRun BuildSendRun BuildPOP3Run 
-	BuildSubmitRun );
+use Mail::Toaster 4;             my $toaster = Mail::Toaster->new();
+use Mail::Toaster::Utility 4;    my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::DNS 4;
+use Mail::Toaster::Qmail 4;      my $qmail   = Mail::Toaster::Qmail->new();
+
+use vars qw/ $opt_d $opt_v $file $verbose /;
+use Getopt::Std;
+getopts('dv');
 
 $|++;
 
-my $conf      = ParseConfigFile("toaster-watcher.conf", 0);
-my $debug     = $conf->{'toaster_debug'};
-my $supervise = $conf->{'qmail_supervise'};
-unless (-d $supervise) { $supervise = "/var/qmail/supervise" };
+my $pidfile = "/var/run/toaster-watcher.pid";
+exit 500 unless $utility->check_pidfile($pidfile);
 
-my $file = "/tmp/toaster-watcher-smtpd-runfile";
-if ( BuildSmtpRun($conf, $file, $debug ) )
-{
-	InstallQmailServiceRun($file, "$supervise/smtp/run");
+my $conf    = $utility->parse_config( {file=>"toaster-watcher.conf", debug=>$opt_d} );
+my $debug   = $conf->{'toaster_debug'}; $debug ||= $opt_d; 
+if ($opt_v) { $verbose = 1; print "$0 v$VERSION\n"; };
 
-	my $smtpdir = SetServiceDir($conf, "smtp");
-	RestartQmailSmtpd($smtpdir, $debug);
+my $logfile   = $conf->{'toaster_watcher_log'};
+$utility->logfile_append($logfile, ["watcher", "Starting up"]) if $logfile;
+
+$utility->logfile_append($logfile, ["watcher", "Running toaster_check"]) if $logfile;
+$toaster->toaster_check($conf, $debug);
+
+
+=item build_smtp_run
+
+We first build a new $service/smtp/run file based on your settings in 
+toaster-watcher.conf. There are a ton of configuration options, be sure
+to check out the docs for toaster-watcher.conf. 
+
+If the new generated file is different than the installed version, we 
+install the updated run file and restart the daemon.
+
+=cut
+
+print "generating smtp/run..." if $verbose;
+$utility->logfile_append($logfile, ["watcher", "Building smtp/run"]) if $logfile;
+
+$file = "/tmp/toaster-watcher-smtpd-runfile";
+
+my $vals = {
+	file    => $file,
+    debug   => $debug,
+    verbose => $verbose,
+    service => "smtp",
 };
 
-my $file = "/tmp/toaster-watcher-send-runfile";
-if ( BuildSendRun($conf, $file, $debug ) )
+if ( $qmail->build_smtp_run($conf, $file, $debug ) )
 {
-	InstallQmailServiceRun($file, "$supervise/send/run");
+	print "success.\n" if $verbose;
+	if ( $qmail->install_qmail_service_run( $vals, $conf) ) 
+	{
+		$qmail->smtpd_restart($conf, "smtp", $debug);
+	};
+} 
+else { print "FAILED.\n" if $verbose; };	
+
+=item build_send_run
+
+We first build a new $service/send/run file based on your settings in 
+toaster-watcher.conf. There are a ton of configuration options, be sure
+to check out the docs for toaster-watcher.conf. 
+
+If the new generated file is different than the installed version, we 
+install the updated run file and restart the daemon.
+
+=cut
+
+
+
+$utility->logfile_append($logfile, ["watcher", "Building send/run"]) if $logfile;
+print "generating send/run..." if $verbose;
+
+$file = "/tmp/toaster-watcher-send-runfile";
+if ( $qmail->build_send_run($conf, $file, $debug ) )
+{
+	print "success.\n" if $verbose;
+	$vals->{'service'} = "send";
+	$vals->{'file'} = $file;
+	if ( $qmail->install_qmail_service_run($vals, $conf) ) 
+	{
+		$qmail->restart($conf, $debug);
+	};
+}
+else { print "FAILED.\n" if $verbose; };	
+
+
+=item build_pop3_run
+
+We first build a new $service/pop3/run file based on your settings in 
+toaster-watcher.conf. There are a ton of configuration options, be sure
+to check out the docs for toaster-watcher.conf. 
+
+If the new generated file is different than the installed version, we 
+install the updated run file and restart the daemon.
+
+=cut
+
+if ( $conf->{'pop3_daemon'} eq "qpop3d" )
+{
+	$utility->logfile_append($logfile, ["watcher", "Building pop3/run"]) if $logfile;
+
+	$file = "/tmp/toaster-watcher-pop3-runfile";
+	print "generating pop3/run..." if $verbose;
+	if ( $qmail->build_pop3_run($conf, $file, $debug ) )
+	{
+		print "success.\n" if $verbose;
+		$vals->{'service'} = "pop3";
+		$vals->{'file'} = $file;
+		$qmail->install_qmail_service_run($vals, $conf);
+	}
+	else { print "FAILED.\n" if $verbose; };	
 };
 
-my $file = "/tmp/toaster-watcher-pop3-runfile";
-if ( BuildPOP3Run($conf, $file, $debug ) )
-{
-	InstallQmailServiceRun($file, "$supervise/pop3/run");
-};
+
+=item build_submit_run
+
+We first build a new $service/submit/run file based on your settings in 
+toaster-watcher.conf. There are a ton of configuration options, be sure
+to check out the docs for toaster-watcher.conf. 
+
+If the new generated file is different than the installed version, we 
+install the updated run file and restart the daemon.
+
+=cut
 
 if ( $conf->{'submit_enable'} ) 
 {
-	my $file = "/tmp/toaster-watcher-submit-runfile";
-	if ( BuildSubmitRun($conf, $file, $debug ) )
-	{
-		InstallQmailServiceRun($file, "$supervise/submit/run");
+	$utility->logfile_append($logfile, ["watcher", "Building submit/run"]) if $logfile;
+	print "generating submit/run..." if $verbose;
 
-		my $dir = SetServiceDir($conf, "submit");
-		RestartQmailSmtpd($dir, $debug);
-	};
+	$file = "/tmp/toaster-watcher-submit-runfile";
+	if ( $qmail->build_submit_run($conf, $file, $debug ) )
+	{
+		print "success.\n" if $verbose;
+		$vals->{'file'} = $file; $vals->{'service'} = "submit";
+		if ( $qmail->install_qmail_service_run($vals, $conf) )
+		{
+			$qmail->smtpd_restart($conf, "submit", $debug);
+		};
+	}
+	else { print "FAILED.\n" if $verbose; };	
 };
 
-if ( $conf->{'qs_quarantine_process'} )
+
+=item Qmail-Scanner Quarantine Processing
+
+Qmail-Scanner quarantines any files that fail certain tests, such as banned attachments, Virus laden messages, etc. The messages get left laying around in the quarantine until someone does something about it. If you enable this feature, toaster-watcher.pl will go through the quarantine and deal with messages as you see fit.
+
+I have mine configured to block the IP (for 24 hours) of anyone that's sent me a virus and delete the quarantined message. I run toaster-watcher.pl from cron every 5 minutes so this usually keeps virus infected hosts from sending me another virus laden message for at least 24 hours, after which we hope the owner of the system has cleaned up his computer.
+
+=cut
+
+if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} )
 {
-	use Mail::Toaster::Qmail;
+	print "checking qmail-scanner quarantine.\n" if $verbose;
+	$utility->logfile_append($logfile, ["watcher", "Processing the qmail-scanner quarantine"]) if $logfile;
 
 	my $qs_debug = $conf->{'qs_quarantine_verbose'};
+	if ($verbose && ! $qs_debug ) { $qs_debug++ };
 
-	my @list = GetQmailScannerVirusSenderIPs($conf, $qs_debug);
+	my @list = $qmail->get_qmailscanner_virus_sender_ips($conf, $qs_debug);
 
 	my $count = @list;
 	if ($count && $qs_debug )
@@ -86,24 +198,51 @@ if ( $conf->{'qs_quarantine_process'} )
 
 	if ($conf->{'qs_block_virus_senders'}) 
 	{
-		UpdateVirusBlocks($conf, @list);
+		$qmail->UpdateVirusBlocks($conf, @list);
 	};
 
-	#   Contributors
+	#    Contributors
 	# Randy Ricker - Paid $50
 	# Anton Zavrin $20
 	# Randy Jordan - Paid $25
 	# Arie Gerszt  $20
-	# Joe Kletch   $40
+	# Joe Kletch   (Backpack, much better than $40 pledge)
 	# Marius Kirschner $20
-}
+};
+
+=item Maildir Processing
+
+Many times its useful to have a script that cleans up old mail messages on your mail system and enforces policy. Now toaster-watcher.pl does that. You tell it how often to run (I use every 7 days), what mail folders to clean (Inbox, Read, Unread, Sent, Trash, Spam), and then how old the messaged need to be before you remove them. 
+
+I have my system set to remove messages in Sent folders more than 180 days old and messages in Trash and Spam folders that are over 14 days old. I have also instructed toaster-watcher to feed any messages in my Spam and Read folders that are more than 1 day old through sa-learn. That way I train SpamAssassin by merely moving my messages into appropriate folders.
+
+=back
+
+=cut
 
 if ($conf->{'maildir_clean_interval'} )
 {
-	CleanMailboxMessages($conf, $debug);
+	print "cleaning mailbox messages..." if ($verbose);
+	$utility->logfile_append($logfile, ["watcher","Cleaning mailbox messages"]) if $logfile;
+
+	$toaster->clean_mailboxes($conf, $debug);
+	print "done.\n"	if ($verbose);
 };
 
-exit 1;
+$utility->logfile_append($logfile, ["watcher","rebuilding SSL temp keys"]) if $logfile;
+$qmail->rebuild_ssl_temp_keys($conf, $verbose);
+
+unlink $pidfile;
+
+$utility->logfile_append($logfile, ["watcher","Exiting\n"]) if $logfile;
+
+if ( -x "/var/qmail/bin/simscanmk" ) { 
+	# this needs to be done, but quietly
+#	$utility->syscmd("/var/qmail/bin/simscanmk");
+#	$utility->syscmd("/var/qmail/bin/simscanmk -g");
+};
+
+exit 0;
 
 __END__
 
@@ -129,22 +268,28 @@ Matt Simerson <matt@tnpi.biz>
 
 This module requires these other modules and libraries:
 
-MATT::Bundle  - http://www.tnpi.biz/computing/perl/MATT-Bundle/
 Net::DNS
 
 
 =head1 SEE ALSO
 
 http://www.tnpi.biz/internet/mail/toaster/
-http://www.tnpi.biz/computing/perl/MATT-Bundle/
 
 
 =head1 COPYRIGHT
 
-Copyright 2003, The Network People, Inc.
+Copyright (c) 2004, The Network People, Inc.
+All rights reserved.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
 

@@ -1,3 +1,12 @@
+  v2.9 2004.03.07
+    http://www.tnpi.biz/internet/mail/toaster/patches/netqmail-1.05-toaster-
+    2.9.patch
+
+    This is Bill Shupp's netmail toaster patches, with no changes at all.
+    Rather than modifying the patch, all the config settings that need to be
+    overridden are modified after the patch(es) are applied. This will make
+    porting Mail::Toaster to other platforms much easier.
+
   v2.7
     http://www.tnpi.biz/internet/mail/toaster/patches/qmail-1.03-toaster-2.7
     .patch

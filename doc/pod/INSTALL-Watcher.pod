@@ -1,6 +1,6 @@
 
 #
-# $Id: INSTALL-Watcher.pod,v 1.1 2003/11/21 21:52:50 matt Exp $
+# $Id: INSTALL-Watcher.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 =head4 Step 1: Install MATT::Bundle. 

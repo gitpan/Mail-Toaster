@@ -1,7 +1,13 @@
 
 #
-# $Id: Changes-CGI.pod,v 1.5 2003/11/30 01:21:30 matt Exp $
+# $Id: Changes-CGI.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
+
+=head1 2004.03.09
+
+ - This changelog is deprecated. All updates since
+   v1.6 and going forward are in the main mail::toaster
+   changelog.
 
 =head1 2003.11.26 - 1.6
 

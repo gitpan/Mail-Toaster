@@ -1,6 +1,6 @@
 
 #
-# $Id: ABOUT.pod,v 1.1 2004/02/04 04:55:46 matt Exp $
+# $Id: ABOUT.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 =head1 What's special about Mail::Toaster?

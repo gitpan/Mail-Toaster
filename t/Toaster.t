@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Toaster.t,v 1.1 2004/02/13 02:11:59 matt Exp $
+# $Id: Toaster.t,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.

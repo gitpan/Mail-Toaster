@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Passwd</title>
+<link rev="made" href="mailto:root@hampsten.nonet" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<li><a href="#methods">METHODS</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#show">show</a></li>
+		<li><a href="#delete">delete</a></li>
+		<li><a href="#disable">disable</a></li>
+		<li><a href="#enable">enable</a></li>
+		<li><a href="#user_sanity">user_sanity</a></li>
+		<li><a href="#sanity">sanity</a></li>
+		<li><a href="#exist">exist</a></li>
+		<li><a href="#encrypt">encrypt</a></li>
+		<li><a href="#backupmasterpasswd">BackupMasterPasswd</a></li>
+		<li><a href="#verifymasterpasswd">VerifyMasterPasswd</a></li>
+		<li><a href="#creategroup">creategroup</a></li>
+		<li><a href="#user_archivecreate_s_a_tarball_of_the_users_home_directory__typically_done_right_before_you_rm_rf_their_home_directory_as_part_of_a_deprovisioning_step_">user_archiveCreate's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.</a></li>
+		<li><a href="#user_add">user_add</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::Passwd</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Common Unix Passwd functions</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>A grouping of frequently used functions I've written for interacting with /etc/passwd entries.</p>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<p>Crypt::PasswdMD5 - /usr/ports/security/p5-Crypt-PasswdMD5</p>
+<p>
+</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<p>Before calling any of the methods, you must create a password object:</p>
+<pre>
+  use Mail::Toaster::Passwd;
+  my $pass = Mail::Toaster::Passwd-&gt;new;</pre>
+<p>
+</p>
+<h2><a name="show">show</a></h2>
+<p>Show user attributes. Right now it only shows quota info.</p>
+<pre>
+   $pass-&gt;show( {user=&gt;&quot;matt&quot;} );</pre>
+<p>input is a hashref</p>
+<p>returns a hashref with error_code and error_desc</p>
+<p>
+</p>
+<h2><a name="delete">delete</a></h2>
+<p>Delete an /etc/passwd user.</p>
+<pre>
+  $pass-&gt;delete( {user=&gt;&quot;matt&quot;} );</pre>
+<p>input is a hashref</p>
+<p>returns a hashref with error_code and error_desc</p>
+<p>
+</p>
+<h2><a name="disable">disable</a></h2>
+<p>Disable an /etc/passwd user by expiring their account.</p>
+<pre>
+  $pass-&gt;disable( {user=&gt;&quot;matt&quot;} );</pre>
+<p>input is a hashref</p>
+<p>returns a hashref with error_code and error_desc</p>
+<p>
+</p>
+<h2><a name="enable">enable</a></h2>
+<p>Enable an /etc/passwd user by removing the expiration date.</p>
+<pre>
+  $pass-&gt;enable( {user=&gt;&quot;matt&quot;} );</pre>
+<p>input is a hashref</p>
+<p>returns a hashref with error_code and error_desc</p>
+<p>
+</p>
+<h2><a name="user_sanity">user_sanity</a></h2>
+<pre>
+   $r = $pass-&gt;user_sanity($user, $denylist);</pre>
+<pre>
+   if ( $r-&gt;{'error_code'} eq 200 ) {  print &quot;success&quot;    }
+   else                             {  print $r-&gt;{'error_desc' };</pre>
+<p>$user is the username. Pass it along as a scalar (string).</p>
+<p>$denylist is a optional hashref. Define all usernames you want reserved (denied) and it'll check to make sure $user is not in the hashref.</p>
+<p>Checks:</p>
+<pre>
+   * Usernames must be between 2 and 16 characters.
+   * Usernames must have only lower alpha and numeric chars
+   * Usernames must begin with an alpha character
+   * Username must not be defined in $denylist hash
+   * If the file /usr/local/etc/passwd.reserved exists, 
+     the username must not exist in that file.</pre>
+<p>The format of passwd.reserved is simply one username per line.
+</p>
+<pre>
+
+A hashref gets returned that will contain at least error_code, and error_desc.</pre>
+<p>$r-&gt;{'error_code'} will contain a result code of 0 (failure) or a positive number for (success).</p>
+<p>$r-&gt;{'error_desc'} will contain a string with a description of which test failed.</p>
+<p>
+</p>
+<h2><a name="sanity">sanity</a></h2>
+<p>Check a password for sanity.</p>
+<pre>
+    use Mail::Toaster::Passwd;
+    my $pass = Mail::Toaster::Passwd-&gt;new();</pre>
+<pre>
+    $r =  $pass-&gt;sanity($password, $username);</pre>
+<pre>
+    if ( $r-&gt;{'error_code'}==100 ) {  print &quot;success&quot;    }
+    else                           {  print $r-&gt;{'error' };</pre>
+<p>$password  is the password the user is attempting to use.</p>
+<p>$username is the username the user has selected.</p>
+<p>Checks:</p>
+<pre>
+    Passwords must have at least 6 characters.
+    Passwords must have no more than 128 characters.
+    Passwords must not be the same as the username
+    Passwords must not be purely alpha or purely numeric
+    Passwords must not be in reserved list 
+       (/usr/local/etc/passwd.badpass)</pre>
+<p>$r is a hashref that gets returned.</p>
+<p>$r-&gt;{'error_code'} will contain a result code of 100 (success) or (4-500) (failure)</p>
+<p>$r-&gt;{'error_desc'} will contain a string with a description of which test failed.</p>
+<p>
+</p>
+<h2><a name="exist">exist</a></h2>
+<p>Check to see if a user exists</p>
+<pre>
+        $pass-&gt;exist($user);</pre>
+<p>I use this before adding a new user (easy error trapping) and again after adding a user (to verify success).</p>
+<pre>
+        unless ( $pass-&gt;exist($user) ) {
+                $pass-&gt;user_add( {user=&gt;$user} );
+        };</pre>
+<p>$user is the username you are adding.</p>
+<p>returns 1 if exists, 0 otherwise</p>
+<p>
+</p>
+<h2><a name="encrypt">encrypt</a></h2>
+<pre>
+        $pass-&gt;encrypt ($pass, $debug)</pre>
+<p>encrypt (MD5) the plain text password that arrives at $pass.</p>
+<p>
+</p>
+<h2><a name="backupmasterpasswd">BackupMasterPasswd</a></h2>
+<pre>
+        $pass-&gt;BackupMasterPasswd($file)</pre>
+<p>Back up the /etc/master.passwd database. This copies $file to a new file named $file.bak.</p>
+<p>
+</p>
+<h2><a name="verifymasterpasswd">VerifyMasterPasswd</a></h2>
+<pre>
+    my $r = $pass-&gt;VerifyMasterPasswd ($passwd, $change, $debug)</pre>
+<pre>
+    $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'};</pre>
+<p>Verify that new master.passwd is the right size. I found this necessary on some versions of FreeBSD as a race condition would cause the master.passwd file to get corrupted. Now I verify that after I'm finished making my changes, the new file is a small amount larger (or smaller) than the original.</p>
+<p>$passwd is the filename of your master.passwd file.</p>
+<p>$change is whether the file should ``shrink'' or ``grow''</p>
+<p>
+</p>
+<h2><a name="creategroup">creategroup</a></h2>
+<p>Installs a system group. The $gid is optional.</p>
+<pre>
+    $r = $pass-&gt;creategroup($group, $gid)</pre>
+<pre>
+    $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'};</pre>
+<p>
+</p>
+<h2><a name="user_archivecreate_s_a_tarball_of_the_users_home_directory__typically_done_right_before_you_rm_rf_their_home_directory_as_part_of_a_deprovisioning_step_">user_archiveCreate's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.</a></h2>
+<pre>
+    if ( $prov-&gt;user_archive(&quot;user&quot;) ) 
+    {
+        print &quot;user archived&quot;;
+    };</pre>
+<p>returns a boolean.</p>
+<p>
+</p>
+<h2><a name="user_add">user_add</a></h2>
+<p>Installs a system user. Expects a hashref to be passed containing at least: user.  Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.</p>
+<pre>
+    my $r = $pass-&gt;user_add( {user=&gt;&quot;sample&quot;} );</pre>
+<pre>
+    $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'}, &quot;\n&quot;;</pre>
+<p>returns a HTTP style result code (200 success, 400 bad, 401 unauthorized, 500 error)</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>Don't export any of the symbols by default. Move all symbols to EXPORT_OK and explicitely pull in the required ones in programs that need them. - done!</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p><a href="http://www.tnpi.biz/internet/mail/toaster">http://www.tnpi.biz/internet/mail/toaster</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

@@ -1,3 +1,9 @@
+03.09.2004
+     - maillogs has been fully integrated into the
+       Mail::Toaster bundle. This document is now
+       depreciated and all future changes will be
+       documented in the Mail::Toaster changelog.
+
 2.65 - 12.14.2003
      - pop3 processing had incorrect logs variable
        being called.

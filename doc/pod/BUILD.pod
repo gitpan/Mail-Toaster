@@ -1,0 +1,53 @@
+
+=head1 SYNOPSIS
+
+The Mail::Toaster lab build test
+
+
+=head1 DESCRIPTION
+
+Before turning a new version of the Mail::Toaster loose on the world, I run it through a battery of tests. The first test is simply making sure it builds properly. This document details how I perform that test. 
+This is not a suggested build method. I use shortcuts (such as the perl and mysql packages) that may not work in your environment. It is here so that you may learn from it.
+
+
+=head1 Create a new Jail
+
+ toaster_setup.pl -s jailadd
+ sh /etc/rc
+ pkg_add -r http://www.tnpi.biz/internet/mail/toaster/src/perl-5.8.5.tbz
+
+
+=head1 Install Mail::Toaster
+
+ fetch http://www.tnpi.biz/internet/mail/toaster/src/Mail-Toaster-3.xx.tar.gz
+ tar -xzf Mail-Toaster-3.xx.tar.gz 
+ cd Mail-Toaster-3.xx/
+ rehash
+ perl Makefile.PL 
+ make install
+ make newconf
+ make cgi
+ cp contrib/toaster-watcher.conf-testing /usr/local/etc/toaster-watcher.conf
+
+ vi /usr/local/etc/toaster-watcher.conf
+
+In there I modify the hostname. The testing config is basically the same as the toaster-watcher.conf but with all nearly all options enabled to make sure they'll all build.
+
+=head1 Build the programs
+
+ rehash
+ toaster_setup.pl -s pre
+
+<much output snipped>
+
+ pkg_add -r http://www.tnpi.biz/internet/mail/toaster/src/mysql-server-4.0.18_1.tbz
+
+This isn't "normally" necessary but the mysql-server package on the FreeBSD package server doesn't work correctly. This one does. It's just one I build from ports and then build into a package. I only do this because it's way faster than compiling it every time.
+
+ toaster_setup.pl -s all
+
+Much compiling and installing snipped. You'll have to answer a few questions, and wait a while. This part takes about 15 minutes on a dual 3GHz Xeon w/1GB RAM and a u320 SCSI disk.
+
+When it's done, you have a mail server ready to test and tweak. Cool. :)
+
+Matt

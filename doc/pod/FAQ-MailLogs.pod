@@ -3,14 +3,27 @@ Mail::Logs FAQ
 ==============
 
 #
-# $Id: FAQ-MailLogs.pod,v 1.1 2003/11/30 01:21:50 matt Exp $
+# $Id: FAQ-MailLogs.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 =head1 What can maillogs do?
 
-Maintain and report counters of mail log files. Copy it to /usr/local/sbin/maillogs. That's where RRDUtil (via net-snmp) expects to find it when it wants to poll for the current mail counters.
+It's primary purpose is to Maintain and report counters of mail log files. 
 
-To view the counters, simply run "maillogs protocol" where protocol is one of smtp, pop3, imap, send, or webmail. You'll get back output that looks like this:
+It also maintains log archives (organized by date) by piping the logs through cronolog. They are stored in $maillogs/yyyy/mm/dd/????log. It's very easy for programs and persons to work with a days worth of log files.
+
+Maillogs has other fun reporting features as well. See "maillogs yesterday" for an example.
+
+When you install Mail::Toaster, its installed to /usr/local/sbin/maillogs. That's where RRDUtil (via net-snmp) expects to find it when it wants to poll for the current mail counters.
+
+To view the counters, simply run "maillogs protocol". Run maillogs without a protocol to see of list of options.
+
+
+Log files more than 24 hours old are automatically compressed.
+
+=head1 What does the output look like?
+
+You'll get back output that looks like this:
 
   # maillogs smtp
   connect:7:connect_last:7:smtp_block_count:3514773:
@@ -42,9 +55,6 @@ To view the counters, simply run "maillogs protocol" where protocol is one of sm
 
 This format is very nice for feeding into SNMP stats collectors like MRTG and my own RRDutil.
 
-It can also roll the logs and pipe them through cronolog so they are stored in /var/log/mail/yyyy/mm/dd/smtplog. That way it's very easy for programs to retrieve a days worth of log files.
-
-Log files more than 24 hours old are automatically compressed.
 
 
 =head1 multilog postprocessor usage
@@ -85,25 +95,9 @@ Maillogs will detect if isoqlog is installed and every time maillogs rotates you
 
 =head1 What assumptions do you make?
 
-That your system is set up similarly to mine. If that's not the case, edit the script and change the user preferences section to taste:
+That you have installed the Mail::Toaster perl modules and configured toaster.conf.  See the documentation for toaster.conf for details of how those settings affect your system:
 
-  ##
-  # User Preferences
-  ##
-  # -----------------------------------------------
-
-  $logbase   = "/var/log/mail"
-  $syslog    = "/var/log/maillog"
-  $counters  = "counters"
-  $supervise = "/var/qmail/supervise"
-  $loguser   = "qmaill"
-  $loggroup  = "qnofiles"
-  $pop3d     = "qpop3d"   # courier or qpop3d
-  $isoqlog   = 1 
-  $taifiles  = 1          # multilogs @NNNNNNN files
-  $archive   = 1          # YYYY/MM/DD/xxxxlog files
-
-These prefs will get rolled into toaster.conf soon.
+http://localhost.tnpi.biz/internet/mail/toaster/docs/tconf.shtml
 
 
 =head1 I get errors when I run it. Is something wrong?
@@ -124,5 +118,14 @@ Squirrelmail doesn't log anything by default. You need to fix this by installing
   >    $sl_syslog_priority = LOG_INFO;  // Default LOG_INFO
 
 and voila, webmail logins are now logged via syslog.mail. 
+
+
+=head1 How can I get a nightly report of qmails activity?
+
+Simply add this line to your /etc/mail/mailer.conf:
+
+  mailq  /usr/local/sbin/maillogs yesterday
+
+If there's a different mailq command in there, comment it out. If you are using an OS other than FreeBSD, add the "maillogs yesterday" command to cron or your daily periodic scripts. Else, simply run that command every morning. :)
 
 =cut

@@ -6,15 +6,22 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..1\n"; }
+BEGIN { $| = 1; print "1..2\n"; }
 END {print "not ok 1\n" unless $loaded;}
-use MATT::Apache;
+use lib "lib";
+use Mail::Toaster::Apache;
 $loaded = 1;
-print "ok 1 - MATT::Apache\n";
+print "ok 1 - Mail::Toaster::Apache\n";
 
 ######################### End of black magic.
 
 # Insert your test code below (better if it prints "ok 13"
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
+
+my $apache = new Mail::Toaster::Apache;
+$apache ? print "ok 2 - new\n" : print "not ok 2 - new\n";
+                                                        
+
+
 

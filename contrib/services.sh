@@ -1,7 +1,7 @@
 #!/bin/sh
  
 #
-# $Id: services.sh,v 1.1 2003/12/04 15:05:20 matt Exp $
+# $Id: services.sh,v 4.0 2004/11/16 20:57:30 matt Exp $
 #
 
 PATH=/usr/local/bin:/usr/sbin:/usr/bin:/bin

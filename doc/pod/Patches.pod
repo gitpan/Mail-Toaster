@@ -1,7 +1,13 @@
 
 #
-# $Id: Patches.pod,v 1.4 2003/11/30 15:56:06 matt Exp $
+# $Id: Patches.pod,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
+
+=head2 v2.9 2004.03.07
+
+http://www.tnpi.biz/internet/mail/toaster/patches/netqmail-1.05-toaster-2.9.patch
+
+This is Bill Shupp's netmail toaster patches, with no changes at all. Rather than modifying the patch, all the config settings that need to be overridden are modified after the patch(es) are applied. This will make porting Mail::Toaster to other platforms much easier.
 
 
 =head2 v2.7

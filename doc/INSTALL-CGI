@@ -1,7 +1,4 @@
-  Step 1: Install MATT::Bundle
-    http://www.tnpi.biz/computing/perl/MATT-Bundle/MATT-Bundle.tar.gz
-
-  Step 2: Install Mail::Toaster
+  Step 1: Install Mail::Toaster
     http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz
 
             perl Makefile.PL
@@ -9,6 +6,10 @@
             make test
             make install
             make cgi
+
+  Step 1: Install MATT::Bundle
+        rehash
+        toaster_setup.pl -s mattbundle
 
   Step 3: Satisfy any dependencies
             ./index.cgi
@@ -28,7 +29,7 @@
 
             AddHandler cgi-script .cgi
 
-    Add "index.cgi" to the line starts with DirectoryIndex
+    Add index.cgi to the line that starts with DirectoryIndex
 
     Enable ExecCGI for the directory in which the index.cgi is installed.
 

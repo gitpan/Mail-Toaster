@@ -14,16 +14,15 @@
 
 	<li><a href="#test_the_process_">Test the process!</a></li>
 	<li><a href="#step_1__upgrade_perl_">Step 1: Upgrade Perl.</a></li>
-	<li><a href="#step_2__upgrade_matt__bundle_">Step 2: Upgrade MATT::Bundle.</a></li>
-	<li><a href="#step_3__upgrade_mail__toaster">Step 3: Upgrade Mail::Toaster</a></li>
-	<li><a href="#step_4__upgrade_freebsd_">Step 4: Upgrade FreeBSD.</a></li>
-	<li><a href="#step_5__update_toaster_config_files">Step 5: Update Toaster config files</a></li>
-	<li><a href="#step_6__start_updating_the_toaster_">Step 6: Start updating the toaster!</a></li>
-	<li><a href="#step_7__upgrade_qmail">Step 7: Upgrade Qmail</a></li>
-	<li><a href="#step_8__set_up_mail_filtering_and_logging">Step 8: Set up mail filtering and logging</a></li>
-	<li><a href="#step_9__verify_cron_entries">Step 9: Verify cron entries</a></li>
+	<li><a href="#step_2__upgrade_mail__toaster">Step 2: Upgrade Mail::Toaster</a></li>
+	<li><a href="#step_3__upgrade_freebsd_">Step 3: Upgrade FreeBSD.</a></li>
+	<li><a href="#step_4__update_toaster_config_files">Step 4: Update Toaster config files</a></li>
+	<li><a href="#step_5__start_updating_the_toaster_">Step 5: Start updating the toaster!</a></li>
+	<li><a href="#step_6__upgrade_qmail">Step 6: Upgrade Qmail</a></li>
+	<li><a href="#step_7__set_up_mail_filtering_and_logging">Step 7: Set up mail filtering and logging</a></li>
+	<li><a href="#step_8__verify_cron_entries">Step 8: Verify cron entries</a></li>
+	<li><a href="#step_9__watch_the_log_files">Step 9: Watch the log files</a></li>
 	<li><a href="#step_10__test_the_upgrade">Step 10: Test the Upgrade</a></li>
-	<li><a href="#step_11__manually_update_maildrop_filter_config">Step 11: Manually update maildrop filter config</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -31,44 +30,43 @@
 <p>
 </p>
 <h1><a name="test_the_process_">Test the process!</a></h1>
-<p>These instructions are new. There's a good chance that they don't encompass everything you need for a successful update. Trust me on this.  Before upgrading a production server, test on a development server. If you don't have a development server, consider settings up a FreeBSD jailed test environment.</p>
+<p>Before upgrading a production server, test on a development server. If you don't have a development server, consider settings up a FreeBSD jailed test environment.</p>
 <p><a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/freebsd.shtml#createjail">http://www.tnpi.biz/computing/perl/MATT-Bundle/freebsd.shtml#createjail</a></p>
 <p>
 </p>
 <hr />
 <h1><a name="step_1__upgrade_perl_">Step 1: Upgrade Perl.</a></h1>
-<p>Certain features (like spam filtering) require perl 5.6.1 or higher to function fully. If perl -v reflects anything smaller than 5.6.1, do either of the following:</p>
+<p>Certain features (like spam filtering) require perl 5.6.1 or higher to function fully. If perl -v reflects anything smaller than 5.6.1, it is recommended that you upgrade to 5.8.x. You can use toaster_setup.pl -s perl to do this for you.</p>
+<p>Disable any cron jobs that run perl scripts *before* upgrading perl. When you upgrade perl, the installed modules get left behind and need to be re-installed. After upgrading perl and all the installed modules, test the cron jobs by running them on the command line before enabling them.</p>
+<p>If you  don't want to use toaster_setup.pl to upgrade perl, you can do it manually as follows:</p>
 <pre>
-  pkg_add -r perl  (on FreeBSD 5+)</pre>
-<pre>
-      or</pre>
-<pre>
-  cd /usr/ports/lang/perl5;
-  make install clean;
+  cd /usr/ports/lang/perl5.8;
+  make -DENABLE_SUIDPERL install clean;
   rehash; use.perl port;</pre>
 <p>You need Perl's CPAN working for installing perl modules so make sure it's configured. If the following command doesn't give you a prompt, then you'll be prompted to configure.</p>
 <pre>
   perl -MCPAN -e shell
   exit</pre>
-<p>
-</p>
-<hr />
-<h1><a name="step_2__upgrade_matt__bundle_">Step 2: Upgrade MATT::Bundle.</a></h1>
+<p>If you choose to install Perl 5.8, make sure you enable suidperl. You do this by adding -DENABLE_SUIDPERL as shown above or if using pkg* and friends, add the following line to the MAKE_ARGS of /usr/local/etc/pkgtools.conf:</p>
 <pre>
-   toaster_setup.pl -s mattbundle</pre>
-<p>There is a fair amount of documenation on MATT::Bundle which can be read via ``perldoc MATT::Bundle''. That also applies for subsequent MATT:: targets. The docs are also available at <a href="http://www.tnpi.biz/computing/perl/MATT-Bundle/.">http://www.tnpi.biz/computing/perl/MATT-Bundle/.</a></p>
+ 'lang/perl5.8'   =&gt; 'ENABLE_SUIDPERL=yes',</pre>
+<p>After upgrading Perl, your installed Perl modules will not work with the new version of Perl. You'll want to update them. I find the easiest approach is something like this:</p>
+<pre>
+  portupgrade -f `pkg_info | grep p5- | cut -d&quot; &quot; -f1`
+  portupgrade -f `pkg_info | grep rrdtool- | cut -d&quot; &quot; -f1`</pre>
 <p>
 </p>
 <hr />
-<h1><a name="step_3__upgrade_mail__toaster">Step 3: Upgrade Mail::Toaster</a></h1>
+<h1><a name="step_2__upgrade_mail__toaster">Step 2: Upgrade Mail::Toaster</a></h1>
 <pre>
    perl -e 'use MATT::Utility; InstallMailToaster';</pre>
-<p>Documenation for the modules being called by toaster_setup.pl, toaster_watcher.pl, maillogs, and index.cgi are all installed in Perl's pod format (perldoc Mail::Toaster, perldoc Mail::Toaster::CGI, etc) as well as being available online at <a href="http://www.tnpi.biz/internet/mail/toaster/.">http://www.tnpi.biz/internet/mail/toaster/.</a></p>
+<p>If that doesn't work, try toaster_setup.pl -s toaster. If neither works, your toaster is pre-historic and you'll have to manually install Mail::Toaster.</p>
+<p>Documentation for the modules being called by toaster_setup.pl, toaster_watcher.pl, maillogs, and index.cgi are all installed in Perl's pod format (perldoc Mail::Toaster, perldoc Mail::Toaster::CGI, etc) as well as being available online at <a href="http://www.tnpi.biz/internet/mail/toaster/docs/.">http://www.tnpi.biz/internet/mail/toaster/docs/.</a></p>
 <p>
 </p>
 <hr />
-<h1><a name="step_4__upgrade_freebsd_">Step 4: Upgrade FreeBSD.</a></h1>
-<p>Follow the docs at <a href="http://www.freebsd.org/.">http://www.freebsd.org/.</a>  A few things to help you along are:</p>
+<h1><a name="step_3__upgrade_freebsd_">Step 3: Upgrade FreeBSD.</a></h1>
+<p>Follow the docs at <a href="http://www.freebsd.org/handbook/">http://www.freebsd.org/handbook/</a>  A few things to help you along are:</p>
 <pre>
   toaster_setup.pl -s sources
   toaster_setup.pl -s ports</pre>
@@ -82,32 +80,35 @@
   make installworld
   mergemaster
   reboot</pre>
-<p>The process will vary based on the version of FreeBSD you are upgrading from and to. The above assumes that I've also configured /etc/make.conf. It's ALWAYS best to read the docs first, including /usr/src/UPDATING. Failure to do so can be quite difficult to recover from.</p>
+<p>The process will vary based on the version of FreeBSD you are upgrading from and to. The above assumes that I've also configured /etc/make.conf. It's ALWAYS best to read the docs first, including /usr/src/UPDATING. Failure to do so can be quite difficult to recover from. If you are upgrading from FreeBSD 4.x to 5.x, be sure to read all the documentation and follow it carefully.</p>
 <p>After upgrading the OS, you'll want to run portupgrade and upgrade all the ports with the latest version. I do so like this:</p>
 <pre>
   pkgdb -F
   portupgrade -ai</pre>
-<p>Some folks like running portupgrade -a. This almost always breaks their toaster. See the FAQ for reasons why. Don't upgrade ports that are manually installed by the toaster, such as qmail, ucspi, etc.</p>
+<p>Some folks like running portupgrade -a. This almost always breaks their toaster. See the FAQ for reasons why. Do NOT upgrade ports that are manually installed by the toaster, such as qmail, ucspi, etc. You have been warned. If you let portupgrade reinstall qmail and your settings get wiped out, you have yourself to blame.</p>
 <p>
 </p>
 <hr />
-<h1><a name="step_5__update_toaster_config_files">Step 5: Update Toaster config files</a></h1>
+<h1><a name="step_4__update_toaster_config_files">Step 4: Update Toaster config files</a></h1>
 <pre>
    cd /usr/local/etc
-   sdiff -o toaster-watcher.conf-new toaster-watcher.conf toaster-watcher.conf-dist
-   cp toaster-watcher.conf-new toaster-watcher.conf
-   sdiff -o toaster.conf-new toaster.conf toaster.conf-dist
-   cp toaster.conf-new toaster.conf</pre>
-<p>Make your .conf files resemble the -dist files, with your local customizations. If the CVS id string at the top of the <code>file(s)</code> has changed, that's a good indication that new settings have been added and it's time to update your file. Use sdiff to merge the differences and create the -new file. Then, copy that file over your old toaster-watcher.conf.</p>
+   sdiff -o tmp toaster-watcher.conf toaster-watcher.conf-dist
+   mv tmp toaster-watcher.conf
+   sdiff -o tmp toaster.conf toaster.conf-dist
+   mv tmp toaster.conf</pre>
+<p>Make your .conf files resemble the -dist files, with your local customizations. If the CVS id string at the top of the <code>file(s)</code> has changed, that's a good indication that new settings have been added and it's time to update your file. Use sdiff to merge the differences and create a new file.</p>
+<p>Use 'perldoc toaster.conf' or 'perldoc toaster-watcher.conf' to read the man pages with extensive documentation describing what all them settings are for.</p>
 <p>
 </p>
 <hr />
-<h1><a name="step_6__start_updating_the_toaster_">Step 6: Start updating the toaster!</a></h1>
+<h1><a name="step_5__start_updating_the_toaster_">Step 5: Start updating the toaster!</a></h1>
 <pre>
    toaster_setup.pl -s pre
    toaster_setup.pl -s ucspi
    toaster_setup.pl -s vpopmail
-   toaster_setup.pl -s qmailadmin</pre>
+   toaster_setup.pl -s qmailadmin
+   toaster_setup.pl -s courier
+   toaster_setup.pl -s apache (optional)</pre>
 <p>If toaster_setup.pl has any problems running, fix what it complains about and then run it again with the same parameter. It will resume and finish that section.</p>
 <p>Don't forget to add the following two lines to ~vpopmail/etc/tcp.smtp if you haven't yet. (If you don't, toaster-watcher will remind you, frequently.)</p>
 <pre>
@@ -116,14 +117,14 @@
 <p>
 </p>
 <hr />
-<h1><a name="step_7__upgrade_qmail">Step 7: Upgrade Qmail</a></h1>
+<h1><a name="step_6__upgrade_qmail">Step 6: Upgrade Qmail</a></h1>
 <pre>
    toaster_setup.pl -s qmail</pre>
 <p>patch info: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/">http://www.tnpi.biz/internet/mail/toaster/patches/</a></p>
 <p>
 </p>
 <hr />
-<h1><a name="step_8__set_up_mail_filtering_and_logging">Step 8: Set up mail filtering and logging</a></h1>
+<h1><a name="step_7__set_up_mail_filtering_and_logging">Step 7: Set up mail filtering and logging</a></h1>
 <pre>
    toaster_setup.pl -s filter
    toaster_setup.pl -s qss     (optional)
@@ -133,24 +134,33 @@
 <p>
 </p>
 <hr />
-<h1><a name="step_9__verify_cron_entries">Step 9: Verify cron entries</a></h1>
+<h1><a name="step_8__verify_cron_entries">Step 8: Verify cron entries</a></h1>
 <p>Run all these commands from the command line and verify their proper functionality (no complaints or errors) BEFORE adding to cron.</p>
 <pre>
  crontab -u root -e</pre>
 <pre>
-  9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp
-  40  * * * *  /usr/local/share/sqwebmail/cleancache.pl
-  */5 * * * * /usr/local/sbin/toaster-watcher.pl
-  */5 * * * * /usr/local/www/cgi-bin/rrdutil.cgi -a update</pre>
+   9-59/10 * * * * /usr/local/vpopmail/bin/clearopensmtp
+   40  * * * *  /usr/local/share/sqwebmail/cleancache.pl
+   */5 * * * * /usr/local/sbin/toaster-watcher.pl
+   */5 * * * * /usr/local/www/cgi-bin/rrdutil.cgi -a update</pre>
+<p>
+</p>
+<hr />
+<h1><a name="step_9__watch_the_log_files">Step 9: Watch the log files</a></h1>
+<p>A good way to test is simply watching the logs in a second session while running the test script or sending some messages.</p>
+<pre>
+  tail -F /var/log/maillog &amp;
+  tail -F /var/log/mail/send/current &amp;
+  tail -F /var/log/mail/smtp/current &amp;
+  tail -F /var/log/mail/maildrop.log</pre>
+<p>Note that unless filtering_debug is enabled in toaster-watcher.conf, nothing will be written to maildrop.log. It is enabled by default, and changes only take effect after running ``toaster_setup.pl -s maildrop''.</p>
 <p>
 </p>
 <hr />
 <h1><a name="step_10__test_the_upgrade">Step 10: Test the Upgrade</a></h1>
-<p>A good way to test is simply watching the logs while sending some messages. Try the following:</p>
 <pre>
- tail -F /var/log/mail/send/current &amp;
- tail -F /var/log/maillog &amp;</pre>
-<p>Then send some test messages. Also, test other aspects of your mail system including:</p>
+  toaster_setup.pl -s test</pre>
+<p>That will send some test messages. Also, test other aspects of your mail system including:</p>
 <pre>
  Mail::CGI
  Squirrelmail
@@ -160,18 +170,6 @@
  IMAP
  SMTP
  SMTP-Submit</pre>
-<p>
-</p>
-<hr />
-<h1><a name="step_11__manually_update_maildrop_filter_config">Step 11: Manually update maildrop filter config</a></h1>
-<pre>
-  cd /usr/local/etc/mail
-  fetch <a href="http://www.tnpi.biz/internet/mail/toaster/etc/mailfilter-site">http://www.tnpi.biz/internet/mail/toaster/etc/mailfilter-site</a>
-  diff mailfilter mailfiter-site
-  cp mailfilter-site mailfilter
-  chown vpopmail mailfilter</pre>
-<p>Use ``tail -F /var/log/mail/maildrop.log'' to watch the maildrop logs. Make sure there are no errors in there. This is VERY important.</p>
-<p>A consequence of using maildrop this way is that mail destined to aliases will not get filtered. A workkaround is using forwards instead of aliases. This also will not work for addresses that don't exist (ie, catch all addresses).  I don't consider this a problem as I don't ever use catch-alls.</p>
 
 </body>
 

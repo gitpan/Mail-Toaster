@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Setup.t,v 1.2 2003/11/30 01:21:31 matt Exp $
+# $Id: Setup.t,v 4.0 2004/11/16 20:57:31 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -10,8 +10,9 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..1\n"; }
+BEGIN { $| = 1; print "1..2\n"; }
 END {print "not ok 1\n" unless $loaded;}
+use lib "lib";
 use Mail::Toaster::Setup;
 $loaded = 1;
 print "ok 1 - Mail::Toaster::Setup\n";
@@ -21,4 +22,8 @@ print "ok 1 - Mail::Toaster::Setup\n";
 # Insert your test code below (better if it prints "ok 13"
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
+
+my $setup = Mail::Toaster::Setup->new();
+$setup ? print "ok 2 - new\n" : print "not ok 2 - new\n";
+
 

@@ -1,0 +1,105 @@
+  2.7  - 11.21.2003
+      - imported into Mail::Toaster::Admin
+      - renamed script to mailadmin
+
+  2.61 - 11.01.2003
+      - chomp the newlines in pop & imap counter files
+      - Added squirrelmail logging entry to FAQ
+      - Added "make web" target to simplify updating web page
+      - Add cvs id tags to maillogs, Makefile.PL, and *.pod
+
+  2.60 - 10.26.2003
+      - Added more prefs to make customizing maillogs easier
+      - Added CountSpam (Qmail-Scanner and SpamAssassin logs)
+      - Added smtp-auth and webmail log counting
+      - Renamed much of the SMTP subs and variables to reflect
+        their rblsmtpd usage (relative to maillogs)
+      - Removed a bunch of die calls and replaced them with warns
+      - Other code "pretty ups" to make reading easier
+      - Made into Perl package (added Makefile.PL, README, test.pl
+      - Don't attempt to compress yesterdays logs if a .gz already
+        exists in the log dir.
+      - Make test now does regression testing. This will help me
+        catch most bugs before I release maillogs.
+      - original version; created by h2xs 1.22 with options
+        h2xs -X -b 5.0.0 Mail::Logs
+      - Next version will be a modularized perl package
+
+  2.5.4 - 10.23.2003
+      - Don't try to control pop3d if courier is the pop3 log type
+
+  2.5.3
+      - Added webmail counters
+
+  2.5.2 - 09.20.2003
+      - POP3 counters incremented incorrectly. fixed.
+
+  2.5.0 - 09.18.2003
+      - Added preference for tai files and archive files.
+      - Fixed problems with MUA counters getting reset by syslog
+        Now we keep track of the last count and if syslog rolls
+        the logfile we notice and feed ever increasing numbers
+        into RRDtool, like it expects.
+      - POP3 reporting was screwy. Updated to match what RRDUtil
+        expects.
+
+  2.4.3 - 09.16.2003
+      - Finally fixed the mkdir call that inverted the arguments.
+      - The counters directly now gets created automatically.
+
+  2.4.2 - 09.16.2003
+      - Added full path call to Date::Format in SetupDateVariables
+
+  2.4.1 - 09.13.2003
+      - Run isoqlog if its on the system.
+
+  2.4 - 09.05.2003
+      - Added dependency on MATT::Perl
+      - Offer to install Date::Parse & Date::Format if they aren't
+      - Formatting updates
+      - Hopefully fixed so counters directory will get created
+
+  2.3 - 07.09.2003
+      - Added pod documenation.
+      - Added dependency on MATT::Utility
+
+  2.2 - 05.12.2003
+      - Added more reliable pop3 imap log processing and counting.
+
+  2.1 - 05.02.2003
+      - Check if counters dir exists, create if if not
+      - Check if sendlog.txt exists, ignore if not
+      - Verify that maillogs is installed in /usr/local/sbin
+
+  2.0 - 03.20.2003
+      - Almost a complete rewrite
+      - use strict pragma enabled.
+      - on-the-fly arrays cleaned up lots of extra code
+      - Script can now be used as a multilog processor
+      - maintains counters for efficiency
+
+  1.8 - 03.19.2001
+      - Cleaned up script, removed a bunch of old stuff
+
+  1.7 - 03.05.2001
+      - Moved imap, imapssl and pop3ssl log output to syslog.
+
+  1.6 - 03.05.2001
+      - Cleaned up code, added daily rotation and compression
+      for pop logs, delete logs over a month old.  
+
+  1.5 - 11.30.2001
+     - Added automatic log file compression.
+
+  1.4 - 11.13.2001
+     - Finished log file processing trigged by snmp connection
+
+  1.3 - 11.06.2000
+     - Added processing of pop & imap connections
+
+  1.1 - 11.06.2000
+     - Added processing of outgoing messages
+
+  1.0 - 10.30.2000
+     - Original Authoring
+

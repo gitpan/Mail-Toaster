@@ -1,0 +1,137 @@
+NAME
+    Mail::Logs - A log file processer for mail server logs
+
+SYNOPSIS
+    A script that maintains ever increasing counters for mail logs and
+    functions as a postprocessor for multilog. Currently handles log
+    counting of the following types:
+
+            qmail mail delivery (send)
+            qmail-pop3d         (pop3) (edit file to set pop3 daemon)
+
+            courier pop3d       (pop3) (edit file to set pop3 daemon)
+            courier pop3dssl    (pop3)
+            courier imapd       (imap)
+            courier imapdssl    (imap)
+
+            vpopmail smtp-auth  (smtp)
+
+            sqwebmail           (webmail)
+            squirrelmail        (webmail)
+
+            rblsmtpd            (rbl)
+
+            spamasssassin       (spamassassin)
+            qmailscanner        (qmailscanner)
+
+    This script and modules is (at last) easily extendible as I continue to
+    find new stats on my mail system that I want to count and graph.
+
+DESCRIPTION
+    I have "farms" of mail servers that share a hostname. I needed a way to
+    collect the logs from all the servers and process them.
+
+    This is a piece of that puzzle. Maillogs does several things. First, it
+    acts as a simple log postprocessor. By default it takes files that qmail
+    outputs (/var/log/mail/[send|smtp|pop3]/current) and collects a bunch of
+    counters about the logs and stores them in counter files.
+
+    For smtp logs we count denied RBL connections (rblsmtpd).
+
+    For qmail-send we log a slew of message send statistics.
+
+    For pop3, IMAP, webmail, and SMTP-AUTH, we count the number of
+    connections and the number of successful logins.
+
+    Counters are written to files in /var/log/mail/counters/ by default. You
+    can alter the locations of the logs files by editing the toaster.conf
+    file included with this script. That file should be installed in
+    /usr/local/etc.
+
+  what_am_i
+    what_am_i - Is this a schizophrenic program?
+
+    No, because schizophrenic denotes a disorder. This application is
+    designed to behave differently depending on how it's called. It has
+    (currently) four distinct personalities. Allow me to introduce you to
+    multilog.
+
+    The multilog program (http://cr.yp.to/daemontools/multilog.html) has a
+    poorly documented ability to run a postprocessor on logs after they
+    reach a predetermined size (or are otherwise triggered).
+
+    This script is designed to be that postprocessor. If you rename this
+    file to be named one of "smtplog", "pop3log", or "sendlog" it will
+    become a log file processor for that qmail server protocol. See the
+    maillogs FAQ for more details.
+
+    If called as maillogs, it will return ever incrementing counters for the
+    protocol you entered. Run maillogs without any parameters to see the
+    supported options. It's expected that you'll be calling maillogs from an
+    SNMP agent allowing this solution to scale from single to clustered
+    systems.
+
+INSTALLATION
+    To install this module type the following:
+
+            perl Makefile.PL
+            make
+            make test
+            make install
+
+    To install as a post-processor for qmail type the following:
+
+            make qmail
+
+DEPENDENCIES
+    This program requires these other modules and libraries:
+
+    Mail::Toaster - http://www.tnpi.biz/computing/mail/toaster/
+
+Design considerations
+    * Counters will be polled via SNMP. Script must be able to return counts
+    instantly, even when dealing with HUGE logs.
+    * Must work with multilog and syslog logging formats
+    * Outputs data in a format suitable for polling via SNMP
+    * Simple configuration
+    * Fail safe, errors must be noticed and reported but not fatal
+
+AUTHOR
+    Matt Simerson <matt@tnpi.biz>
+
+BUGS
+    None known. Report any to author.
+
+SEE ALSO
+    http://www.tnpi.biz/internet/mail/
+
+COPYRIGHT
+    Copyright (c) 2004, The Network People, Inc. All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+    met:
+
+    Redistributions of source code must retain the above copyright notice,
+    this list of conditions and the following disclaimer.
+
+    Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+    Neither the name of the The Network People, Inc. nor the names of its
+    contributors may be used to endorse or promote products derived from
+    this software without specific prior written permission.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+    IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+    TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+    PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER
+    OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+    EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+    PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+    LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
