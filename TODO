@@ -1,6 +1,6 @@
  
 #
-# $Id: TODO,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: TODO,v 4.2 2004/12/10 03:18:18 matt Exp $
 #
 
  - qmail-verh patch
@@ -8,3 +8,9 @@
  - qscanq support
  - make sure [service]_debug works
  - update UpdateVirusBlocks so IP's don't get listed twice
+
+- DONE - 12/08/2004 
+    (requested by Donavan, financed by Stella)
+  - have smtp/run list rbls in the same order as listing in w.conf
+  - add custom rbl text for each rbl
+    http://www.tnpi.biz/cgi-bin/ezmlm.cgi?mss:7877:200412:nekfoljkpbnaapcabmkp

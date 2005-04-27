@@ -1,0 +1,142 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::DNS</title>
+<link rev="made" href="mailto:matt@g5e.simerson.net" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#rbl_test">rbl_test</a></li>
+		<li><a href="#rbl_test_ns">rbl_test_ns</a></li>
+		<li><a href="#rbl_test_positive_ip">rbl_test_positive_ip</a></li>
+		<li><a href="#rbl_test_negative_ip">rbl_test_negative_ip</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::DNS</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Common DNS functions</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>These functions are used by toaster-watcher to determine if RBL's are available when generating qmail's smtpd/run control file.</p>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<p>Create a new DNS method:</p>
+<pre>
+   use Mail::Toaster::DNS;
+   my $dns = new Mail::Toaster::DNS;</pre>
+<p>
+</p>
+<h2><a name="rbl_test">rbl_test</a></h2>
+<p>After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.</p>
+<pre>
+        my $r = $dns-&gt;rbl_test(&quot;bl.example.com&quot;);
+        if ($r) { print &quot;bl tests good!&quot; };</pre>
+<p>The routine expects to receive the zone of a blacklist to test as it's first argument and a possible debug value (set to a non-zero value) as it's second.</p>
+<p>It will then test to make sure that name servers are found for the zone and then run several test queries against the zone to verify that the answers it returns are sane. We want to detect if a RBL operator does something like whitelist or blacklist the entire planet.</p>
+<p>If the blacklist fails any test, the sub willl return zero and you should not use that blacklist.</p>
+<p>
+</p>
+<h2><a name="rbl_test_ns">rbl_test_ns</a></h2>
+<pre>
+        $t_dns-&gt;rbl_test_ns($rbl);</pre>
+<p>$rbl is the reverse zone we use to test this rbl.</p>
+<p>
+</p>
+<h2><a name="rbl_test_positive_ip">rbl_test_positive_ip</a></h2>
+<pre>
+        $t_dns-&gt;rbl_test_positive_ip($rbl);</pre>
+<p>$rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.</p>
+<p>Some RBLs have test IP's to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.</p>
+<p>
+</p>
+<h2><a name="rbl_test_negative_ip">rbl_test_negative_ip</a></h2>
+<pre>
+        $t_dns-&gt;rbl_test_negative_ip($rbl);</pre>
+<p>This test is a little more difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The following are all man/perldoc pages:</p>
+<pre>
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility</pre>
+<pre>
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf</pre>
+<pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
+ <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2004-2005, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

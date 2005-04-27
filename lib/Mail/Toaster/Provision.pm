@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 #
-# $Id: Provision.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Provision.pm,v 4.5 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Provision;
@@ -19,7 +19,7 @@ use lib "../../";
 use Mail::Toaster::Passwd 1.17; my $password = Mail::Toaster::Passwd->new();
 use Mail::Toaster::Utility;     my $utility = Mail::Toaster::Utility->new();
 
-my $VERSION = '4.0';
+my $VERSION = '4.3';
 
 
 =head1 NAME
@@ -68,6 +68,34 @@ sub new
 	return $self;
 };
 
+
+sub dns
+{
+
+=head2 dns
+
+dns will provision a DNS account using the programming API of a NicTool DNS server. 
+
+=cut
+
+	my (%vals) = @_;
+
+	print "dns.. begining.\n";
+
+	$vals{''} = $ARGV[1];
+	$vals{''} = $ARGV[2];
+	$vals{''} = $ARGV[3];
+	$vals{''} = $ARGV[4];
+	$vals{''} = $ARGV[5];
+
+	print "dns....end.\n";
+};
+
+sub dns_usage
+{
+};
+
+
 sub import {
 	my ($self, @params) = @_;
 #	print "Look, " . caller() . " is trying to import me!\n";
@@ -75,6 +103,309 @@ sub import {
 
 sub mail { };
 sub mail_usage { };
+
+
+=head2 quota_set
+
+Sets a user file system quota.
+
+   my $vals = {
+      user             => "bob",
+      quota            => 1000,
+   };
+
+   $prov->quota_set($vals, $conf);
+
+quota is set in megabytes. A hard limit will be set 5 megs larger than the soft limit.
+
+This method depends on the perl module Quota.
+
+=cut
+
+sub quota_set($$)
+{
+	# Quota::setqlim($dev, $uid, $bs, $bh, $is, $ih, $tlo, $isgrp);
+	# $dev     - filesystem mount or device
+	# $bs, $is - soft limits for blocks and inodes
+	# $bh, $ih - hard limits for blocks and inodes
+	# $tlo     - time limits (0 = first user write, 1 = 7 days)
+    # $isgrp   - 1 means that uid = gid, group limits set
+
+	my ($self, $vals, $conf) = @_;
+
+	my $dev   = $conf->{'quota_filesystem'}; $dev ||= "/home";
+	my $uid   = $vals->{'uid'};    $uid ||= getpwnam($vals->{'user'});
+	my $quota = $vals->{'quota'};  $quota ||= "100";
+
+	# set the soft limit a few megs higher than the hard limit
+	my $quotabump = $quota + 5;
+
+	# convert from megs to 1K blocks
+	my $bh = $quota     * 1024;
+	my $bs = $quotabump * 1024;
+
+	my $is = $conf->{'quota_inodes_soft'};
+	my $ih = $conf->{'quota_inodes_hard'};
+
+	Quota::setqlim($dev, $uid, $bs, $bh, $is, $ih, 1, 0);
+
+	print "user: end.\n" if $vals->{'debug'};
+
+	# we should test the quota here and then return an appropriate result code
+};
+
+=head2 user
+
+	$prov->user($vals, $conf)
+
+$vals is a hashref of values
+
+	my $vals = { 
+		'action'  => $ARGV[0],
+		'debug'   => $opt_v,
+	};
+
+user will call several private methods, beginning with user_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.
+
+user is very fault tolerant. It makes backup copies of the master.passwd files before altering them and tests to make sure the alterations it made are sane. If something is screwy, it saves a date stamped backup of the file. 
+
+It also sets user quotas.
+
+=cut
+
+sub user($$)
+{
+	my ($self, $vals, $conf) = @_;
+	print "user: begin...\n" if $vals->{'debug'};
+
+	my $r;
+
+	$vals = $self->user_options($vals, $conf);
+
+	$vals->{'user'} ||= $ARGV[1];   # set to cmd line value if it's unset
+	unless ($vals->{'user'}) {
+		$self->user_usage($vals);
+		$utility->graceful_exit(400, "No username passed!");
+	};
+
+	print "user: user is set.\n" if $vals->{'debug'};
+
+	my $action = $vals->{'action'};
+
+	if ( $action eq "create" || $action eq "disable" || $action eq "enable" )
+	{
+		$password->BackupMasterPasswd();
+	};
+
+	if    ( $action eq "create"  ) { $r = $password->user_add($vals) }
+	elsif ( $action eq "destroy" ) {
+		$password->user_archive($vals->{'user'}, $vals->{'debug'}) if ( $conf->{'delete_user_archive'} );
+		$password->BackupMasterPasswd();
+		$r = $password->delete($vals);
+	}
+	elsif ( $action eq "disable" ) { $r = $password->disable($vals) }
+	elsif ( $action eq "enable"  ) { $r = $password->enable ($vals) }
+	elsif ( $action eq "show"    ) { $r = $password->show   ($vals) }
+	elsif ( $action eq "repair"  ) { print "none yet\n"; exit 0  }
+	elsif ( $action eq "test"    ) { print "none yet\n"; exit 0  }
+	else { 
+		$self->usage_action();
+		$utility->graceful_exit(400, "Invalid Action!");
+	}
+
+	if ( $r->{'error_code'} == 200 || $r->{'error_code'} == 100 ) 
+	{
+		# success
+		if ( $action eq "create" ) {
+			$password->VerifyMasterPasswd("/etc/master.passwd", "grow", $vals->{'debug'} );
+			# set up their file system quotas
+			$self->quota_set($vals, $conf) if $conf->{'quota_enable'};
+		} 
+		elsif ( $action eq "destroy" ) {
+			$password->VerifyMasterPasswd("/etc/master.passwd", "shrink", $vals->{'debug'} );
+		};
+		return $r;
+	}
+	else
+	{
+		$self->user_usage($vals);
+		use Data::Dumper; print Dumper($r) if $vals->{'debug'};
+		return $r;
+	};
+
+	print "user: end.\n" if $vals->{'debug'};
+};
+
+=head2 user_usage
+
+returns the following message if improper or missing arguments are passed:
+
+	useradmin [action] [username]
+
+    required values:
+
+       -username      
+
+    optional values:
+
+       -password
+       -shell
+       -homedir
+       -comment
+       -quota
+       -uid
+       -gid
+       -expire date
+       -domain
+
+If domain is set, then tit's assumed that you're setting up a web hosted account and you want the home directory to be /home/domain.com instead of /home/user. This integrates quite nicely with Apache's mass virtual hosting.
+
+=cut
+
+sub user_usage()
+{
+	my ($self, $vals) = @_;
+
+	print <<EOUSER
+
+	$0 $vals->{'action'} username
+
+    required values:
+
+       -username      
+
+    optional values:
+
+       -password
+       -shell
+       -homedir
+       -comment
+       -quota
+       -uid
+       -gid
+       -expire date
+       -domain
+
+EOUSER
+;
+};
+
+sub user_options
+{
+
+=head2 user_options
+
+Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.
+
+=cut
+
+	my ($self, $vals, $conf) = @_;
+	print "user_options: begin..." if $vals->{'debug'};
+
+	if ( $ENV{'GATEWAY_INTERFACE'} ) 
+	{
+		# get CGI form values
+	}
+	else 
+	{
+		# get command line options
+		GetOptions (
+			"password=s" => \$vals->{'pass'},
+			"username=s" => \$vals->{'user'}, 
+			"homedir=s"  => \$vals->{'homedir'},
+			"shell=s"    => \$vals->{'shell'},
+			"comment=s"  => \$vals->{'gecos'},
+			"quota=s"    => \$vals->{'quota'},
+			"uid=s"      => \$vals->{'uid'},
+			"gid=s"      => \$vals->{'gid'},
+			"domain=s"   => \$vals->{'domain'},
+			"expire=s"   => \$vals->{'expire'},
+			"verbose"    => \$vals->{'debug'}
+		);
+
+		unless ( $vals->{'shell'} ) {
+			if ( $conf->{'use_shell_default'} ) {
+				$vals->{'shell'} = $conf->{'use_shell_default'};
+			} 
+			else { $vals->{'shell'} = "/sbin/nologin" };
+		}
+	};
+
+	print "end.\n" if $vals->{'debug'};
+	return $vals;
+};
+
+
+sub usage
+{
+		print <<EOCHECK
+
+NOTICE: To access functions other than this menu, make links to this script, naming them the function you want to use. If you want DNS management functions, then you'd create a link like this:
+
+   ln -s sysadmin dnsadmin
+
+and then execute the dnsadmin link.
+
+
+  usage $0 
+
+    sysadmin   - this menu
+
+    dnsadmin   - options for working with DNS
+    webadmin   - options for working with Apache
+    useradmin  - options for working with System Users
+    mailadmin  - options for working with mail accounts
+
+EOCHECK
+;
+
+};
+
+=head2 usage_action
+
+return the following message:
+
+  usage $0 action [params]
+
+	action is one of:
+
+       create  - adding users, domains, etc
+       destroy - permanently removing objects
+
+       disable - temporarily disable
+       enable  - restore disabled objects
+
+       show    - show current objects and settings
+
+       repair  - misc repair options
+       test    - test settings
+
+=cut
+
+sub usage_action()
+{
+	print <<EOACTION
+
+  usage $0 action [params]
+
+	action is one of:
+
+       create  - adding users, domains, etc
+       destroy - permanently removing objects
+
+       disable - temporarily disable
+       enable  - restore disabled objects
+
+       show    - show current objects and settings
+
+       repair  - misc repair options
+       test    - test settings
+
+EOACTION
+;
+};
+
+
 
 
 =head2 web
@@ -278,333 +609,7 @@ sub web_get_options(;$$)
 };
 
 
-=head2 user
-
-	$prov->user($vals, $conf)
-
-$vals is a hashref of values
-
-	my $vals = { 
-		'action'  => $ARGV[0],
-		'debug'   => $opt_v,
-	};
-
-user will call several private methods, beginning with user_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.
-
-user is very fault tolerant. It makes backup copies of the master.passwd files before altering them and tests to make sure the alterations it made are sane. If something is screwy, it saves a date stamped backup of the file. 
-
-It also sets user quotas.
-
-=cut
-
-sub user($$)
-{
-	my ($self, $vals, $conf) = @_;
-	print "user: begin...\n" if $vals->{'debug'};
-
-	my $r;
-
-	$vals = $self->user_options($vals, $conf);
-
-	$vals->{'user'} ||= $ARGV[1];   # set to cmd line value if it's unset
-	unless ($vals->{'user'}) {
-		$self->user_usage($vals);
-		$utility->graceful_exit(400, "No username passed!");
-	};
-
-	print "user: user is set.\n" if $vals->{'debug'};
-
-	my $action = $vals->{'action'};
-
-	if ( $action eq "create" || $action eq "disable" || $action eq "enable" )
-	{
-		$password->BackupMasterPasswd();
-	};
-
-	if    ( $action eq "create"  ) { $r = $password->user_add($vals) }
-	elsif ( $action eq "destroy" ) {
-		$password->user_archive($vals->{'user'}, $vals->{'debug'}) if ( $conf->{'delete_user_archive'} );
-		$password->BackupMasterPasswd();
-		$r = $password->delete($vals);
-	}
-	elsif ( $action eq "disable" ) { $r = $password->disable($vals) }
-	elsif ( $action eq "enable"  ) { $r = $password->enable ($vals) }
-	elsif ( $action eq "show"    ) { $r = $password->show   ($vals) }
-	elsif ( $action eq "repair"  ) { print "none yet\n"; exit 0  }
-	elsif ( $action eq "test"    ) { print "none yet\n"; exit 0  }
-	else { 
-		$self->usage_action();
-		$utility->graceful_exit(400, "Invalid Action!");
-	}
-
-	if ( $r->{'error_code'} == 200 || $r->{'error_code'} == 100 ) 
-	{
-		# success
-		if ( $action eq "create" ) {
-			$password->VerifyMasterPasswd("/etc/master.passwd", "grow", $vals->{'debug'} );
-			# set up their file system quotas
-			$self->quota_set($vals, $conf) if $conf->{'quota_enable'};
-		} 
-		elsif ( $action eq "destroy" ) {
-			$password->VerifyMasterPasswd("/etc/master.passwd", "shrink", $vals->{'debug'} );
-		};
-		return $r;
-	}
-	else
-	{
-		$self->user_usage($vals);
-		use Data::Dumper; print Dumper($r) if $vals->{'debug'};
-		return $r;
-	};
-
-	print "user: end.\n" if $vals->{'debug'};
-};
-
-=head2 quota_set
-
-Sets a user file system quota.
-
-   my $vals = {
-      user             => "bob",
-      quota            => 1000,
-   };
-
-   $prov->quota_set($vals, $conf);
-
-quota is set in megabytes. A hard limit will be set 5 megs larger than the soft limit.
-
-This method depends on the perl module Quota.
-
-=cut
-
-sub quota_set($$)
-{
-	# Quota::setqlim($dev, $uid, $bs, $bh, $is, $ih, $tlo, $isgrp);
-	# $dev     - filesystem mount or device
-	# $bs, $is - soft limits for blocks and inodes
-	# $bh, $ih - hard limits for blocks and inodes
-	# $tlo     - time limits (0 = first user write, 1 = 7 days)
-    # $isgrp   - 1 means that uid = gid, group limits set
-
-	my ($self, $vals, $conf) = @_;
-
-	my $dev   = $conf->{'quota_filesystem'}; $dev ||= "/home";
-	my $uid   = $vals->{'uid'};    $uid ||= getpwnam($vals->{'user'});
-	my $quota = $vals->{'quota'};  $quota ||= "100";
-
-	# set the soft limit a few megs higher than the hard limit
-	my $quotabump = $quota + 5;
-
-	# convert from megs to 1K blocks
-	my $bh = $quota     * 1024;
-	my $bs = $quotabump * 1024;
-
-	my $is = $conf->{'quota_inodes_soft'};
-	my $ih = $conf->{'quota_inodes_hard'};
-
-	Quota::setqlim($dev, $uid, $bs, $bh, $is, $ih, 1, 0);
-
-	print "user: end.\n" if $vals->{'debug'};
-
-	# we should test the quota here and then return an appropriate result code
-};
-
-=head2 user_usage
-
-returns the following message if improper or missing arguments are passed:
-
-	useradmin [action] [username]
-
-    required values:
-
-       -username      
-
-    optional values:
-
-       -password
-       -shell
-       -homedir
-       -comment
-       -quota
-       -uid
-       -gid
-       -expire date
-       -domain
-
-If domain is set, then tit's assumed that you're setting up a web hosted account and you want the home directory to be /home/domain.com instead of /home/user. This integrates quite nicely with Apache's mass virtual hosting.
-
-=cut
-
-sub user_usage()
-{
-	my ($self, $vals) = @_;
-
-	print <<EOUSER
-
-	$0 $vals->{'action'} username
-
-    required values:
-
-       -username      
-
-    optional values:
-
-       -password
-       -shell
-       -homedir
-       -comment
-       -quota
-       -uid
-       -gid
-       -expire date
-       -domain
-
-EOUSER
-;
-};
-
-sub user_options
-{
-
-=head2 user_options
-
-Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.
-
-=cut
-
-	my ($self, $vals, $conf) = @_;
-	print "user_options: begin..." if $vals->{'debug'};
-
-	if ( $ENV{'GATEWAY_INTERFACE'} ) 
-	{
-		# get CGI form values
-	}
-	else 
-	{
-		# get command line options
-		GetOptions (
-			"password=s" => \$vals->{'pass'},
-			"username=s" => \$vals->{'user'}, 
-			"homedir=s"  => \$vals->{'homedir'},
-			"shell=s"    => \$vals->{'shell'},
-			"comment=s"  => \$vals->{'gecos'},
-			"quota=s"    => \$vals->{'quota'},
-			"uid=s"      => \$vals->{'uid'},
-			"gid=s"      => \$vals->{'gid'},
-			"domain=s"   => \$vals->{'domain'},
-			"expire=s"   => \$vals->{'expire'},
-			"verbose"    => \$vals->{'debug'}
-		);
-
-		unless ( $vals->{'shell'} ) {
-			if ( $conf->{'use_shell_default'} ) {
-				$vals->{'shell'} = $conf->{'use_shell_default'};
-			} 
-			else { $vals->{'shell'} = "/sbin/nologin" };
-		}
-	};
-
-	print "end.\n" if $vals->{'debug'};
-	return $vals;
-};
-
-
-sub dns
-{
-
-=head2 dns
-
-dns will provision a DNS account using the programming API of a NicTool DNS server. 
-
-=cut
-
-	my (%vals) = @_;
-
-	print "dns.. begining.\n";
-
-	$vals{''} = $ARGV[1];
-	$vals{''} = $ARGV[2];
-	$vals{''} = $ARGV[3];
-	$vals{''} = $ARGV[4];
-	$vals{''} = $ARGV[5];
-
-	print "dns....end.\n";
-};
-
-sub dns_usage
-{
-};
-
-sub usage
-{
-		print <<EOCHECK
-
-NOTICE: To access functions other than this menu, make links to this script, naming them the function you want to use. If you want DNS management functions, then you'd create a link like this:
-
-   ln -s sysadmin dnsadmin
-
-and then execute the dnsadmin link.
-
-
-  usage $0 
-
-    sysadmin   - this menu
-
-    dnsadmin   - options for working with DNS
-    webadmin   - options for working with Apache
-    useradmin  - options for working with System Users
-    mailadmin  - options for working with mail accounts
-
-EOCHECK
-;
-
-};
-
-=head2 usage_action
-
-return the following message:
-
-  usage $0 action [params]
-
-	action is one of:
-
-       create  - adding users, domains, etc
-       destroy - permanently removing objects
-
-       disable - temporarily disable
-       enable  - restore disabled objects
-
-       show    - show current objects and settings
-
-       repair  - misc repair options
-       test    - test settings
-
-=cut
-
-sub usage_action()
-{
-	print <<EOACTION
-
-  usage $0 action [params]
-
-	action is one of:
-
-       create  - adding users, domains, etc
-       destroy - permanently removing objects
-
-       disable - temporarily disable
-       enable  - restore disabled objects
-
-       show    - show current objects and settings
-
-       repair  - misc repair options
-       test    - test settings
-
-EOACTION
-;
-};
-
-=head2 check_what_am_i
+=head2 what_am_i_check
 
 To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options: 
 
@@ -613,9 +618,11 @@ To simplify usage and increase the ability to secure access to various features,
   useradmin
   webadmin
 
+This simply checks to make sure a valid one has been invoked.
+
 =cut
 
-sub check_what_am_i
+sub what_am_i_check
 {
 	my ($self, $iam) = @_;
 
@@ -668,10 +675,34 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
+The following are all man/perldoc pages: 
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
+
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Utility.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Utility.pm,v 4.21 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Utility;
@@ -12,7 +12,7 @@ use Carp;
 my $os = $^O;
 
 use vars qw($VERSION);
-$VERSION = '4.00';
+$VERSION = '4.19';
 
 use lib "lib";
 use lib "../..";
@@ -21,47 +21,52 @@ sub answer;
 sub archive_expand;
 sub chdir_source_dir;
 sub check_homedir_ownership;
-sub check_pidfile;
 sub clean_tmp_dir;
 sub drives_get_mounted;
+sub graceful_exit;
+sub install_from_sources_php;
 sub file_append;
 sub file_archive;
 sub file_check_readable;
 sub file_check_writable;
 sub file_delete;
+sub file_get;
 sub file_read;
 sub file_write;
 sub files_diff ;
 sub find_the_bin;
+sub fstab_list;
 sub get_dir_files;
 sub get_file;
 sub get_the_date;
-sub graceful_exit;
 sub install_from_source;
-sub install_from_sources_php;
+sub is_arrayref;
+sub is_hashref;
 sub is_process_running;
 sub logfile_append;
 sub mailtoaster;
-sub parse_config;
 sub path_parse;
+sub parse_config;
+sub pidfile_check;
 sub source_warning;
 sub sudo;
 sub syscmd;
 sub yes_or_no;
 
+
 1;
 
 =head1 NAME
 
-Mail::Toaster::Utility - Common Perl scripting functions
+Mail::Toaster::Utility
 
 =head1 SYNOPSIS
 
-Mail::Toaster::Utility is a bunch of frequently used perl methods I've written for use with various scripts.
+a group of frequently used perl methods I've written for use with various scripts.
 
 =head1 DESCRIPTION
 
-Just a big hodge podge of useful subs that I use in scripts all over the place. Peruse through the list of methods and surely you too can find something of use. 
+useful subs that I use in scripts all over the place. Peruse through the list of methods and surely you too can find something of use. 
 
 =head1 METHODS
 
@@ -82,424 +87,189 @@ sub new
 	return $self;
 };
 
+=head2 answer
 
-sub graceful_exit(;$$)
-{
-	my ($self, $code, $desc) = @_;
+  my $answer = $utility->answer("question", $default, $timer)
 
-	print "$desc\n" if $desc;
-	print "+$code\n" if $code;
-	exit 1;
-};
+arguments:
+ a string with the question to ask
+ an optional default answer.
+ how long (in seconds) to wait for a response
 
-
-=head2 check_pidfile
-
-check_pidfile is a process management method. It will check to make sure an existing pidfile does not exist and if not, it will create the pidfile.
-
-	my $pidfile = $utility->check_pidfile("/var/run/changeme.pid");
-	unless ($pidfile) {
-		warn "WARNING: couldn't create a process id file!: $!\n";
-		exit 0;
-	};
-
-	do_a_bunch_of_cool_stuff;
-	unlink $pidfile;
-
-The above example is all you need to do to add process checking (avoiding multiple daemons running at the same time) to a program or script. This is used in toaster-watcher.pl and rrdutil. toaster-watcher normally completes a run in a few seconds and is run every 5 minutes. 
-
-However, toaster-watcher can be configured to do things like expire old messages from maildirs and feed spam through a processor like sa-learn. This can take a long time on a large mail system so we don't want multiple instances of toaster-watcher running.
-
-returns the path to the pidfile (on success).
+returned is a string. If the user responded, their response is returned. If not, then the default response is returned. If no default was supplied, 0 is returned.
 
 =cut
 
-sub check_pidfile($;$)
+sub answer
 {
-	my ($self, $pidfile, $debug) = @_;
+	my ($self, $q, $default, $timer) = @_;
+	my $ans;
 
-	# make sure the file & enclosing directory is writable, revert to tmp if not
-	unless ( $self->file_check_writable($pidfile, $debug) )
+	if ($default) { print "Please enter $q. ($default) :" }
+	else          { print "Please enter $q: "             };
+
+	if ($timer) {
+		eval {
+			local $SIG{ALRM} = sub { die "alarm\n" };
+			alarm $timer;
+			$ans = <STDIN>;
+			alarm 0;
+		};
+		if ($@) { 
+			($@ eq "alarm\n") ? print "timed out!\n" : carp;  # propagate unexpected errors
+		};
+	} 
+	else { $ans = <STDIN> };
+
+	chomp $ans;
+
+	if ($ans ne "") { return $ans; }
+	else
 	{
-		use File::Basename;
-		my ($base, $path, $suffix) = fileparse($pidfile);
-		print "NOTICE: using /tmp instead of $path for pidfile\n" if $debug;
-		$pidfile = "/tmp/$base";
+		return ($default) if $default;
+		return 0;
 	};
+};
 
-	if ( -e $pidfile )
+=head2 archive_expand
+
+  $utility->archive_expand("package.tar.bz2", $debug);
+
+Takes an archive and decompresses and expands it's contents. Works with bz2, gz, and tgz files.
+
+=cut
+
+sub archive_expand($;$)
+{
+	my ($self, $archive, $debug) = @_;
+	my $r;
+
+	my $tar  = $self->find_the_bin("tar");
+	my $file = $self->find_the_bin("file");
+	my $grep = $self->find_the_bin("grep");
+
+	if ( $archive =~ /bz2$/ ) 
 	{
-		use File::stat;
-		my $stats = stat($pidfile);
-		my $age   = time() - $stats->mtime;
+		print "archive_expand: decompressing $archive...." if $debug;
 
-		if ($age < 3600 )     # if it's less than 1 hour old
-		{
-			print "\nWARNING! check_pidfile: $pidfile is $age seconds old and might still be running. If this is not the case, please remove it. \n\n";
-			return 0;
+		# Check to make sure the archive contents match the file extension
+		# this shouldn't be necessary but the world isn't perfect. Sigh.
+
+		# file $file on BSD yields bunzip2, on Linux bzip2
+		if ( `$file $archive | $grep bunzip2` || `$file $archive | $grep bzip2` ) {
+			my $bunzip2 = $self->find_the_bin("bunzip2");
+			if ( $self->syscmd("$bunzip2 -c $archive | $tar -xf -") ) {
+				print "archive_expand: FAILURE expanding\n";
+				return 0;
+			} else {
+				return 1;
+			};
 		} else {
-			print "\nWARNING: check_pidfile: $pidfile was found but it's $age seconds old, so I'm ignoring it.\n\n";
+			print "FAILURE: $archive is not a bz2 compressed file!\n";
+			return 0;
+		};
+	}
+	elsif ( $archive =~ /gz$/ )
+	{
+		print "archive_expand: decompressing $archive...." if $debug;
+		if ( `$file $archive | $grep gzip` ) {
+			my $gunzip = $self->find_the_bin("gunzip");
+			if ( $self->syscmd("$gunzip -c $archive | $tar -xf -") ) {
+				print "archive_expand: FAILURE expanding\n";
+				return 0;
+			} else {
+				print "done.\n" if $debug;
+				return 1;
+			};
+		} else {
+			print "FAILURE: $archive is not a gzip compressed file!\n";
+			return 0;
 		};
 	}
 	else
 	{
-		print "check_pidfile: writing process id ", $$, " to $pidfile..." if $debug;
-		$self->file_write($pidfile, $$);  # $$ is the process id of this process
-		print "done.\n" if $debug;
-	};
-
-	return $pidfile;
-
-};
-
-
-=head2 install_from_sources_php
-
-	$utility->install_from_sources_php();
-
-Downloads a PHP program and installs it. Not completed.
-
-=cut
-
-sub install_from_sources_php($$$$;$$$)
-{
-	my $self = shift;
-	#my ($conf, $vals) = @_;
-	my ($conf, $package, $site, $url, $targets, $patches, $debug) = @_;
-	my $patch;
-
-	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
-	$self->chdir_source_dir($src);
-
-	if ( -d $package ) 
-	{
-		unless ( $self->source_warning($package, 1, $src) )
-		{
-			carp "\ninstall_from_sources_php: OK then, skipping install.\n";
-			return 0;
-		}
-		else
-		{
-			print "install_from_sources_php: removing any previous build sources.\n";
-			$self->syscmd("rm -rf $package-*");   # nuke any old versions
-		};
-	};
-
-	print "install_from_sources_php looking for existing sources...";
-
-	my $tarball = "$package.tar.gz";
-	if    ( -e $tarball )          { print "found.\n"; }
-	elsif ( -e "$package.tgz" )    { print "found.\n"; $tarball = "$package.tgz"; } 
-	elsif ( -e "$package.tar.bz2") { print "found.\n"; $tarball = "$package.tar.bz2"; } 
-	else                           { print "not found.\n" };
-
-	unless ( -e $tarball )
-	{
-		$site ||= $conf->{'toaster_dl_site'}; $site ||= "http://www.tnpi.biz";
-		$url  ||= $conf->{'toaster_dl_url'};  $url ||= "/internet/mail/toaster";
-
-		unless ( $self->get_file("$site$url/$tarball", $debug) )
-		{
-			croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
-		};
-
-		if ( `file $tarball | grep ASCII` ) {
-			print "install_from_sources_php: oops, file is not binary, we'll try again as .bz2\n";
-			unlink $tarball;
-			$tarball = "$package.tar.bz2";
-			unless ( $self->get_file("$site$url/$tarball", $debug) )
-			{
-				croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
-			};
-		};
-	} 
-	else 
-	{
-		print "install_from_sources_php: using existing $tarball sources.\n";
-	};
-
-	if ( $patches && @$patches[0] ) 
-	{
-		print "install_from_sources_php: fetching patches...\n";
-		foreach $patch ( @$patches ) 
-		{
-			my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
-			unless ($toaster) { $toaster = "http://www.tnpi.biz/internet/mail/toaster"; };
-			unless ( -e $patch ) {
-				unless ( $self->get_file("$toaster/patches/$patch") )
-				{
-					croak "install_from_sources_php: couldn't fetch $toaster/$patches/$patch\n";
-				};
-			};
-		};
-	} 
-	else 
-	{
-		print "install_from_sources_php: no patches to fetch.\n";
-	};
-
-	$self->archive_expand($tarball, 1) or die "Couldn't expand $tarball: $!\n";
-
-	if ( -d $package )
-	{
-		chdir $package;
-
-		if ( $patches && @$patches[0] ) 
-		{
-			print "yes, should be patching here!\n";
-			foreach $patch ( @$patches ) 
-			{
-				my $patchbin = $self->find_the_bin("patch");
-				if ( $self->syscmd("$patchbin < ../$patch") ) 
-				{ 
-					croak "install_from_sources_php: patch failed: $!\n";
-				};
-			};
-		};
-
-#		unless ( @$targets[0] ) 
-#		{
-#			print "install_from_sources_php: using default targets (./configure, make, make install).\n";
-#			@$targets = ( "./configure", "make", "make install") 
-#		};
-
-		foreach my $target ( @$targets ) 
-		{ 
-			if ( $self->syscmd($target) )
-			{
-				croak "install_from_source_php: $target failed: $!\n";
-			};
-		};
-#		chdir("..");
-#		$self->syscmd("rm -rf $package");
-	};
-};
-
-
-=head2 file_check_writable
-
-	use Mail::Toaster::Utility;
-	$utility->file_check_writable("/tmp/boogers", $debug) ? print "yes" : print "no";
-
-If the file exists, it checks to see if it's writable. If the file does not exist, then it checks to see if the enclosing directory is writable. 
-
-It will output verbose messages if you set the debug flag.
-
-returns a 1 if writable, zero otherwise.
-
-=cut
-
-sub file_check_writable($;$)
-{
-	my ($self, $file, $debug) = @_;
-
-	my $nl = "\n"; $nl = "<br>" if ( $ENV{'GATEWAY_INTERFACE'} );
-
-	print "file_check_writable: checking $file..." if $debug;
-
-	if ( -e $file )    # if the file exists
-	{
-		unless ( -w $file ) 
-		{
-			print "WARNING: file_check_writable: $file not writable by " . getpwuid($>) . "!$nl$nl>" if $debug;
-			#warn "WARNING: file_check_writable: $file not writable by " . getpwuid($>) . "!$nl$nl>";
-			return 0;
-		};
-	} 
-	else
-	{
-		use File::Basename;
-		my ($base, $path, $suffix) = fileparse($file);
-
-		unless ( -w $path )
-		{
-			#print "\nWARNING: file_check_writable: $path not writable by " . getpwuid($>) . "!$nl$nl" if $debug;
-			warn "\nWARNING: file_check_writable: $path not writable by " . getpwuid($>) . "!$nl$nl" if $debug;
-			return 0;
-		};
-	};
-
-	print "yes.$nl" if $debug;
+		print "archive_expand: FAILED: I don't know how to expand $archive!\n";
+		return 0;
+	}
+	print "done.\n" if $debug;
 	return 1;
 };
 
 
-=head2 file_check_readable
+=head2 chdir_source_dir
 
-	$utility->file_check_readable($file);
+  $utility->chdir_source_dir("/usr/local/src");
 
-input is a string consisting of a path name to a file. An optional second argument changes the default exit behaviour to warn and continue (rather than dying).
+changes your working directory to the supplied one. Creates it if it doesn't exist.
 
-return is 1 for yes, 0 for no.
+returns 1 on success
 
 =cut
 
-sub file_check_readable($;$)
+sub chdir_source_dir($;$)
 {
-	my ($self, $file, $warn) = @_;
+	my ($self, $dir, $src) = @_;
 
-	unless ( -e $file )
+	unless ( $dir ) { croak "You aren't calling this method correctly!\n"; };
+
+	if ( $src ) 
 	{
-		print "\nfile_check_readable: ERROR: The file $file currently does not exist. This is most likely because you did not follow the installation instructions correctly. Please read and follow the instructions. If the problems persist, email a complete description of the problem to support\@tnpi.biz.\n\n";
-		$warn ? return 0 : croak "\n";
+		if ( -e $src && ! -d $src ) {
+			croak "Something (other than a directory) is at $src and that's my build directory. Please remove it and try again!\n";
+		};
+
+		unless ( -e $src )
+		{
+			mkdir($src, 0755) or carp "chdir_source_dir: mkdir $src failed: $!\n";
+			unless ( -d $src ) 
+			{
+				print "chdir_source_dir: trying again with mkdir -p....\n";
+				my $mkdir = $self->find_the_bin("mkdir");
+				$self->syscmd("$mkdir -p $src");
+				unless ( -d $src ) { 
+					my $sudo = $self->sudo;
+					if ( $sudo ) {
+						print "chdir_source_dir: trying one last time with $sudo mkdir -p....\n";
+						$self->syscmd("$sudo $mkdir -p $src");
+						print "chdir_source_dir: fixing ownership.\n";
+						my $chown = $self->find_the_bin("chown");
+						$self->syscmd("$sudo $chown $< $src");
+					};
+				};
+				unless ( -d $src ) { 
+					croak "chdir_source_dir: Couldn't create $src.\n"; 
+				};
+			};
+		};
 	};
 
-	unless ( -r $file ) 
+	if ( -e $dir && ! -d $dir ) {
+		croak "Something (other than a directory) is at $dir and that's my build directory. Please remove it and try again!\n";
+	};
+
+	unless ( -d $dir ) 
 	{
-		print "\nfile_check_readable: ERROR: Pardon me but I need your help. The file $file is currently not readable by the user I'm running as (" . getpwuid($>) . "). You need to fix this, most likely using either chown or chmod.\n\n";
-		$warn ? return 0 : croak "\n";
+		mkdir($dir, 0755) or warn "mkdir $dir failed.\n";
+		unless ( -d $dir ) {
+			print "chdir_source_dir: trying again with mkdir -p $src\n";
+			my $mkdir = $self->find_the_bin("mkdir");
+			$self->syscmd("$mkdir -p $dir");
+			unless ( -d $dir ) { 
+				my $sudo = $self->sudo;
+				if ( $sudo ) {
+					print "chdir_source_dir: trying one last time with $sudo mkdir -p $dir\n";
+					$self->syscmd("$sudo $mkdir -p $dir");
+					print "chdir_source_dir: fixing ownership.\n";
+					my $chown = $self->find_the_bin("chown");
+					$self->syscmd("$sudo $chown $< $dir");
+				};
+			};
+			unless ( -d $dir ) { croak "Couldn't create $dir.\n"; };
+		}
 	}
 
+	chdir($dir) or croak "chdir_source_dir: FAILED to cd to $dir: $!\n";
 	return 1;
-};
-
-
-=head2 install_from_source
-
-	$vals = { package => 'simscan-1.07',
-			site    => 'http://www.inter7.com',
-			url     => '/simscan/',
-			targets => ['./configure', 'make', 'make install'],
-			patches => '',
-			debug   => 1,
-	};
-
-	$utility->install_from_source($conf, $vals);
-
-Downloads and installs a program from sources.
-
-returns 1 on success, 0 on failure.
-
-=cut
-
-sub install_from_source($$)
-{
-	my ($self, $conf, $vals) = @_;
-	my $patch;
-
-	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
-	$self->chdir_source_dir($src);
-
-	my $package = $vals->{'package'};
-	if ( -d $package ) 
-	{
-		unless ( $self->source_warning($package, 1, $src) )
-		{
-			carp "\ninstall_from_source: OK then, skipping install.\n";
-			return 0;
-		}
-		else
-		{
-			print "install_from_source: removing any previous build sources.\n";
-			$self->syscmd("rm -rf $package-*");   # nuke any old versions
-		};
-	};
-
-	print "install_from_source: looking for existing sources...";
-
-	my $tarball = "$package.tar.gz";
-	if    ( -e $tarball )           { print "found.\n"; }
-	elsif ( -e "$package.tgz"    )  { print "found.\n"; $tarball = "$package.tgz";     } 
-	elsif ( -e "$package.tar.bz2" ) { print "found.\n"; $tarball = "$package.tar.bz2"; } 
-	else                            { print "not found.\n" };
-
-	if ( -e $tarball ) {
-		print "install_from_source: using existing $tarball sources.\n";
-	} 
-	else 
-	{
-		my $site = $vals->{'site'};
-		$site ||= $conf->{'toaster_dl_site'};  
-		$site ||= "http://www.tnpi.biz";        # if all else fails
-
-		my $url = $vals->{'url'};            # get from passed value
-		$url ||= $conf->{'toaster_dl_url'};  # get from toaster-watcher.conf
-		$url ||= "/internet/mail/toaster";   # finally, a default
-
-		unless ( $self->get_file("$site$url/$tarball", $vals->{'debug'}) )
-		{
-			carp "install_from_source: couldn't fetch $site$url/$tarball\n";
-		};
-
-		if ( -e $tarball ) 
-		{
-			if ( `file $tarball | grep ASCII` ) {
-				print "install_from_source: oops, file is not binary, we'll try again as bz2.\n";
-				unlink $tarball;
-				$tarball = "$package.tar.bz2";
-				unless ( $self->get_file("$site$url/$tarball", $vals->{'debug'}) )
-				{
-					croak "install_from_source: couldn't fetch $site$url/$tarball\n";
-				};
-			};
-		}
-		else
-		{
-			$tarball = "$package.tar.bz2";
-			unless ( $self->get_file("$site$url/$tarball", $vals->{'debug'}) )
-			{
-				croak "install_from_source: couldn't fetch $site$url/$tarball\n";
-			};
-		};
-	};
-
-	my $patches = $vals->{'patches'};
-	if ( $patches && @$patches[0] ) 
-	{
-		print "install_from_source: fetching patches...\n";
-		foreach $patch ( @$patches ) 
-		{
-			my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
-			unless ($toaster) { $toaster = "http://www.tnpi.biz/internet/mail/toaster"; };
-			unless ( -e $patch ) {
-				unless ( $self->get_file("$toaster/patches/$patch") )
-				{
-					croak "install_from_source: couldn't fetch $toaster/$patches/$patch\n";
-				};
-			};
-		};
-	} 
-	else 
-	{
-		print "install_from_source: no patches to fetch.\n";
-	};
-
-	$self->archive_expand($tarball, 1) or die "Couldn't expand $tarball: $!\n";
-
-	if ( -d $package )
-	{
-		chdir $package;
-
-		if ( $patches && @$patches[0] ) 
-		{
-			print "yes, should be patching here!\n";
-			foreach $patch ( @$patches ) 
-			{
-				my $patchbin = $self->find_the_bin("patch");
-				if ( $self->syscmd("$patchbin < ../$patch") )
-				{ 
-					croak "install_from_source: patch failed: $!\n";
-				};
-			};
-		};
-
-		my $targets = $vals->{'targets'};
-		unless ( @$targets[0] ) 
-		{
-			print "install_from_source: using default targets (./configure, make, make install).\n";
-			@$targets = ( "./configure", "make", "make install") 
-		};
-
-		foreach my $target ( @$targets ) 
-		{ 
-			if ( $self->syscmd($target) )
-			{
-				croak "install_from_source: $target failed: $!\n";
-			};
-		};
-		chdir("..");
-		$self->syscmd("rm -rf $package");
-	};
 };
 
 
@@ -507,7 +277,7 @@ sub install_from_source($$)
 
 Checks the ownership on all home directories to see if they are owned by their respective users in /etc/password. Offers to repair the permissions on incorrectly owned directories. This is useful when someone that knows better does something like "chown -R user /home /user" and fouls things up.
 
-   $utility->check_homedir_ownership;
+  $utility->check_homedir_ownership;
 
 =cut
 
@@ -552,72 +322,42 @@ sub check_homedir_ownership(;$)
 };
 
 
-=head2 archive_expand
+# exists solely for backwards compatability
+sub check_pidfile { my $self = shift; return $self->pidfile_check(@_); };
 
-	$utility->archive_expand("package.tar.bz2", $debug);
 
-Takes an archive and decompresses and expands it's contents. Works with bz2, gz, and tgz files.
+=head2 clean_tmp_dir
+
+  $utility->clean_tmp_dir($dir)
+
+$dir is a directory. Running this will empty it. Be careful!
 
 =cut
 
-sub archive_expand($;$)
+sub clean_tmp_dir($)
 {
-	my ($self, $archive, $debug) = @_;
-	my $r;
+	my ($self, $dir) = @_;
 
-	my $tar  = $self->find_the_bin("tar");
-	my $file = $self->find_the_bin("file");
-	my $grep = $self->find_the_bin("grep");
+	chdir ($dir) or croak "couldn't chdir to $dir: $!\n";
 
-	if ( $archive =~ /bz2$/ ) 
+	foreach ( $self->get_dir_files($dir) )
 	{
-		print "archive_expand: decompressing $archive...." if $debug;
-
-		# Check to make sure the archive contents match the file extension
-		# this shouldn't be necessary but the world isn't perfect. Sigh.
-
-		if ( `$file $archive | $grep bunzip2` ) {
-			my $bunzip2 = $self->find_the_bin("bunzip2");
-			if ( $self->syscmd("$bunzip2 -c $archive | $tar -xf -") ) {
-				print "archive_expand: FAILURE expanding\n";
-				return 0;
-			} else {
-				return 1;
-			};
-		} else {
-			print "FAILURE: $archive is not a bz2 compressed file!\n";
-			return 0;
-		};
+		if    ( -f $_ ) { $self->file_delete($_)  }
+		elsif ( -d $_ )
+		{
+			use File::Path;
+			rmtree $_ or croak "CleanTmpdir: couldn't delete $_\n";
+		}
+		else { 
+			print "What the heck is $_?\n";
+		}
 	}
-	elsif ( $archive =~ /gz$/ )
-	{
-		print "archive_expand: decompressing $archive...." if $debug;
-		if ( `$file $archive | $grep gzip` ) {
-			my $gunzip = $self->find_the_bin("gunzip");
-			if ( $self->syscmd("$gunzip -c $archive | $tar -xf -") ) {
-				print "archive_expand: FAILURE expanding\n";
-				return 0;
-			} else {
-				return 1;
-			};
-		} else {
-			print "FAILURE: $archive is not a gzip compressed file!\n";
-			return 0;
-		};
-	}
-	else
-	{
-		print "archive_expand: FAILED: I don't know how to expand $archive!\n";
-		return 0;
-	}
-	print "done.\n" if $debug;
-	return 1;
-};
+}
 
 
 =head2 drives_get_mounted
 
-	$utility->drives_get_mounted($debug);
+  $utility->drives_get_mounted($debug);
 
 Uses mount to fetch a list of mounted drive/partitions.
 
@@ -632,12 +372,12 @@ sub drives_get_mounted(;$)
 
 	my $mountbin = $self->find_the_bin("mount");
 
-	foreach my $mount ( `$mountbin` ) 
+	foreach ( `$mountbin` ) 
 	{
-		my ($d, $m) = $mount =~ /^(.*) on (.*) \(/;
+		my ($d, $m) = $_ =~ /^(.*) on (.*) \(/;
 
 #		if ( $m =~ /^\// && $d =~ /^\// )  # mounts and drives that begin with /
-		if ( $m =~ /^\// )                 # only mounts that begin with /
+		if ( $m && $m =~ /^\// )           # only mounts that begin with /
 		{
 			print "adding: $m \t $d\n" if $debug;
 			$hash{$m} = $d;
@@ -647,78 +387,444 @@ sub drives_get_mounted(;$)
 };
 
 
-=head2 is_process_running
-
-Verify if a process is running or not.
-
-	$utility->is_process_running($process) ? print "yes" : print "no";
-
-$process is the name as it would appear in the process table.
-
-=cut
-
-sub is_process_running($)
+sub graceful_exit(;$$)
 {
-	my ($self, $process) = @_;
+	my ($self, $code, $desc) = @_;
 
-	my $r = `ps ax | grep $process | grep -v grep`;
-	$r ? return 1 : return 0;
+	print "$desc\n" if $desc;
+	print "+$code\n" if $code;
+	exit 1;
 };
 
 
+=head2 install_from_sources_php
 
-=head2 mailtoaster
+  $utility->install_from_sources_php();
 
-	$utility->mailtoaster();
-
-Downloads and installs Mail::Toaster.
+Downloads a PHP program and installs it. Not completed.
 
 =cut
 
-sub mailtoaster(;$)
+sub install_from_sources_php($$$$;$$$)
 {
-	my ($self, $debug) = @_;
+	my $self = shift;
+	#my ($conf, $vals) = @_;
+	my ($conf, $package, $site, $url, $targets, $patches, $debug) = @_;
+	my $patch;
 
-	my $src = "/usr/local/src";
+	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
 	$self->chdir_source_dir($src);
 
-	my $conf = $self->parse_config({file=>"toaster-watcher.conf"});
-	$self->syscmd("rm -rf Mail-Toaster-*");   # nuke any old versions
-	$self->get_file("http://www.tnpi.biz/internet/mail/toaster/Mail-Toaster.tar.gz");
-	$self->archive_expand("Mail-Toaster.tar.gz");
-
-	foreach my $file ( $self->get_dir_files($src) )
+	if ( -d $package ) 
 	{
-		if ( $file =~ /Mail-Toaster-/ ) 
+		unless ( $self->source_warning($package, 1, $src) )
 		{
-			chdir($file);
-			$self->syscmd("perl Makefile.PL");
-			$self->syscmd("make test");
-			if ( -e "/usr/local/etc/toaster-watcher.conf" ) {
-				$self->syscmd("make conf");
-			} else {
-				$self->syscmd("make newconf");
-			};
-			unless ($conf && $conf->{'preserve_cgifiles'}) {
-				$self->syscmd("make cgi");
-			};
-			$self->syscmd("make install");
-			chdir("..");
-			$self->syscmd("rm -rf $file");
-			last;
+			carp "\ninstall_from_sources_php: OK then, skipping install.\n";
+			return 0;
+		} else {
+			print "install_from_sources_php: removing any previous build sources.\n";
+			$self->syscmd("rm -rf $package-*");   # nuke any old versions
 		};
+	};
+
+	print "install_from_sources_php looking for existing sources...";
+
+	my $tarball = "$package.tar.gz";
+	if    ( -e $tarball )          { print "found.\n"; }
+	elsif ( -e "$package.tgz" )    { print "found.\n"; $tarball = "$package.tgz"; } 
+	elsif ( -e "$package.tar.bz2") { print "found.\n"; $tarball = "$package.tar.bz2"; } 
+	else                           { print "not found.\n" };
+
+	unless ( -e $tarball )
+	{
+		$site ||= $conf->{'toaster_dl_site'}; $site ||= "http://www.tnpi.biz";
+		$url  ||= $conf->{'toaster_dl_url'};  $url ||= "/internet/mail/toaster";
+
+		unless ( $self->file_get("$site$url/$tarball", $debug) )
+		{
+			croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
+		};
+
+		if ( `file $tarball | grep ASCII` ) {
+			print "install_from_sources_php: oops, file is not binary, we'll try again as .bz2\n";
+			unlink $tarball;
+			$tarball = "$package.tar.bz2";
+			unless ( $self->file_get("$site$url/$tarball", $debug) )
+			{
+				croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
+			};
+		};
+	} 
+	else 
+	{
+		print "install_from_sources_php: using existing $tarball sources.\n";
+	};
+
+	if ( $patches && @$patches[0] ) 
+	{
+		print "install_from_sources_php: fetching patches...\n";
+		foreach $patch ( @$patches ) 
+		{
+			my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
+			unless ($toaster) { $toaster = "http://www.tnpi.biz/internet/mail/toaster"; };
+			unless ( -e $patch ) {
+				unless ( $self->file_get("$toaster/patches/$patch") )
+				{
+					croak "install_from_sources_php: couldn't fetch $toaster/$patches/$patch\n";
+				};
+			};
+		};
+	} 
+	else 
+	{
+		print "install_from_sources_php: no patches to fetch.\n";
+	};
+
+	$self->archive_expand($tarball, 1) or croak "Couldn't expand $tarball: $!\n";
+
+	if ( -d $package )
+	{
+		chdir $package;
+
+		if ( $patches && @$patches[0] ) 
+		{
+			print "yes, should be patching here!\n";
+			foreach $patch ( @$patches ) 
+			{
+				my $patchbin = $self->find_the_bin("patch");
+				if ( $self->syscmd("$patchbin < ../$patch") ) 
+				{ 
+					croak "install_from_sources_php: patch failed: $!\n";
+				};
+			};
+		};
+
+#		unless ( @$targets[0] ) 
+#		{
+#			print "install_from_sources_php: using default targets (./configure, make, make install).\n";
+#			@$targets = ( "./configure", "make", "make install") 
+#		};
+
+		foreach my $target ( @$targets ) 
+		{ 
+			if ( $self->syscmd($target) )
+			{
+				croak "install_from_source_php: $target failed: $!\n";
+			};
+		};
+#		chdir("..");
+#		$self->syscmd("rm -rf $package");
 	};
 };
 
+
+=head2 file_append
+
+  $utility->file_append($file, $lines)
+
+Pass a filename and an array ref and it'll append the array contents to the file. It's that simple.
+
+=cut
+
+sub file_append($$)
+{
+	my ($self, $file, $lines) = @_;
+
+	unless ( $self->is_arrayref($lines) ) 
+	{
+		my ($package, $filename, $line) = caller;
+		if ($package ne "main") { print "WARNING: Package $package passed $filename an invalid argument "; } 
+		else                    { print "WARNING: $filename was passed an invalid argument "; }
+	}
+
+	unless ( open FILE, ">>$file" )
+	{
+		carp "file_append: couldn't open: $!";
+		return 0;
+	};
+
+	foreach (@$lines) { print FILE "$_\n"; };
+
+	close FILE or return 0;
+	return 1;
+};
+
+
+=head2 file_archive
+
+  $utility->file_archive ($file)
+
+Make a backup copy of a file by copying the file to $file.timestamp.
+
+returns 0 on failure, a file path on success.
+
+=cut
+
+sub file_archive($)
+{
+	my ($self, $file) = @_;
+	my $date = time;
+
+	if ( $< != 0 )  # we're not root
+	{
+		my $sudo = $self->find_the_bin("sudo");
+		my $cp   = $self->find_the_bin("cp");
+		$self->syscmd( "$sudo cp $file $file.$date");
+	} 
+	else 
+	{
+		use File::Copy;
+		copy($file, "$file\.$date") or croak "backup of $file to $file.$date failed: $!\n";
+	};
+
+	print "file_archive: $file backed up to $file.$date\n";
+	-e "$file.$date" ? return "$file.$date" : return 0;
+};
+
+
+=head2 file_check_readable
+
+  $utility->file_check_readable($file);
+
+input is a string consisting of a path name to a file. An optional second argument changes the default exit behaviour to warn and continue (rather than dying).
+
+return is 1 for yes, 0 for no.
+
+=cut
+
+sub file_check_readable($;$)
+{
+	my ($self, $file, $warn) = @_;
+
+	unless ( -e $file )
+	{
+		print "\nfile_check_readable: ERROR: The file $file currently does not exist. This is most likely because you did not follow the installation instructions correctly. Please read and follow the instructions. If the problems persist, email a complete description of the problem to support\@tnpi.biz.\n\n";
+		$warn ? return 0 : croak "\n";
+	};
+
+	unless ( -r $file ) 
+	{
+		print "\nfile_check_readable: ERROR: Pardon me but I need your help. The file $file is currently not readable by the user I'm running as (" . getpwuid($>) . "). You need to fix this, most likely using either chown or chmod.\n\n";
+		$warn ? return 0 : croak "\n";
+	}
+
+	return 1;
+};
+
+
+=head2 file_check_writable
+
+   use Mail::Toaster::Utility;
+   $utility->file_check_writable("/tmp/boogers", $debug) ? print "yes" : print "no";
+
+If the file exists, it checks to see if it's writable. If the file does not exist, then it checks to see if the enclosing directory is writable. 
+
+It will output verbose messages if you set the debug flag.
+
+returns a 1 if writable, zero otherwise.
+
+=cut
+
+sub file_check_writable($;$)
+{
+	my ($self, $file, $debug) = @_;
+
+	my $nl = "\n"; $nl = "<br>" if ( $ENV{'GATEWAY_INTERFACE'} );
+
+	print "file_check_writable: checking $file..." if $debug;
+
+	if ( -e $file )    # if the file exists
+	{
+		unless ( -w $file ) 
+		{
+			print "WARNING: file_check_writable: $file not writable by " . getpwuid($>) . "!$nl$nl>" if $debug;
+			#carp "WARNING: file_check_writable: $file not writable by " . getpwuid($>) . "!$nl$nl>";
+			return 0;
+		};
+	} 
+	else
+	{
+		use File::Basename;
+		my ($base, $path, $suffix) = fileparse($file);
+
+		unless ( -w $path )
+		{
+			#print "\nWARNING: file_check_writable: $path not writable by " . getpwuid($>) . "!$nl$nl" if $debug;
+			carp "\nWARNING: file_check_writable: $path not writable by " . getpwuid($>) . "!$nl$nl" if $debug;
+			return 0;
+		};
+	};
+
+	print "yes.$nl" if $debug;
+	return 1;
+};
+
+
+=head2 file_delete
+
+Deletes a file. Uses unlink if we have appropriate permissions, otherwise uses a system rm call, using sudo if it's not being run as root. This sub will try very hard to delete the file!
+
+   $utility->file_delete($file, $warn);
+
+Arguments are a file path and $warn is an optional boolean.
+
+returns 1 for success, 0 for failure.
+
+=cut
+
+sub file_delete($;$)
+{       
+	my ($self, $file, $warn) = @_;
+
+	unless ( -e $file ) {
+		print "WARNING: $file to delete does not exist!\n";
+		return 0;
+	};
+
+	if ( -w $file ) {  # we have write permissions on the file
+		if ( $warn ) { unlink $file or croak "FATAL: couldn't delete $file: $!\n"  } 
+		else         { unlink $file or carp "WARNING: couldn't delete $file: $!\n" };
+	} 
+	else {
+		my $rm = $self->find_the_bin("rm");
+		if ( $< == 0 ) {   # we're running as root
+			$self->syscmd("$rm -f $file");
+		} else {
+			my $sudo = $self->sudo();
+			$self->syscmd("$sudo $rm -f $file");
+		};
+	}
+
+	-e $file ? return 0 : return 1;
+};
+
+=head2 file_get
+
+   $utility->file_get($url, $debug);
+
+Use an appropriate URL fetching utility (fetch, curl, wget, etc) based on your OS to download a file from the $url handed to us. 
+
+Returns 1 for success, 0 for failure.
+
+=cut
+
+sub file_get($;$)
+{
+	my ($self, $url, $debug) = @_;
+	my ($fetchbin, $fetchcmd);
+
+	print "file_get: fetching $url\n" if $debug;
+
+	if    ( $os eq "freebsd" ) { $fetchbin = $self->find_the_bin("fetch")  }
+	elsif ( $os eq "darwin"  ) { $fetchbin = $self->find_the_bin("curl")   }
+	else                       { $fetchbin = $self->find_the_bin("wget")   };
+
+	unless ( -x $fetchbin ) 
+	{
+		# should use LWP here
+		print "Yikes, couldn't find wget! Please install it.\n";
+		return 0;
+	};
+
+	$fetchcmd   = "$fetchbin -O $url" if ($os eq "darwin");
+	$fetchcmd ||= "$fetchbin $url";
+
+	my $r = $self->syscmd($fetchcmd);
+
+	if ( $r != 0 )
+	{
+		print "file_get error executing $fetchcmd\n";
+		print "file_get error result:  $r\n";
+		return 0;
+	};
+
+	return 1;
+};
+
+=head2 file_read
+
+   my @lines = $utility->file_read($file)
+
+Reads in a file, and returns an array with the files contents, one line per array element. All lines in array are chomped.
+
+=cut
+
+sub file_read($)
+{
+	my ($self, $file) = @_;
+
+	unless ( -e $file ) {
+		carp "file_read: $file does not exist!\n";
+		return if defined wantarray;     # error checking is likely done by caller
+		croak "FATAL: file_read could not find $file: $!\n";
+	};
+
+	unless ( -r $file ) {
+		carp "file_read: $file is not readable!\n";
+		return if defined wantarray;     # error checking is likely done by caller
+		croak "FATAL: file_read could not find $file: $!\n";
+	};
+
+	open(FILE, $file) or carp "file_read: couldn't open $file: $!";
+	my @lines = <FILE>;
+	close FILE;
+
+	chomp @lines;
+	return @lines;
+};
+
+
+=head2 file_write
+
+   $utility->file_write ($file, @lines)
+
+	my $file = "/tmp/foo";
+	my @lines = "1", "2", "3";
+
+	print "success" if ($utility->file_write($file, @lines));
+
+$file is the file you want to write to
+@lines is a an array, each array element is a line in the file
+
+1 is returned on success, 0 or undef on failure
+
+=cut
+
+sub file_write($@)
+{
+	my ($self, $file, @lines) = @_;
+
+	if ( -d $file ) {
+		print "file_write FAILURE: $file is a directory!\n";
+		return 0;
+	};
+
+	if( -f $file && ! -w $file )
+	{
+		print "file_write FAILURE: $file is not writable!\n";
+		return 0;
+	}
+
+	unless ( open FILE, ">$file" )
+	{
+		carp "file_write: couldn't open $file: $!";
+		return 0;
+	};
+
+	for (@lines) { print FILE "$_\n" };
+	close FILE;
+
+	return 1;
+};
 
 =head2 files_diff
 
-	$utility->files_diff($file1, $file2, $type, $debug);
+   $utility->files_diff($file1, $file2, $type, $debug);
 
-	if ( $utility->files_diff("foo", "bar") ) 
-	{ 
-		print "different!\n"; 
-	};
+   if ( $utility->files_diff("foo", "bar") ) 
+   { 
+       print "different!\n"; 
+   };
 
 Determine if the files are different. $type is assumed to be text unless you set it otherwise. For anthing but text files, we do a MD5 checksum on the files to determine if they're different or not.
 
@@ -774,179 +880,27 @@ sub files_diff ($$;$$)
 	};
 };
 
-
-=head2 yes_or_no
-
-	my $r = $utility->yes_or_no("Would you like fries with that?");
-
-	$r ? print "fries are in the bag\n" : print "no fries!\n";
-
-There are two optional arguments that can be passed. The first is a string which is the question to ask. The second is an integer representing how long (in seconds) to wait before timing out.
-
-returns 1 on yes, 0 on negative or null response.
-
-=cut
-
-sub yes_or_no(;$$)
-{
-	my ($self, $question, $timer) = @_;
-	my $ans;
-
-	if ($question) {;
-		return 1 if ( $question eq "test");
-		print "\n\t\t$question";
-	};
-
-	print "\n\nYou have $timer seconds to respond: " if $timer;
-
-	# should check for Term::Readkey and use it
-
-	if ($timer) {
-		eval {
-			local $SIG{ALRM} = sub { die "alarm\n" };
-			alarm $timer;
-			do {
-				print "(y/n): ";
-				$ans = lc(<STDIN>); chomp($ans);
-			} until ( $ans eq "n" || $ans eq "y" );
-			alarm 0;
-		};
-
-		if ($@) { 
-			($@ eq "alarm\n") ? print "timed out!\n" : carp;  # propagate unexpected errors
-		};
-
-		$ans eq "y" ? return 1 : return 0;
-	};
-
-	do {
-		print "(y/n): ";
-		$ans = lc(<STDIN>); chomp($ans);
-	} until ( $ans eq "n" || $ans eq "y" );
-
-	$ans eq "y" ? return 1 : return 0;
-};
-
-
-=head2 path_parse
-
-    $utility->path_parse($dir)
-
-Takes a path like "/usr/home/matt" and returns "/usr/home" and "matt"
-
-You (and I) should be using File::Basename instead as it's more portable.
-
-=cut
-
-sub path_parse($) 
-{
-	my ($self, $dir) = @_;
-
-	if ( $dir =~ /\/$/ ) { chop $dir };
-
-	my $rindex = rindex($dir, "/");
-	my $updir  = substr($dir, 0, $rindex);
-	$rindex++;
-	my $curdir = substr($dir, $rindex);       
-
-	return $updir, $curdir;
-};
-
-
-=head2 file_write
-
-	$utility->file_write ($file, @lines)
-
-	my $file = "/tmp/foo";
-	my @lines = "1", "2", "3";
-
-	print "success" if ($utility->file_write($file, @lines));
-
-$file is the file you want to write to
-@lines is a an array, each array element is a line in the file
-
-1 is returned on success, 0 or undef on failure
-
-=cut
-
-sub file_write($@)
-{
-	my ($self, $file, @lines) = @_;
-
-	if ( -d $file ) {
-		print "file_write FAILURE: $file is a directory!\n";
-		return 0;
-	};
-
-	if( -f $file && ! -w $file )
-	{
-		print "file_write FAILURE: $file is not writable!\n";
-		return 0;
-	}
-
-	unless ( open FILE, ">$file" )
-	{
-		carp "file_write: couldn't open $file: $!";
-		return 0;
-	};
-
-	for (@lines) { print FILE "$_\n" };
-	close FILE;
-
-	return 1;
-};
-
-
-=head2 file_read
-
-	my @lines = $utility->file_read($file)
-
-Reads in a file, and returns an array with the files contents, one line per array element. All lines in array are chomped.
-
-=cut
-
-sub file_read($)
-{
-	my ($self, $file) = @_;
-	unless ( -e $file ) {
-		carp "file_read: $file does not exist!\n";
-		return if defined wantarray;     # error checking is likely done by caller
-		die "FATAL: file_read could not find $file: $!\n";
-	};
-
-	unless ( -r $file ) {
-		carp "file_read: $file is not readable!\n";
-		return if defined wantarray;     # error checking is likely done by caller
-		die "FATAL: file_read could not find $file: $!\n";
-	};
-
-	open(FILE, $file) or carp "file_read: couldn't open $file: $!";
-	my @lines = <FILE>;
-	close FILE;
-
-	chomp @lines;
-	return @lines;
-};
-
-sub find_the_bin($;$)
-{
-	my ($self, $bin, $dir) = @_;
-
 =head2 find_the_bin
 
-	$utility->find_the_bin($bin, $dir);
-
-	my $apachectl = $utility->find_the_bin("apachectl", "/usr/local/sbin")
+   $utility->find_the_bin($bin, $dir);
 
 Check all the "normal" locations for a binary that should be on the system and returns the full path to the binary. Return zero if we can't find it.
 
 If the optional $dir is sent, then check that directory first.
 
+Example: 
+
+   my $apachectl = $utility->find_the_bin("apachectl", "/usr/local/sbin")
+
 =cut
 
+sub find_the_bin($;$)
+{
+	my ($self, $bin, $dir) = @_;
 	my $prefix = "/usr/local";
-  
+
 	if    ( $dir && -x "$dir/$bin"      ) { return "$dir/$bin"; };
+	if    ( $bin =~ /^\// && -x $bin    ) { return $bin         };  # we got a full path
 
 	if    ( -x "$prefix/bin/$bin"       ) { return "/usr/local/bin/$bin";  }
 	elsif ( -x "$prefix/sbin/$bin"      ) { return "/usr/local/sbin/$bin"; }
@@ -956,87 +910,37 @@ If the optional $dir is sent, then check that directory first.
 	elsif ( -x "/sbin/$bin"             ) { return "/sbin/$bin";           }
 	elsif ( -x "/usr/sbin/$bin"         ) { return "/usr/sbin/$bin";       }
 	elsif ( -x "/opt/local/bin/$bin"    ) { return "/opt/local/bin/$bin";  }
+	elsif ( -x "/opt/local/sbin/$bin"   ) { return "/opt/local/sbin/$bin"; }
 	else  { return };
 };
 
 
-=head2 syscmd
+=head2 fstab_list
 
-Just a little wrapper around system calls, that returns any failure codes and prints out the error(s) if present.
+Fetch a list of drives that are mountable from /etc/fstab.
 
-	my $r = $utility->syscmd($cmd)
+   $utility->fstab_list;
 
-	print "syscmd: error result: $r\n" if ($r);
-
-return is the exit status of the program you called.
+returns an arrayref.
 
 =cut
 
-sub syscmd($;$)
+sub fstab_list
 {
-	my ($self, $cmd, $fatal) = @_;
-	my $r = system $cmd;
+	my @fstabs = `grep -v cdr /etc/fstab`;
+#	foreach my $fstab (@fstabs)
+#	{
+#		my @fields = split(" ", $fstab);
+#		#print "device: $fields[0]  mount: $fields[1]\n";
+#	};
+#	print "\n\n END of fstabs\n\n";
 
-	if ($? == -1) {
-		print "syscmd: $cmd\n";
-		print "failed to execute: $!\n";
-	}
-	elsif ($? & 127) {
-		print "syscmd: $cmd\n";
-		printf "child died with signal %d, %s coredump\n",
-		($? & 127),  ($? & 128) ? 'with' : 'without';
-	}
-	else {
-		# all is likely well
-		#printf "child exited with value %d\n", $? >> 8;
-	}
-
-	if ($r != 0)
-	{
-		print "syscmd: $cmd\n";
-
-		if ( defined $fatal && $fatal ) { croak "syscmd: result: $r\n"; } 
-		else                            { print "syscmd: result: $r\n"; };
-	};    
-
-	return $r;
-};
-
-
-=head2 file_archive
-
-	$utility->file_archive ($file)
-
-Make a backup copy of a file by copying the file to $file.timestamp.
-
-returns 0 on failure, a file path on success.
-
-=cut
-
-sub file_archive($)
-{
-	my ($self, $file) = @_;
-	my $date = time;
-
-	if ( $< != 0 )  # we're not root
-	{
-		my $sudo = $self->find_the_bin("sudo");
-		my $cp   = $self->find_the_bin("cp");
-		$self->syscmd( "$sudo cp $file $file.$date");
-	} 
-	else 
-	{
-		use File::Copy;
-		copy($file, "$file\.$date") or croak "backup of $file to $file.$date failed: $!\n";
-	};
-
-	print "file_archive: $file backed up to $file.$date\n";
-	-e "$file.$date" ? return "$file.$date" : return 0;
-};
+	return \@fstabs;
+}
 
 =head2 get_dir_files
 
-	$utility->get_dir_files($dir, $debug)
+   $utility->get_dir_files($dir, $debug)
 
 $dir is a directory. The return will be an array of files names contained in that directory.
 
@@ -1057,79 +961,12 @@ sub get_dir_files($;$)
 	return @files;
 };
 
-
-=head2 clean_tmp_dir
-
-	$utility->clean_tmp_dir($dir)
-
-$dir is a directory. Running this will empty it. Be careful!
-
-=cut
-
-sub clean_tmp_dir($)
-{
-	my ($self, $dir) = @_;
-	my @list = $self->get_dir_files($dir);
-	chdir ($dir);
-	foreach my $e (@list)
-	{
-		if ( -f $e )
-		{
-			$self->file_delete($e);
-		}
-		elsif ( -d $e )
-		{
-			use File::Path;
-			rmtree $e or croak "CleanTmpdir: couldn't delete $e\n";
-		};
-	};
-};
-
-=head2 file_delete
-
-Deletes a file. Uses unlink if we have appropriate permissions, otherwise uses a system rm call, using sudo if it's not being run as root. This sub will try very hard to delete the file!
-
-	$utility->file_delete($file, $warn);
-
-Arguments are a file path and $warn is an optional boolean.
-
-returns 1 for success, 0 for failure.
-
-=cut
-
-sub file_delete($;$)
-{       
-	my ($self, $file, $warn) = @_;
-
-	unless ( -e $file ) {
-		print "WARNING: $file to delete does not exist!\n";
-		return 0;
-	};
-
-	if ( -w $file ) {  # we have write permissions on the file
-		if ( $warn ) {
-			unlink $file or croak "FATAL: couldn't delete $file: $!\n";
-		} else {
-			unlink $file or carp "WARNING: couldn't delete $file: $!\n";
-		};
-	} 
-	else {
-		my $rm = $self->find_the_bin("rm");
-		if ( $< == 0 ) {   # we're running as root
-			$self->syscmd("$rm -f $file");
-		} else {
-			my $sudo = $self->sudo();
-			$self->syscmd("$sudo $rm -f $file");
-		};
-	}
-
-	(-e $file) ? return 0 : return 1;
-};
-
+# here for compatability
+sub get_file($;$) {	my $self = shift; return $self->file_get(@_) }
 
 =head2 get_the_date
 
-	$utility->get_the_date ($bump, $debug)
+   $utility->get_the_date ($bump, $debug)
 
 $bump is the optional offset (in seconds) to subtract from the date.
 
@@ -1184,139 +1021,319 @@ sub get_the_date(;$$)
 	};
 };
 
-=head2 get_file
 
-	use Mail::Toaster::Utility;
-	my $utility = new Mail::Toaster::Utility;
+=head2 install_from_source
 
-	$utility->get_file($url, $debug);
+   $vals = { package => 'simscan-1.07',
+   	   site    => 'http://www.inter7.com',
+   	   url     => '/simscan/',
+   	   targets => ['./configure', 'make', 'make install'],
+   	   patches => '',
+   	   debug   => 1,
+   };
 
-Use an appropriate URL fetching utility (fetch, curl, wget, etc) based on your OS to download a file from the $url handed to us. 
+	$utility->install_from_source($conf, $vals, $debug);
 
-Returns 1 for success, 0 for failure.
+Downloads and installs a program from sources.
+
+targets and partches are array references.
+
+An optional value to set is bintest. If set, it'll check the usual places for an executable binary. If found, it'll assume the software is already installed and require confirmation before re-installing.
+
+returns 1 on success, 0 on failure.
 
 =cut
 
-sub get_file($;$)
+sub install_from_source($$;$)
 {
-	my ($self, $url, $debug) = @_;
-	my ($fetchbin, $fetchcmd);
+	my ($self, $conf, $vals, $debug) = @_;
+	my $patch;
 
-	print "get_file: fetching $url\n" if $debug;
-
-	if ( $os eq "freebsd" )
-	{
-		$fetchbin = $self->find_the_bin("fetch");
-		$fetchcmd = "$fetchbin $url";
-	}
-	elsif ( $os eq "darwin" )
-	{
-		$fetchbin = $self->find_the_bin("curl");
-		$fetchcmd = "$fetchbin -O $url";
-	}
-	else
-	{
-		$fetchbin = $self->find_the_bin("wget");
-		$fetchcmd = "$fetchbin $url";
-	};
-
-	my $r = $self->syscmd($fetchcmd);
-
-	if ( $r != 0 )
-	{
-		print "get_file error executing $fetchcmd\n";
-		print "get_file error result:  $r\n";
+	unless ( $self->is_hashref($vals) ) {
+		my ($package, $filename, $line) = caller;
+		carp "WARNING: $filename passed install_from_source an invalid argument \n" if $debug;
 		return 0;
+	}
+
+	if ( $conf && ! $self->is_hashref($conf) ) {
+		my ($package, $filename, $line) = caller;
+		carp "WARNING: $filename passed install_from_source an invalid argument \n" if $debug;
+		return 0;
+	}
+
+	return 1 if ( $conf->{'int_test'} or $conf->{'int_test'} );
+
+	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
+	if ( $vals->{'source_sub_dir'} ) { $src .= "/" . $vals->{'source_sub_dir'}; };
+	$self->chdir_source_dir($src);
+
+	my $package = $vals->{'package'};
+	my $bintest = $vals->{'bintest'};
+
+	if ( $bintest && -x $self->find_the_bin($bintest) ) {
+		return 0 unless $self->yes_or_no("I detected $bintest which likely means that $package is already installed, do you want to reinstall?", 60);
 	};
 
-	return 1;
-};
-
-=head2 answer
-
-	use Mail::Toaster::Utility;
-	my $utility = Mail::Toaster::Utility->new();
-
-	my $answer = $utility->answer("question", $default, $timer)
-
-arguments:
- $q is the question
- $default is an optional default answer.
- $timer is how long (in seconds) to wait for a response
-
-returned is a string. If the user responded, their response is returned. If not, then the default response is returned. If no default was supplied, 0 is returned.
-
-=cut
-
-sub answer
-{
-	my ($self, $q, $default, $timer) = @_;
-	my $ans;
-
-	if ($default) { print "Please enter $q. ($default) :" }
-	else          { print "Please enter $q: "             };
-
-	if ($timer) {
-		eval {
-			local $SIG{ALRM} = sub { die "alarm\n" };
-			alarm $timer;
-			$ans = <STDIN>;
-			alarm 0;
+	if ( -d $package ) 
+	{
+		unless ( $self->source_warning($package, 1, $src) )
+		{
+			carp "\ninstall_from_source: OK then, skipping install.\n";
+			return 0;
+		}
+		else
+		{
+			print "install_from_source: removing any previous build sources.\n";
+			$self->syscmd("rm -rf $package-*");   # nuke any old versions
 		};
-		if ($@) { 
-			($@ eq "alarm\n") ? print "timed out!\n" : carp;  # propagate unexpected errors
+	};
+
+	print "install_from_source: looking for existing sources...";
+
+	my $tarball = "$package.tar.gz";
+	if    ( -e $tarball )           { print "found.\n"; }
+	elsif ( -e "$package.tgz"    )  { print "found.\n"; $tarball = "$package.tgz";     } 
+	elsif ( -e "$package.tar.bz2" ) { print "found.\n"; $tarball = "$package.tar.bz2"; } 
+	else                            { print "not found.\n" };
+
+	if ( -e $tarball ) { print "install_from_source: using existing $tarball sources.\n"; } 
+	else 
+	{
+		my $site = $vals->{'site'};
+		$site ||= $conf->{'toaster_dl_site'};  
+		$site ||= "http://www.tnpi.biz";      # if all else fails
+
+		my $url = $vals->{'url'};             # get from passed value
+		$url ||= $conf->{'toaster_dl_url'};   # get from toaster-watcher.conf
+		$url ||= "/internet/mail/toaster";    # finally, a default
+
+		unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+		{
+			carp "install_from_source: couldn't fetch $site$url/$tarball\n";
+		};
+
+		if ( -e $tarball ) 
+		{
+			if ( `file $tarball | grep ASCII` ) {
+				print "install_from_source: oops, file is not binary, we'll try again as bz2.\n";
+				unlink $tarball;
+				$tarball = "$package.tar.bz2";
+				unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+				{
+					croak "install_from_source: couldn't fetch $site$url/$tarball\n";
+				};
+			};
+		}
+		else
+		{
+			$tarball = "$package.tar.bz2";
+			unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+			{
+				croak "install_from_source: couldn't fetch $site$url/$tarball\n";
+			};
+		};
+	};
+
+	my $patches = $vals->{'patches'};
+	if ( $patches && @$patches[0] ) 
+	{
+		print "install_from_source: fetching patches...\n";
+		foreach $patch ( @$patches ) 
+		{
+			my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
+			$toaster ||= "http://www.tnpi.biz/internet/mail/toaster";
+			unless ( -e $patch ) {
+				unless ( $self->file_get("$toaster/patches/$patch") )
+				{
+					if ( $toaster ne "http://www.tnpi.biz/internet/mail/toaster" ) {
+						# print a helpful error message if the luser does something stupid 
+						print "CAUTION: apparently you have edited toaster_dl_site or toaster_dl_url in your toaster-watcher.conf. You shouldn't do that unless you know what you're doing, and apparently you don't. Now I can't find a patch ($patch) that I need to install $package. Fix your toaster-watcher.conf file and try again.";
+					};
+					croak "install_from_source: couldn't fetch $toaster/patches/$patch\n";
+				};
+			};
 		};
 	} 
+	else 
+	{
+		print "install_from_source: no patches to fetch.\n";
+	};
+
+	$self->archive_expand($tarball, 1) or croak "Couldn't expand $tarball: $!\n";
+
+	if ( -d $package )
+	{
+		chdir $package or carp "FAILED to chdir $package!\n";
+	}
 	else {
-		$ans = <STDIN>;
+		# some packages unpack within an enclosing directory, grrr
+		my $sub_path = `find ./ -name $package`; chomp $sub_path;
+		print "found sources in $sub_path\n" if $sub_path;
+		unless ( -d $sub_path && chdir($sub_path) ) {
+			print "FAILED to find $package sources!\n";
+			return 0;
+		}
 	}
 
-	chomp $ans;
-
-	if ($ans ne "") { return $ans; }
-	else
+	if ( $patches && @$patches[0] ) 
 	{
-		return ($default) if $default;
-		return 0;
+		print "yes, should be patching here!\n";
+		foreach $patch ( @$patches ) 
+		{
+			my $patchbin = $self->find_the_bin("patch");
+			my $patch_args = $vals->{'patch_args'} || "";
+			if ( $self->syscmd("$patchbin $patch_args < $src/$patch") )
+			{
+				croak "install_from_source: patch failed: $!\n";
+			};
+		};
 	};
+
+	my $targets = $vals->{'targets'};
+	unless ( @$targets[0] ) 
+	{
+		print "install_from_source: using default targets (./configure, make, make install).\n";
+		@$targets = ( "./configure", "make", "make install") 
+	};
+
+	foreach my $target ( @$targets ) 
+	{ 
+		if ( $self->syscmd($target) )
+		{
+			croak "install_from_source: $target failed: $!\n";
+		};
+	};
+
+	chdir($src);
+	$self->syscmd("rm -rf $package") if ( -d $package );
 };
 
+=head2 is_arrayref
 
-=head2 file_append
+Checks whatever object is passed to it to see if it's an arrayref.
 
-	$utility->file_append($file, $lines)
+   $utility->is_arrayref($testme, $debug);
 
-Pass a filename and an array ref and it'll append the array contents to the file. It's that simple.
+Enable debugging to see helpful error messages.
 
 =cut
 
-sub file_append($$)
+sub is_arrayref($;$)
 {
-	my ($self, $file, $lines) = @_;
+	my ($self, $should_be_arrayref, $debug) = @_;
 
-	unless ( open FILE, ">>$file" )
-	{
-		carp "file_append: couldn't open: $!";
+	my $error;
+
+	unless ( defined $should_be_arrayref ) {
+		print "is_arrayref: not defined!\n" if $debug;
+		$error++ 
+	}
+
+	eval {
+		# simply accessing it will generate the exception.
+		if ( $should_be_arrayref->[0] ) {
+			print "is_arrayref is a arrayref!\n" if $debug;
+		};
+	};
+
+	if ( $@ ) {
+		print "is_arrayref: not a arrayref!\n" if $debug;
+		$error++;
+	};
+
+	if ( $error ) {
+		my ($package, $filename, $line) = caller;
+		if ( $package ne "main" ) {
+			print "WARNING: Package $package passed $filename an invalid argument " if $debug;
+		} else {
+			print "WARNING: $filename was passed an invalid argument " if $debug;
+		}
+
+		if ($debug) {
+			$line ? print "(line $line)\n" : print "\n";
+		};
 		return 0;
+	} else {
+		return 1;
+	}
+}
+
+
+=head2 is_hashref
+
+Most methods pass parameters around inside hashrefs. Unfortunately, if you try accessing a hashref method and the object isn't a hashref, it generates a fatal exception. This traps that exception and prints a useful error message.
+
+   $utility->is_hashref($hashref, $debug);
+
+=cut
+
+sub is_hashref
+{
+	my ($self, $should_be_hashref, $debug) = @_;
+
+	my $error;
+
+	unless ( defined $should_be_hashref ) {
+		print "is_hashref: not defined!\n" if $debug;
+		$error++ 
+	}
+
+	eval {
+		# simply accessing it will generate the exception.
+		if ( $should_be_hashref->{'debug'} ) {
+			print "is_hashref is a hashref!\n" if $debug;
+		};
 	};
 
-	foreach my $line (@$lines)
+	if ( $@ ) {
+		print "is_hashref: not a hashref!\n" if $debug;
+		$error++;
+	};
+
+	if ( $error ) 
 	{
-		print FILE "$line\n";
-	};
+		my ($package, $filename, $line) = caller;
+		if ( $package ne "main" ) {
+			print "WARNING: Package $package was passed an invalid argument " if $debug;
+		} else {
+			print "WARNING: $filename passed an invalid argument " if $debug;
+		}
 
-	close FILE or return 0;
-	return 1;
+		if ($debug) {
+			$line ? print "(line $line)\n" : print "\n";
+		}
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+
+=head2 is_process_running
+
+Verify if a process is running or not.
+
+   $utility->is_process_running($process) ? print "yes" : print "no";
+
+$process is the name as it would appear in the process table.
+
+=cut
+
+sub is_process_running($)
+{
+	my ($self, $process) = @_;
+
+	my $r = `ps ax | grep $process | grep -v grep`;
+	$r ? return 1 : return 0;
 };
-
 
 =head2 logfile_append
 
-	$utility->logfile_append($file, \@lines)
+   $utility->logfile_append($file, \@lines)
 
 Pass a filename and an array ref and it'll append a timestamp and the array contents to the file. Here's a working example:
 
-	$utility->logfile_append($file, ["proggy", "Starting up", "Shutting down"] )
+   $utility->logfile_append($file, ["proggy", "Starting up", "Shutting down"] )
 
 That will append a line like this to the log file:
 
@@ -1328,6 +1345,13 @@ That will append a line like this to the log file:
 sub logfile_append($$)
 {
 	my ($self, $file, $lines) = @_;
+
+	if ( $lines && ! $self->is_arrayref($lines) ) {
+		my ($package, $filename, $line) = caller;
+		croak "WARNING: $filename passed logfile_append an invalid argument\n";
+		return 0;
+	}
+
 	my ($dd, $mm, $yy, $lm, $hh, $mn, $ss) = $self->get_the_date();
 	my $prog = shift @$lines;
 
@@ -1338,10 +1362,7 @@ sub logfile_append($$)
 
 	print FILE "$yy-$mm-$dd $hh:$mn:$ss $prog ";
 
-	foreach my $line (@$lines)
-	{
-		print FILE "$line ";
-	};
+	foreach (@$lines) { print FILE "$_ " };
 
 	print FILE "\n";
 	close FILE;
@@ -1350,67 +1371,231 @@ sub logfile_append($$)
 };
 
 
-=head2 chdir_source_dir
+=head2 mailtoaster
 
-	$utility->chdir_source_dir("/usr/local/src");
+   $utility->mailtoaster();
 
-changes your working directory to the supplied one. Creates it if it doesn't exist.
-
-returns 1 on success
+Downloads and installs Mail::Toaster.
 
 =cut
 
-sub chdir_source_dir($;$)
+sub mailtoaster(;$)
 {
-	my ($self, $dir, $src) = @_;
+	my ($self, $debug) = @_;
+	my ($conf);
 
-	if ( $src ) 
-	{
-		unless ( -e $src )
-		{
-			mkdir($src, 0755);
-			unless ( -d $src ) 
-			{
-				print "chdir_source_dir: mkdir failed! trying with mkdir -p....";
-				$self->syscmd("mkdir -p $src");
-				unless ( -d $src ) { croak "Couldn't create $src.\n"; };
-			};
-		} 
-		else 
-		{
-			unless (-d $src)
-			{
-				croak "Something (other than a directory) is at $src and that's my build directory. Please remove it and try again!\n";
-			};
-		};
+	my $perlbin = $self->find_the_bin("perl");
+
+	my $confcmd = "make newconf";
+
+	if ( -e "/usr/local/etc/toaster-watcher.conf" ) {
+		$confcmd = "make conf";
+		$conf = $self->parse_config( {file=>"/usr/local/etc/toaster-watcher.conf"} );
 	};
 
-	unless ( -d $dir ) { mkdir($dir, 0755) or croak "chdir_source_dir: FAILED to create $dir: $!\n"; };
+	my $archive = "Mail-Toaster.tar.gz";
+	my $url     = "/internet/mail/toaster";
+	my $ver     = $conf->{'toaster_version'};
 
-	chdir($dir) or croak "chdir_source_dir: FAILED to cd to $dir: $!\n";
-	return 1;
-}; 
+	if ($ver) {
+		$archive = "Mail-Toaster-$ver.tar.gz";
+		$url    = "/internet/mail/toaster/src";
+	}
 
-sub source_warning($;$$)
+	print "going for archive $archive.\n";
+
+	my  @targets = ("$perlbin Makefile.PL", "make", $confcmd, "make install", "make logs");
+
+	push @targets, "make cgi" unless ($conf && $conf->{'preserve_cgifiles'});
+	push @targets, "make test" if $debug;
+
+	my $vals = {
+		module   => 'Mail-Toaster',
+		archive  => $archive,
+		site     => 'http://www.tnpi.biz',
+		url      => $url,
+		targets  => \@targets,
+		debug    => 1,
+	};
+
+	eval { require Mail::Toaster::Perl }; my $perl = Mail::Toaster::Perl->new;
+
+	$perl->module_install($vals);
+};
+
+
+=head2 path_parse
+
+   my ($up1dir, $userdir) = $utility->path_parse($dir)
+
+Takes a path like "/usr/home/matt" and returns "/usr/home" and "matt"
+
+You (and I) should be using File::Basename instead as it's more portable.
+
+=cut
+
+sub path_parse($) 
 {
+	my ($self, $dir) = @_;
+
+	if ( $dir =~ /\/$/ ) { chop $dir };
+
+	my $rindex = rindex($dir, "/");
+	my $updir  = substr($dir, 0, $rindex);
+	$rindex++;
+	my $curdir = substr($dir, $rindex);       
+
+	return $updir, $curdir;
+};
+
+=head2 parse_config
+
+   $hashref = {
+      file   => $file,    # file to be parsed
+      debug  => $debug,   # 
+      etcdir => $etcdir,  # where should I find $file?
+   };
+
+   $conf = $utility->parse_config( $hashref );
+
+pass parse_config a hashref. $etcdir defaults to /usr/local/etc and will also checks the current working directory. 
+
+A hashref is returned with the key/value pairs.
+
+=cut
+
+sub parse_config($)
+{
+	my ($self, $vals) = @_;
+
+	my $file  = $vals->{'file'};
+	my $debug = $vals->{'debug'};
+
+	my $etcdir = $vals->{'etcdir'};  $etcdir ||= "/usr/local/etc";
+
+	if ( -r "$etcdir/$file" )              { $file = "$etcdir/$file" };
+	if ( ! -r $file && -r "./$file"      ) { $file = "./$file"      };
+	if ( ! -r $file && -r "./$file-dist" ) { $file = "./$file-dist" };
+
+	unless ( -r $file) 
+	{
+		carp "WARNING: parse_config: can't read $file!\n";
+		return 0;
+	};
+
+	my (%hash);
+
+	print "using settings from file $file\n" if $debug;
+	open(CONFIG, $file) or carp "WARNING: Can't open $file: $!";
+
+	while ( <CONFIG> ) 
+	{
+		chomp;
+		next if /^#/;          # skip lines beginning with #
+		next if /^[\s+]?$/;    # skip empty lines
+#		print "$_ \t" if $debug;
+
+		# this regexp must match and return these patterns
+		# localhost1  = localhost, disk, da0, disk_da0
+		# htmldir = /usr/local/rrdutil/html
+		# hosts   = localhost lab.simerson.net seattle.simerson.net
+
+		my ($key, $val) = $_ =~ /\s*(.*?)\s*=\s*(.*)\s*$/;
+		if ($val && $val =~ /#/) { ($val) = $val =~ /(.*?\S)\s*#/ };
+
+		print "$key \t\t = $val\n" if $vals->{'debug'};
+
+		$hash{$key} = $val if $key;
+#		$hash{$key} = $val if $val;
+	};
+
+	close(CONFIG);
+	return \%hash;
+};
+
+=head2 pidfile_check
+
+pidfile_check is a process management method. It will check to make sure an existing pidfile does not exist and if not, it will create the pidfile.
+
+   $pidfile = $utility->pidfile_check("/var/run/program.pid");
+
+The above example is all you need to do to add process checking (avoiding multiple daemons running at the same time) to a program or script. This is used in toaster-watcher.pl and rrdutil. toaster-watcher normally completes a run in a few seconds and is run every 5 minutes. 
+
+However, toaster-watcher can be configured to do things like expire old messages from maildirs and feed spam through a processor like sa-learn. This can take a long time on a large mail system so we don't want multiple instances of toaster-watcher running.
+
+returns the path to the pidfile (on success).
+
+Example:
+
+	my $pidfile = $utility->pidfile_check("/var/run/changeme.pid");
+	unless ($pidfile) {
+		warn "WARNING: couldn't create a process id file!: $!\n";
+		exit 0;
+	};
+
+	do_a_bunch_of_cool_stuff;
+	unlink $pidfile;
+
+=cut
+
+sub pidfile_check($;$)
+{
+	my ($self, $pidfile, $debug) = @_;
+
+	# make sure the file & enclosing directory is writable, revert to tmp if not
+	unless ( $self->file_check_writable($pidfile, $debug) )
+	{
+		use File::Basename;
+		my ($base, $path, $suffix) = fileparse($pidfile);
+		print "NOTICE: using /tmp instead of $path for pidfile\n" if $debug;
+		$pidfile = "/tmp/$base";
+	};
+
+	if ( -e $pidfile )
+	{
+		use File::stat;
+		my $stats = stat($pidfile);
+		my $age   = time() - $stats->mtime;
+
+		if ($age < 3600 )     # if it's less than 1 hour old
+		{
+			print "\nWARNING! pidfile_check: $pidfile is $age seconds old and might still be running. If this is not the case, please remove it. \n\n";
+			return 0;
+		} else {
+			print "\nWARNING: pidfile_check: $pidfile was found but it's $age seconds old, so I'm ignoring it.\n\n";
+		};
+	}
+	else
+	{
+		print "pidfile_check: writing process id ", $$, " to $pidfile..." if $debug;
+		$self->file_write($pidfile, $$);  # $$ is the process id of this process
+		print "done.\n" if $debug;
+	};
+
+	return $pidfile;
+};
+
 
 =head2 source_warning
 
-    if ( -d $package )
-    {
-        unless ( $utility->source_warning($package, 1, $src) )
-        { 
-            carp "OK then, skipping install.\n";
-            exit 0;
-        };
-    };
-
 Just check to see if the sources are present. If they are, offer to remove them.
+
+   $utility->source_warning("Mail-Toaster-4.01", 1, "/usr/local/etc");
 
 returns 1 if removed.
 
+Example: 
+
+   unless ( $utility->source_warning($package, 1, $src) )
+   { 
+      carp "OK then, skipping install.\n";
+      exit 0;
+   };
+
 =cut
 
+sub source_warning($;$$)
+{
 	my ($self, $package, $clean, $src) = @_;
 
 	$src ||= "/usr/local/src";
@@ -1434,81 +1619,9 @@ returns 1 if removed.
 	};
 };
 
-sub parse_config($)
-{
-	my ($self, $vals) = @_;
-
-=head2 parse_config
-
-	$conf = $utility->parse_config( { 
-		file   => $file, 
-		debug  => $debug, 
-		etcdir => $etcdir,
-	} )
-
-pass parse_config a hashref. $file is the file to be parsed. $etcdir is where the file should be found. It defaults to /usr/local/etc and will also check the current working directory. 
-
-A hashref is returned with the key/value pairs.
-
-=cut
-
-	my $file = $vals->{'file'};
-
-	my $etcdir = $vals->{'etcdir'};  $etcdir ||= "/usr/local/etc";
-
-	if ( -r "$etcdir/$file" )
-	{
-		$file = "$etcdir/$file" 
-	} 
-	else 
-	{
-		if ( -r "./$file" )
-		{
-			$file = "./$file" 
-		} 
-		else { $file = "./$file-dist" if ( -r "./$file-dist" ); };
-	};
-
-	unless ( -r $file) 
-	{
-		carp "WARNING: parse_config: can't read $file!\n";
-		return 0;
-	};
-
-	my (%array);
-
-	print "parse_config: $file\n" if $vals->{'debug'};
-	open(CONFIG, $file) or carp "WARNING: Can't open $file: $!";
-
-	while ( <CONFIG> ) 
-	{
-		chomp;
-		next if /^#/;       # skip lines beginning with #
-		next if /^[\s+]?$/;    # skip empty lines
-		print "$_ \n" if $vals->{'debug'};
-
-		# this regexp must match and return these patterns
-		# localhost1  = localhost, disk, da0, disk_da0
-		# htmldir = /usr/local/rrdutil/html
-		# hosts   = localhost lab.simerson.net seattle.simerson.net
-
-		my ($key, $val) = $_ =~ /\s*(.*?)\s*=\s*(.*)\s*$/;
-		if ($val && $val =~ /#/) { ($val) = $val =~ /(.*?\S)\s*#/ };
-
-		print "$key. \t\t = .$val. \n" if $vals->{'debug'};
-
-		$array{$key} = $val if $key;
-#		$array{$key} = $val if $val;
-	};
-
-	close(CONFIG);
-	return \%array;
-};
-
-
 =head2	sudo
 
-	my $sudo = $utility->sudo();
+   my $sudo = $utility->sudo();
 
 	$utility->syscmd("$sudo rm /etc/root-owned-file");
 
@@ -1518,68 +1631,169 @@ If sudo is not installed and you're running as root, it'll offer to install sudo
 
 =cut
 
-sub sudo()    
+sub sudo(;$)    
 {
-	my $self = shift;
+	my ($self, $debug) = @_;
 	my $sudo;
 
 	my $sudobin = $self->find_the_bin("sudo");
 
 	if ( -x $sudobin ) {    # sudo is installed
 		if ( $< eq 0 ) {    # we are root
+			print "sudo: you are root, sudo isn't necessary.\n" if $debug;
 			return $sudo;   # return an empty string for $sudo
 		} 
-		else {
+		else 
+		{
+			print "sudo: sudo is set using $sudobin.\n" if $debug;
 			return "$sudobin -p 'Password for %u@%h:'";
 		}
 	};
 
-	# try installing sudo
 	if ( $< eq 0 )
-	{
-		if ( $self->yes_or_no("sudo is not installed, shall I try to install it?" ) )
-		{
-			if ( $os eq "freebsd" )
-			{
-				eval { require Mail::Toaster::FreeBSD };
-				if ($@) {
-					print "couldn't load Mail::Toaster::FreeBSD!: $@\n";
-					print "skipping port install attempt\n";
-				} 
-				else {
-					my $freebsd = Mail::Toaster::FreeBSD->new();
-					$freebsd->port_install("sudo", "security");
-					$sudobin = $self->find_the_bin("sudo");
-				};
-			} 
-			else 
-			{
-				# try installing from sources!
-				my $vals = { package => 'sudo-1.6.8p2',
-						site    => 'http://www.courtesan.com',
-						url     => '/sudo/',
-						targets => ['./configure', 'make', 'make install'],
-						patches => '',
-						debug   => 1,
-				};
-				$self->install_from_source(undef, $vals);
-			};
-			return "$sudobin -p 'Password for %u@%h:'" if ( -x $sudobin );
-			carp "sudo installation failed!\n";
-		}
-		else
-		{    
-			print "very well then, skipping along.\n";
-		};
-	} 
-	else 
 	{
 		print "\n\n\tWARNING: Couldn't find sudo. Some features require root ";
 		print "permissions and will not work without it. You have been warned!\n\n";
+		return $sudo;
 	};
+
+	# try installing sudo
+
+	unless ( $self->yes_or_no("sudo is not installed, shall I try to install it?" ) )
+	{
+		print "very well then, skipping along.\n";
+		return $sudo;
+	}
+
+	if ( $os eq "freebsd" )
+	{
+		eval { require Mail::Toaster::FreeBSD };
+		if ($@) {
+			print "couldn't load Mail::Toaster::FreeBSD!: $@\n";
+			print "skipping port install attempt\n";
+		} 
+		else {
+			my $freebsd = Mail::Toaster::FreeBSD->new();
+			$freebsd->port_install("sudo", "security");
+		};
+	}; 
+
+	unless ( -x $self->find_the_bin("sudo") ) 
+	{
+		# try installing from sources!
+		my $vals = { package => 'sudo-1.6.8p2',
+				site    => 'http://www.courtesan.com',
+				url     => '/sudo/',
+				targets => ['./configure', 'make', 'make install'],
+				patches => '',
+				debug   => 1,
+		};
+		$self->install_from_source(undef, $vals);
+	};
+
+	$sudobin = $self->find_the_bin("sudo");
+	return "$sudobin -p 'Password for %u@%h:'" if ( -x $sudobin );
+	carp "sudo installation failed!\n";
 
 	return $sudo;
 };
+
+
+=head2 syscmd
+
+Just a little wrapper around system calls, that returns any failure codes and prints out the error(s) if present.
+
+   my $r = $utility->syscmd($cmd);
+   $r ? print "not ok!\n" : print "ok.\n";
+
+return is the exit status of the program you called.
+
+=cut
+
+sub syscmd($;$)
+{
+	my ($self, $cmd, $fatal) = @_;
+
+	my $r = system $cmd;
+
+	if ($? == -1) {
+		print "syscmd: $cmd\n";
+		print "failed to execute: $!\n";
+	}
+	elsif ($? & 127) {
+		print "syscmd: $cmd\n";
+		printf "child died with signal %d, %s coredump\n",
+		($? & 127),  ($? & 128) ? 'with' : 'without';
+	}
+	else {
+		# all is likely well
+		#printf "child exited with value %d\n", $? >> 8;
+	}
+
+	if ($r != 0)
+	{
+		print "syscmd: $cmd\n";
+
+		if ( defined $fatal && $fatal ) { croak "syscmd: result: $r\n"; } 
+		else                            { print "syscmd: result: $r\n"; };
+	};    
+
+	return $r;
+};
+
+
+=head2 yes_or_no
+
+   my $r = $utility->yes_or_no("Would you like fries with that?");
+
+	$r ? print "fries are in the bag\n" : print "no fries!\n";
+
+There are two optional arguments that can be passed. The first is a string which is the question to ask. The second is an integer representing how long (in seconds) to wait before timing out.
+
+returns 1 on yes, 0 on negative or null response.
+
+=cut
+
+sub yes_or_no(;$$)
+{
+	my ($self, $question, $timer) = @_;
+	my $ans;
+
+	if ($question) {;
+		return 1 if ( $question eq "test");
+		print "\n\t\t$question";
+	};
+
+	print "\n\nYou have $timer seconds to respond: " if $timer;
+
+	# should check for Term::Readkey and use it
+
+	if ($timer) {
+		eval {
+			local $SIG{ALRM} = sub { die "alarm\n" };
+			alarm $timer;
+			do {
+				print "(y/n): ";
+				$ans = lc(<STDIN>); chomp($ans);
+			} until ( $ans eq "n" || $ans eq "y" );
+			alarm 0;
+		};
+
+		if ($@) { 
+			($@ eq "alarm\n") ? print "timed out!\n" : carp;  # propagate unexpected errors
+		};
+
+		$ans eq "y" ? return 1 : return 0;
+	};
+
+	do {
+		print "(y/n): ";
+		$ans = lc(<STDIN>); chomp($ans);
+	} until ( $ans eq "n" || $ans eq "y" );
+
+	$ans eq "y" ? return 1 : return 0;
+};
+
 
 1;
 __END__
@@ -1597,17 +1811,35 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
- http://www.tnpi.biz/computing/perl/
- http://www.tnpi.biz/internet/
+The following are all man/perldoc pages: 
 
- Mail::Toaster::Apache, Mail::Toaster::DNS, Mail::Toaster::FreeBSD, 
- Mail::Toaster::Mysql, Mail::Toaster::Passwd, Mail::Toaster::Perl, 
- Mail::Toaster::Qmail, MATT::Quota, MATT::SSL, Mail::Toaster::Utility
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT
 
-Copyright 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

@@ -1,6 +1,6 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <!-- 
-# $Id: index.tmpl,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: index.tmpl,v 4.2 2005/03/21 16:20:52 matt Exp $
 -->
 <html>
 <head>
@@ -11,25 +11,23 @@
 
 <style type="text/css">
 <!--
-p {
+body, p, h1, h2, h3, h4, h5, h6, LI, TD, TH, DD, DT, INPUT {
 	font-family: Arial, Helvetica, sans-serif;
-	font-size: 12px;
 	font-style: normal;
+	font-size: 12px;
 }
-h1 {
-	font-family: Arial, Helvetica, sans-serif;
+
+.hilite12 {
+    font-size: 12px;
+    color:green; 
 }
-h2 {
-	font-family: Arial, Helvetica, sans-serif;
+.hilite14 {
+    font-size: 14px;
+    color:green; 
 }
-h3 {
-	font-family: Arial, Helvetica, sans-serif;
-}
-h4 {
-	font-family: Arial, Helvetica, sans-serif;
-}
-h5 {
-	font-family: Arial, Helvetica, sans-serif;
+.hilite16 {
+    font-size: 16px;
+    color:green; 
 }
 -->
 </style>
@@ -71,7 +69,6 @@ function copydata(dest)
 //--></script> 
 	</head>
 
-
 <body>
 	<table width="100%" align="center" border="0" cellpadding="0" cellspacing="0">
 		<tr>
@@ -83,7 +80,7 @@ function copydata(dest)
 		</tr>
 		<tr>
 			<td colspan="3" align="center">
-				<p><font color="green"><TMPL_VAR name="instruct"></font></p></td>
+				<p class="hilite12"><TMPL_VAR name="instruct"></p></td>
 		</tr>
 		<tr>
 			<td colspan="3" height="15" width="5"></td>
@@ -100,15 +97,15 @@ function copydata(dest)
 									<table width="290" border="0" bgcolor="#CCCCCC">
 										<th colspan="3" align="center" bgcolor="#333333"><p><font color="white" size="2">Account Info</font><p></th>
 										<tr>
-										   <td width="10%"> <p><font size="+1" color="green"> 1 </font></p></td>
+										   <td width="10%"> <p class="hilite16"> 1 </p></td>
 											<td width="30%" align="right"><p>Email:</p></td>
-											<td width="60%"><p><TMPL_VAR name="email"></p></td>
+											<td width="60%"><p class="hilite12"> <TMPL_VAR name="email"></p></td>
 										</tr>
 										<tr>
-										   <td width="10%"> <p><font size="+1" color="green"> 2 </font></p></td>
-											<td align="right"><p>Password: </p></td>
+										   <td width="10%"> <p class="hilite16"> 2 </p></td>
+											<td align="right"><p>Password:</p></td>
 											<td>
-												<p><input name="password" type="password" id="password" size="20"> </p>
+												<p class="hilite12"><input name="password" type="password" id="password" size="20"> </p>
 											</td>
 										</tr>
 										<tr>
@@ -117,7 +114,7 @@ function copydata(dest)
 										<tr>
 										   <td width="10%"></td>
 											<td align="right"><p> SSL Security:</p></td>
-											<td align="left"><p> <TMPL_VAR name="ssl">
+											<td align="left"><p class="hilite12"> <TMPL_VAR name="ssl"> 
 												[<a href="/support/ssl.html" target="_new">Help</a>] </p>
 											</td>
 										</tr>
@@ -271,7 +268,7 @@ function copydata(dest)
 
 <!--
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

@@ -372,7 +372,7 @@ Please see the Toaster FAQ for instructions on enabling per-user and per-domain 
 
 Mail scanners such as qmail-scanner, qscanc, and simscan are run by setting the QMAILQUEUE environment variable. This can be done either in the SMTP service run file (see the qmail_queue setting), or in the tcp.smtp file. "smtp" chooses the run file and affects ALL connections to the server; "tcpserver" chooses the tcp.smtp file and lets you choose which IP addresses (or blocks) use your scanner.
 
-According to the qmail-scanner web site, tcpserver is the recommended method.
+When set to tcpserver, toaster_watcher.pl ignores:  smtpd_qmail_queue, submit_qmail_queue
 
   filtering_maildrop_filter_file     = /usr/local/etc/mail/mailfilter
 
@@ -533,7 +533,7 @@ These options are similar to the options for logging in the qmail-send section
   rbl_reverse_dns                 = 1    # block on absence of reverse DNS
   rbl_reverse_dns_failure         = soft # soft (451) | hard (553)
 
-See the Toaster FAQ for a great explanation of what RBLs are and why you might want to use them to block spam.
+See the Toaster FAQ for a great explanation of what blacklists (RBL) are and why you might want to use them to block spam.
 
 Toaster-watcher monitors the RBLs you list here. Only RBLs that are working will be used by your SMTP service.
 
@@ -541,7 +541,12 @@ rbl_enable_soft_failure decides whether an RBL hit results in a deferral or an i
 
 The rbl_reverse_dns paramaters are not fully implemented, but will eventually allow you to bounce messages from servers which do not have Reverse DNS configured. See the FAQ for how to implement that feature now. A soft error returns a 451 error, a hard error is a 553.
 
+You can define a custom error message for each RBL by setting the value rbl_bl.example.org_message to be the error message you want returned when you reject a message. 
+
+To enable an RBL, simply set it's value to 1. However, you can optionally control the sort order of RBLs in your smtp/run file by setting values higher than 1, in the order in which you'd like them listed in smtp/run. So, for the RBL you wante listed first, set it's value to 2, the second is 3, etc. When using the custom sort, be careful not to define any number more than once (except 0 and 1). Doing so will cause only one of the duplicated RBLs to be used.
+
   rbl_sbl.spamhaus.org            = 1
+  rbl_sbl.spamhaus.org_message    = You are a known spammer, go away
   rbl_bl.ordb.org                 = 1
   rbl_list.dsbl.org               = 1
   rbl_bl.spamcop.net              = 1
@@ -572,9 +577,9 @@ The author of this documentation, for example, thinks it is WRONG to blacklist I
 
 If you want to add blacklists to this list, you can just add them. For example, to use the combined SBL-XBL list published by spamhaus, just add "rbl_sbl-xbl.spamhaus.org = 1" and it will be recognized by toaster-watcher.
 
-A list of active RBL's is available here: http://www.geocities.com/spamresources/filter-dnsbl-lists.htm
+A list of active RBL's is available here: http://www.spamlinks.net/filter-dnsbl-lists.htm
 
-And a list of dead RBL's is here: http://www.geocities.com/spamresources/filter-dnsbl-dead.htm  If you have a RBL in that list being used, it might be wise to disable it.
+And a list of dead RBL's is here: http://www.spamlinks.net/filter-dnsbl-dead.htm  If you have a RBL in that list being used, it might be wise to disable it.
 
   rwl_enable                      = 0   # master RWL switch.
   rwl_list.example.com            = 0   # realtime white list example
@@ -721,6 +726,46 @@ If you change these qmailadmin options, you must re-run C<toaster_setup.pl -s qm
 
 If you chose to install phpMyAdmin, these options control how you log into that program. The pma user and password is the account that phpMyAdmin uses to log into MySQL and determine if the username and password you are using is a valid MySQL login.
 
+
+  #######################################
+  #               Simscan               #
+  #######################################
+    
+  simscan_user                   = clamav  
+
+This is the system user that simscan runs as. If you are using ClamAV, then clamd must be able to read the files in simscans working directly. The easist solution is run them as the same user. You can use another non-root user bot you'll have to to put simscan in the clamav group and set the permissions up appropriately.
+
+  simscan_trophie                = 0       # use trophie?
+  simscan_clamav                 = 1       # use ClamAV?
+  simscan_ripmime                = 1       # use ripmime?
+  simscan_quarantine             = 0       # 0, or directory for spam/viral messages
+
+These four options relate to virus handling. Mail::Toaster uses ClamAV by default. If you want to use Trophie, you'll need to install it yourself. With ClamAV, you can have ripmime tear the emails apart, or ClamAV has it's own ScanMail function which does approximately the same thing. This is a topic of great debate on the simscan mailing list, and some folks think one or the other is better. I just enable both. 
+
+Finally, if you want simscan to leave the infected or spammy message behind for you to examine, enable the quarantine feature.
+
+  simscan_spamassassin           = 1
+
+Simscan can also pass incoming emails through SpamAssassin. This is recommended.
+
+  simscan_spam_hits_reject       = 20      
+
+If you want SpamAssassin to reject messages with high spam scores, jest set this to be the score above with emails get rejected. 
+
+  simscan_spamc_args             = 0       # 0, list of options to pass to spamc
+  simscan_block_attachments      = 1       # block attachments in /var/qmail/control/ssattach
+  simscan_block_types            = mp3,exe,com,vbs,lnk,scr,wsh,hta,pif
+  simscan_per_domain             = 0       # use /var/qmail/control/simcontrol
+
+This is now disabled by default, because it overrides many of the previous settings and confuses new users. Per domain is a very powerful feature that allows each destination domain (and even mailbox) have custom spam, attachment, and virus block settings. If you enable this, you'll want to read the simscan README which documents that rapidly evolving format of the sscontrol file.
+
+http://www.inter7.com/simscan/README
+
+  simscan_received               = 1       
+
+adds the Received: by simscan header
+
+
   #######################################
   #    Qmail Scanner Queue Processing   #
   #######################################
@@ -823,7 +868,7 @@ David undertook the writing of this documentation for which I (Matt) and the toa
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

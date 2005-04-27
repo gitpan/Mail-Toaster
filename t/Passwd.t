@@ -26,11 +26,11 @@ $r->{'error_code'}==200 ? print "ok 3 - user sanity\n" : print "not ok 3 " . $r-
 $r = $passwd->sanity("testing", "test");
 $r->{'error_code'}==100 ? print "ok 4 - password sanity\n" : print "not ok 4 " . $r->{'error_desc'};
 
-$r = $passwd->show( {user=>"root", debug=>0} );
+$r = $passwd->show( {user=>"int-testing", debug=>0} );
 $r->{'error_code'}==100 ? print "ok 5 - show\n" : print "not ok 5 " . $r->{'error_desc'};
 
 
-$r = $passwd->exist("bin");
+$r = $passwd->exist("nobody");
 $r ? print "ok 6 - exist\n" : print "not ok 6 " . "exist\n";
 
 

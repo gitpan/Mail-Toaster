@@ -1,0 +1,233 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::CGI</title>
+<link rev="made" href="mailto:matt@g5e.simerson.net" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#instructions">instructions</a></li>
+		<li><a href="#logo">logo</a></li>
+		<li><a href="#heading">heading</a></li>
+		<li><a href="#imp_submit">imp_submit</a></li>
+		<li><a href="#setvwebsubmit">SetVWebSubmit</a></li>
+		<li><a href="#qss_stats_submit">qss_stats_submit</a></li>
+		<li><a href="#isoqlog_submit">isoqlog_submit</a></li>
+		<li><a href="#rrdutil_submit">rrdutil_submit</a></li>
+		<li><a href="#cookies_expire">cookies_expire</a></li>
+		<li><a href="#qmailadmin_submit">qmailadmin_submit</a></li>
+		<li><a href="#sqwebmail_submit">sqwebmail_submit</a></li>
+		<li><a href="#squirrelmail_submit">squirrelmail_submit</a></li>
+		<li><a href="#cookies_set">cookies_set</a></li>
+		<li><a href="#ssl_line">ssl_line</a></li>
+		<li><a href="#cookie_line">cookie_line</a></li>
+		<li><a href="#email_line">email_line</a></li>
+		<li><a href="#process_shell">process_shell</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::CGI</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>index.cgi - A pretty web interface that showcases the abundant features of a mail toaster.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>A cgi application and HTML template for a standard mail page.</p>
+<p>This module contains the subroutines that are used by index.cgi. They're named well so you should have no problems reading through index.cgi and understanding exactly what it's doing.</p>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<pre>
+        use Mail::Toaster::CGI;
+        my $toaster_cgi = Mail::Toaster::CGI-&gt;new();</pre>
+<p>Once you have a Mail::Toaster::CGI object, you can call any of the following methods.</p>
+<p>
+</p>
+<h2><a name="instructions">instructions</a></h2>
+<p>Displays the end user instructions displayed on the web page. Uses values from toaster.conf.</p>
+<pre>
+    $toaster_cgi-&gt;instructions($conf);</pre>
+<p>
+</p>
+<h2><a name="logo">logo</a></h2>
+<p>Displays the logo using the URL and alt data from toaster.conf.</p>
+<pre>
+    $toaster_cgi-&gt;logo($conf);</pre>
+<p>
+</p>
+<h2><a name="heading">heading</a></h2>
+<p>Displays the HTML heading using the data from toaster.conf.</p>
+<pre>
+    $toaster_cgi-&gt;heading($conf);</pre>
+<p>
+</p>
+<h2><a name="imp_submit">imp_submit</a></h2>
+<pre>
+        $toaster_cgi-&gt;imp_submit($conf, $ssl, $host);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
+<p>
+</p>
+<h2><a name="setvwebsubmit">SetVWebSubmit</a></h2>
+<pre>
+        $toaster_cgi-&gt;vwebmail_submit($conf, $ssl, $host);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
+<p>
+</p>
+<h2><a name="qss_stats_submit">qss_stats_submit</a></h2>
+<pre>
+    $toaster_cgi-&gt;qss_stats_submit($conf, $ssl, $host);</pre>
+<p>Generate the HTML code that renders the Qmail Scanner Statistics table and form that you see in index.cgi.</p>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection, $host is the hostname to submit the form to, and $path is the path to isoqlog on the remote server. A typical invocation might look like this:</p>
+<pre>
+    $toaster_cgi-&gt;qss_stats_submit($conf, 1, &quot;matt.cadillac.net&quot; );</pre>
+<p>
+</p>
+<h2><a name="isoqlog_submit">isoqlog_submit</a></h2>
+<pre>
+        use Mail::Toaster::CGI;
+        isoqlog_submit($conf, $ssl, $host);</pre>
+<p>Generate the HTML code that renders the Isoqlog table and form that you see in index.cgi.</p>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection, $host is the hostname to submit the form to. A typical invocation might look like this:</p>
+<pre>
+        isoqlog_submit($conf, 1, &quot;matt.cadillac.net&quot;);</pre>
+<p>
+</p>
+<h2><a name="rrdutil_submit">rrdutil_submit</a></h2>
+<pre>
+        $toaster_cgi-&gt;rrdutil_submit($conf, $ssl, $host);</pre>
+<p>Generate the HTML code that renders the table and embedded form that you see in index.cgi.</p>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection. $host is the hostname to submit the form to.</p>
+<p>
+</p>
+<h2><a name="cookies_expire">cookies_expire</a></h2>
+<p>Very simple use of CGI's cookie method. To expire the cookie we just set it's expiration to a negative value.</p>
+<p>
+</p>
+<h2><a name="qmailadmin_submit">qmailadmin_submit</a></h2>
+<pre>
+        $toaster_cgi-&gt;qmailadmin_submit($conf, $ssl, $host);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
+<p>
+</p>
+<h2><a name="sqwebmail_submit">sqwebmail_submit</a></h2>
+<pre>
+        $toaster_cgi-&gt;sqwebmail_submit($conf, $ssl, $host);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
+<p>
+</p>
+<h2><a name="squirrelmail_submit">squirrelmail_submit</a></h2>
+<pre>
+        $toaster_cgi-&gt;squirrelmail_submit($conf, $ssl, $host);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.  $path is the installed URL path on the server.</p>
+<p>
+</p>
+<h2><a name="cookies_set">cookies_set</a></h2>
+<p>Very simple use of CGI's cookie method. We save a cookie with the users email address and another one for for whether they selected Use SSL.</p>
+<p>
+</p>
+<h2><a name="ssl_line">ssl_line</a></h2>
+<pre>
+        $toaster_cgi-&gt;ssl_line($ssl, $editable);</pre>
+<p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $editable is a binary value, determining if the SSL preference is available or not.</p>
+<p>
+</p>
+<h2><a name="cookie_line">cookie_line</a></h2>
+<pre>
+        $toaster_cgi-&gt;cookie_line($save);</pre>
+<p>$save is a binary value, are the users settings saved or not?</p>
+<p>
+</p>
+<h2><a name="email_line">email_line</a></h2>
+<pre>
+        $toaster_cgi-&gt;email_line($address, $editable);</pre>
+<p>$address is the email address to display in the form.</p>
+<p>$editable is whether or not the address field is editable.</p>
+<p>
+</p>
+<h2><a name="process_shell">process_shell</a></h2>
+<p>Since we're a CGI app, we don't expect to be run from the command line except to test. This little sub just lets you know everything that was supposed to load did and that the CGI should work right.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>TODO is caught up. Yay!</p>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The following are all man/perldoc pages:</p>
+<pre>
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility</pre>
+<pre>
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf</pre>
+<pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
+ <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2004-2005, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

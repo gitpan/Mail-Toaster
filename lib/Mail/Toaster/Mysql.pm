@@ -2,45 +2,28 @@
 use strict;
 
 #
-# $Id: Mysql.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Mysql.pm,v 4.13 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Mysql;
 
 use Carp;
-
-my $VERSION  = '4.00';
-
 use Getopt::Std;
-use POSIX qw(uname);
-my $os = lc( (uname)[0] );
+
+use vars qw($VERSION $darwin $freebsd);
+$VERSION  = '4.11';
+
+my $os = $^O;
 
 use lib "lib";
 use lib "../../";
 use Mail::Toaster::Perl;    my $perl    = Mail::Toaster::Perl->new;
 use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
 
-if ( $os eq "darwin" ) { use Mail::Toaster::Darwin; };
+if    ( $os eq "freebsd" ) { require Mail::Toaster::FreeBSD; $freebsd = Mail::Toaster::FreeBSD->new; } 
+elsif ( $os eq "darwin"  ) { require Mail::Toaster::Darwin;  $darwin  = Mail::Toaster::Darwin->new;  }
+else  { print "$os is not formally supported, but may work\n" };
 
-sub new;
-sub flush_logs;
-sub get_hashes;
-sub shutdown_mysqld;
-sub dbs_list;
-sub query_confirm;
-sub phpmyadmin_install;
-sub query;
-sub connect;
-sub db_vars;
-sub autocommit ;
-sub parse_dot_file;
-sub sanity;
-sub is_newer;
-sub version;
-sub tables_lock;
-sub tables_unlock;
-sub install;
-sub InstallMysqlTool;
 
 =head1 NAME
 
@@ -80,6 +63,206 @@ sub new
 	bless ($self, $class);
 	return $self;
 };
+
+
+=head2 autocommit
+
+=cut
+
+sub autocommit 
+{
+	my ($dot) = @_;
+
+	if ($dot->{'autocommit'} && $dot->{'autocommit'} ne "" ) 
+	{
+		return $dot->{'autocommit'};  #	SetAutocommit
+	} 
+	else 
+	{
+		return 1;                     #  Default to autocommit.
+	};
+};
+
+
+=head2 backup
+
+Back up your mysql databases
+
+   $mysql->backup();
+
+The default location for backups is /var/backups/mysql. If you want them stored elsewhere configure then set backupdir = /path/to/backups in  your .my.cnf (as shown in the FAQ) or pass it via -d on the command line.
+
+You will need to have cronolog, gzip, and mysqldump installed in a "normal" location. Your backups will be stored in a directory based on the date, such as /var/backups/mysql/2003/09/11/mysql_full_dump.gz. Make sure that path is configured to be backed up by your backup software.
+
+=cut
+
+sub backup($) 
+{
+	my ($self, $dot) = @_;
+
+	unless ( $utility->is_hashref($dot) ) {
+		print "FATAL, you passed backup a bad argument!\n";
+		return 0;
+	};
+
+	my $debug      = $dot->{'debug'};
+	my $backupfile = $dot->{'backupfile'} || "mysql_full_dump";
+	my $backupdir  = $dot->{'backup_dir'} || "/var/backups/mysql";
+
+	print "backup: beginning mysql_backup.\n" if $debug;
+
+	foreach ( qw(cronolog gzip mysqldump) ) {
+		unless ( -x $utility->find_the_bin($_) ) {
+			croak "You must have $_ installed with execute permissions!\n";
+		};
+	};
+
+	my $gzip       = $utility->find_the_bin("gzip");
+	my $cronolog   = $utility->find_the_bin("cronolog");
+	my $mysqldump  = $utility->find_the_bin("mysqldump");
+
+	my $mysqlopts = "--all-databases --opt --password=" . $dot->{'pass'};
+	my ($dd, $mm, $yy) = $utility->get_the_date(undef, $debug);
+
+	print "backup: backup root is $backupdir.\n" if $debug;
+	
+	$utility->chdir_source_dir("$backupdir/$yy/$mm/$dd");
+
+	print "backup: backup file is $backupfile.\n" if $debug;
+
+	if ( !-e "$backupdir/$yy/$mm/$dd/$backupfile" and !-e "$backupdir/$yy/$mm/$dd/$backupfile.gz" ) 
+	{
+		$utility->syscmd("$mysqldump $mysqlopts | $cronolog $backupdir/%Y/%m/%d/$backupfile");
+		print "backup: running $gzip $backupdir/$yy/$mm/$dd/$backupfile\n" if $debug;
+		$utility->syscmd("$gzip $backupdir/$yy/$mm/$dd/$backupfile");
+	} 
+	else 
+	{ 
+		print "Skipping! Backup for today is already done.\n"; 
+	};
+};
+
+sub binlog_on 
+{
+	my ($self, $db_mv) = @_;
+
+	if ( $db_mv->{log_bin} ne "ON" )
+	{
+		print <<EOBINLOG;
+
+Hey there! In order for this server to act as a master, binary logging
+must be enabled! Please edit /etc/my.cnf or $db_mv->{datadir}/my.cnf and
+add "log-bin". You must also set server-id as documented at mysql.com.
+
+EOBINLOG
+;
+		return 0;
+	};
+	return 1;
+};
+
+
+=head2 connect
+
+    my ($dbh, $dsn, $drh) = $mysql->connect($dot, $warn, $debug);
+
+$dot is a hashref of key/value pairs in the same format you'd find in ~/.my.cnf. Not coincidentally, that's where it expects you'll be getting them from.
+
+$warn allows you to determine whether to die or warn on failure or error. To warn, set $warn to a non-zero value. 
+
+$debug will print out helpful debugging messages should you be having problems.
+
+=cut
+
+sub connect($;$$)
+{
+	my ($self, $dot, $warn, $debug) = @_;
+	my $dbh;
+
+	$perl->module_load( {module=>"DBI",        ports_name=>"p5-DBI",       ports_group=>"databases", debug=>1} );
+	$perl->module_load( {module=>"DBD::mysql", ports_name=>"p5-DBD-mysql", ports_group=>"databases", debug=>1} );
+
+	my $ac  = $self->autocommit( $dot );
+	my $dbv = $self->db_vars( $dot );
+	my $dsn = "DBI:$dbv->{'driver'}:database=$dbv->{'db'};host=$dbv->{'host'};port=$dbv->{'port'}";
+
+	if ($warn) 
+	{
+		$dbh = DBI->connect($dsn, $dbv->{'user'}, $dbv->{'pass'}, { RaiseError => 0, AutoCommit => $ac });
+		unless ($dbh)
+		{
+			carp "db connect failed: $!\n" if $debug;
+			return $dbh;
+		};
+	} 
+	else 
+	{
+		$dbh = DBI->connect($dsn, $dbv->{'user'}, $dbv->{'pass'},{ RaiseError => 0, AutoCommit => $ac } ) 
+				or croak "db connect failed: $!\n";
+	};
+	my $drh = DBI->install_driver( $dbv->{'driver'} );
+
+	return ($dbh, $dsn, $drh);
+};
+
+=head2 db_vars
+
+This sub is called internally by $mysql->connect and is used principally to set some reasonable defaults should you not pass along enough connection parameters in $dot. 
+
+=cut
+
+sub db_vars($)
+{
+	my ($self, $val) = @_;
+	my ($driver, $db, $host, $port, $user, $pass, $dir);
+
+	if ( $val->{'driver'} && $val->{'driver'} ne "" ) 
+	{    $driver= $val->{'driver'} } else { $driver= "mysql" };
+
+	if ( $val->{'db'}     && $val->{'db'}     ne "" ) 
+	{    $db    = $val->{'db'}     } else { $db    = "mysql" };
+
+	if ( $val->{'host'}   && $val->{'host'}   ne "" ) 
+	{    $host  = $val->{'host'}   } else { $host  = "localhost" };
+
+	if ( $val->{'port'}   && $val->{'port'}   ne "" ) 
+	{    $port  = $val->{'port'}   } else { $port  = "3306" };
+
+	if ( $val->{'user'}   && $val->{'user'}   ne "" ) 
+	{    $user  = $val->{'user'}   } else { $user  = "root" };
+
+	if ( $val->{'pass'}   && $val->{'pass'}   ne "" ) 
+	{    $pass  = $val->{'pass'}   } else { $pass  = "" };
+
+	if ( $val->{'dir_m'}  && $val->{'dir_m'}  ne "" ) 
+	{    $dir ="/var/db/mysql"} else { $dir   = $val->{'dir_m'} };     
+  
+	my %master = ( driver  => $driver,     db      => $db,      host    => $host,
+			port    => $port,       user    => $user,    pass    => $pass,
+			dir     => $dir );
+	return \%master;
+};
+
+sub dbs_list($) 
+{
+	my ($self, $dbh) = @_;
+
+	if ( my $sth = $self->query($dbh, "SHOW DATABASES")) 
+	{
+		while ( my ($db_name) = $sth->fetchrow_array ) { print "$db_name "; };
+
+		if ($sth->err) { print "FAILED!\n";        } 
+		else           { $sth->finish; print "\n"; };
+	};
+
+	### Documented (but non-working methods for listing databases ###
+	# my @databases = $drh->func($db_mv->{'host'}, $db_mv->{'port'}, '_ListDBs');
+	# print "mysql_info->databases:\t@databases\n";
+	#
+	# my @databases2 = DBI->data_sources("mysql");
+	# print "mysql_info->databases2:\t@databases2\n";
+};
+
 
 =head2 flush_logs
 
@@ -128,77 +311,263 @@ sub get_hashes($$)
 	return @records;
 };
 
-=head2 shutdown_mysqld
 
-Shuts down mysql using a $drh handle.
+sub install($$$$)
+{
 
-   my $rc = $mysql->shutdown_mysqld($dbvs, $drh);
+=head2 install
 
-$dbvs is a hashref containing: host, user, pass
-
-returns error_code 200 on success, 500 on error. See error_desc for details.
+Installs MySQL
 
 =cut
 
-sub shutdown_mysqld($$;$)
-{
-	my ($self, $db_v, $drh, $debug) = @_;
+	my ($self, $mysql, $site, $ver, $conf) = @_;
 
-	print "shutdown: shutting down mysqld $db_v->{'host'}..." if $debug;
-
-	my $rc = $drh->func('shutdown', $db_v->{'host'}, $db_v->{'user'}, $db_v->{'pass'}, 'admin');
-
-	if ($debug) 
+	if ( $os eq "freebsd" ) 
 	{
-		print "shutdown->rc: $rc\n";
-		$rc ? print "success.\n" : print "failed.\n";
-	};
+		my $installed = $freebsd->is_port_installed( "mysql-server");
+		if ($installed) {
+			print "MySQL is already installed as $installed.\n";
+			$freebsd->rc_dot_conf_check("mysql_enable", "mysql_enable=\"YES\"");
+		};
 
-	if ($rc) {
-		return { error_code=>200, error_desc=>"$db_v->{'host'} shutdown successful" };
-	} else {
-		return { error_code=>500, error_desc=>"$drh->err, $drh->errstr" };
-	};
-};
+		unless ($ver) 
+		{
+			$ver= $utility->answer("You have several choices for installing Mysql:
 
-sub dbs_list($) 
-{
-	my ($self, $dbh) = @_;
+     1. Install latest version from FreeBSD packages.
 
-	if ( my $sth = $self->query($dbh, "SHOW DATABASES")) 
+        This will (very quickly) install whichever version of MySQL was released
+        with the version of FreeBSD you are running. Unless your version of FreeBSD
+        is recent, this is likely not what you want.
+
+     2. Install the latest \"stable\" release - currently 4.1
+
+     3. Install Mysql 3.23, which is the latest in the 3.x branch.
+
+     4. Install Mysql 4.0.x, which is the latest in the 4.0 branch.
+
+     5. Install Mysql 5.0  (not recommended).\n\n");
+
+		};
+
+		my $copts = "SKIP_DNS_CHECK";
+
+		if ( $conf ) {
+			$copts .= ",WITH_OPENSSL"      if $conf->{'install_mysql_ssl'};
+			$copts .= ",BUILD_OPTIMIZED"   if $conf->{'install_mysql_optimized'};
+			$copts .= ",WITH_LINUXTHREADS" if $conf->{'install_mysql_linuxthreads'};
+
+			if ( $conf->{'install_mysql_dir'} and $conf->{'install_mysql_dir'} ne "/var/db/mysql" ) 
+			{
+				$copts .= ",DB_DIR=" . $conf->{'install_mysql_dir'} 
+			};
+		};
+
+		my @port_args;
+
+		if ($ver == 1 && ! $installed) 
+		{
+			$freebsd->package_install("mysql41-server", "databases");
+			$installed = $freebsd->is_port_installed( "mysql-server");
+
+			unless ( $installed ) {
+				# use this for really old freebsd ports tree
+				$freebsd->package_install("mysql-server", "databases");
+				$installed = $freebsd->is_port_installed( "mysql-server");
+			};
+		};
+
+		if ($ver== 3 || $ver== 323 ) 
+		{
+			@port_args = qw(mysql323-server databases mysql323-server mysql-server-3.23);
+		}
+		elsif ($ver== 4 || $ver== 40 ) 
+		{
+			@port_args = qw(mysql40-server databases mysql40-server mysql-server-4.0);
+		}
+		elsif ($ver == 41 || $ver == 4.1) 
+		{
+			@port_args = qw(mysql41-server databases mysql41-server mysql-server-4.1);
+		}
+		elsif ($ver == 5 || $ver == 50 || $ver == 5.0) 
+		{
+			@port_args = qw(mysql50-server databases mysql50-server mysql-server-5.0);
+		} 
+		else {
+			# default version (latest stable)
+			@port_args = qw(mysql41-server databases mysql41-server mysql-server-4.1);
+		}; 
+
+		push @port_args, $copts;
+
+		unless ( $installed ) 
+		{
+			unless ( $freebsd->port_install(@port_args) ) {
+				print "Bummer, MySQL install failed!\n";
+				return 0;
+			};
+		};
+
+		$freebsd->rc_dot_conf_check("mysql_enable", "mysql_enable=\"YES\"");
+
+		$freebsd->port_install("p5-DBI",       "databases");
+		$freebsd->port_install("p5-DBD-mysql", "databases");
+
+		$installed = $freebsd->is_port_installed( "mysql-server");
+		if ( $installed ) {
+			print "MySQL is now installed as $installed.\n";
+		} else {
+			print "MySQL install FAILED!\n";
+			return 0;
+		};
+
+		unless ( -e "/etc/my.cnf" ) {
+			if ( -e "/usr/local/share/mysql/my-large.cnf") {
+				use File::Copy;
+				print "installing a default /etc/my.cnf\n";
+				copy("/usr/local/share/mysql/my-large.cnf", "/etc/my.cnf");
+			};
+		};
+
+		unless ( -e "/tmp/mysql.sock" ) 
+		{
+			print "Starting up MySQL.\n";
+			if ( -x "/usr/local/etc/rc.d/mysqld.sh" ) {
+				$utility->syscmd("sh /usr/local/etc/rc.d/mysqld.sh start");
+			};
+		};
+
+		return 1;
+	}
+	elsif ( $os eq "darwin" ) 
 	{
-		while ( my ($db_name) = $sth->fetchrow_array ) { print "$db_name "; };
+		if ( -d "/usr/ports/dports" || "/usr/dports" || "/usr/darwinports" )
+		{
+			$darwin->port_install("mysql4");
+			$darwin->port_install("p5-dbi");
+			$darwin->port_install("p5-dbd-mysql");
+		}
+		else
+		{
+			$mysql = "mysql-standard-4.0.18" unless $mysql;
+			$site  = "ftp://mysql.secsup.org/pub/software/mysql/Downloads/MySQL-5.0/" unless $site;
 
-		if ($sth->err) { print "FAILED!\n";        } 
-		else           { $sth->finish; print "\n"; };
-	};
+			chdir("~/Desktop/");
 
-	### Documented (but non-working methods for listing databases ###
-	# my @databases = $drh->func($db_mv->{'host'}, $db_mv->{'port'}, '_ListDBs');
-	# print "mysql_info->databases:\t@databases\n";
-	#
-	# my @databases2 = DBI->data_sources("mysql");
-	# print "mysql_info->databases2:\t@databases2\n";
-};
+			unless ( -e "$mysql.tar.gz") {
+				$utility->get_file("$site/$mysql.dmg");
+			};
 
+			print "There is a $mysql.dmg file in ~/Desktop/. Read and follow the readme
+therein to install MySQL";	
+		}
+	}
+}
 
-=head2 query_confirm
+=head2	is_newer
 
-	$mysql->query_confirm($dbh, $query, $debug);
+	my $ver   = $mysql->version($dbh);
+	my $newer = $mysql->is_newer("4.1.0", $ver);
 
-Use this if you want to interactively get user confirmation before executing a query.
+if ($newer) { print "you are brave!" };
+
+As you can see, is_newer can be very useful, especially when you need to execute queries with syntax differences between versions of Mysql.
 
 =cut
 
-sub query_confirm
+sub is_newer($$)
 {
-	my ($self, $dbh, $query, $debug) = @_;
+	my ($self, $min, $cur) = @_;
 
-	if ( $utility->yes_or_no("\n\t$query \n\n Does this query look correct? ") )
+	$min =~ /^([0-9]+)\.([0-9]{1,})\.([0-9]{1,})$/;
+	my @mins = ( $1, $2, $3 );
+	$cur =~ /^([0-9]+)\.([0-9]{1,})\.([0-9]{1,})$/;
+	my @curs = ( $1, $2, $3 );
+
+	if ( $curs[0] > $mins[0] ) { return 1; };
+	if ( $curs[1] > $mins[1] ) { return 1; };
+	if ( $curs[2] > $mins[2] ) { return 1; };
+
+	return 0;
+};
+
+
+
+=head2 parse_dot_file
+
+ $mysql->parse_dot_file ($file, $start, $debug)
+
+Example: 
+
+ my $dot = $mysql->parse_dot_file(".my.cnf", "[mysql_replicate_manager]", 0);
+
+ $file is the file to be parsed.
+
+$start is the [identifier] where we begin looking for settings.  This expects the format used in .my.cnf MySQL configuration files.
+
+A hashref is returned wih key value pairs
+
+=cut
+
+sub parse_dot_file($$;$)
+{
+	my ($self, $file, $start, $debug) = @_;
+
+	my ($homedir) = (getpwuid ($<))[7];
+	my $dotfile   = "$homedir/$file";
+
+	unless ( -e $dotfile ) {
+		print "parse_dot_file: creating a default .my.cnf file in $dotfile.\n";
+		my @lines = "[mysql]";
+		push @lines, "user=root";
+		push @lines, "pass=";
+		$utility->file_write($dotfile, @lines);
+		chmod(0700, $dotfile);
+	};
+
+	if (-r $dotfile) 
 	{
-		my $sth = $self->query($dbh, $query);
-		$sth->finish;
-		print "\nQuery executed successfully.\n" if $debug;
+		my (%array);
+		my $gotit = 0;
+	
+		print "parse_dot_file: $dotfile\n" if ($debug);
+		open(DOT, $dotfile) or carp "WARNING: Can't open $dotfile: $!";
+		while ( <DOT> ) 
+		{
+			next if /^#/;
+			my $line = $_; chomp $line;
+			unless ( $gotit ) 
+			{
+				print "1. $line\n" if $debug;
+				if ($line eq $start) 
+				{
+					$gotit = 1; 
+					next;
+				};
+			} 
+			else 
+			{
+				if ( $line =~ /^\[/ ) { last };
+				print "2. $line\n" if $debug;
+				$line =~ /(\w+)\s*=\s*(.*)\s*$/;
+				$array{$1} = $2 if $1;
+			};
+		};
+	
+		if ($debug) 
+		{
+			foreach my $key ( keys %array ) 
+			{
+				print "hash: $key\t=$array{$key}\n";
+			};
+		};
+		close(DOT);
+		return \%array;
+	} else 
+	{
+		carp "WARNING: parse_dot_file: can't read $dotfile!\n";
+		return 0;
 	};
 };
 
@@ -221,8 +590,6 @@ sub phpmyadmin_install
 
 	if ( $os eq "freebsd" )
 	{
-		$perl->module_load( {module=>"Mail::Toaster::FreeBSD"} );
-		my $freebsd = Mail::Toaster::FreeBSD->new();
 		$freebsd->port_install("phpmyadmin", "databases", "", "phpMyAdmin");
 		$dir = "/usr/local/www/data/phpMyAdmin";
 		# the port moved the install location
@@ -230,7 +597,6 @@ sub phpmyadmin_install
 	} 
 	elsif ( $os eq "darwin") 
 	{
-		my $darwin = Mail::Toaster::Darwin->new();
 		$darwin->port_install("phpmyadmin");
 		$dir = "/Library/Webserver/Documents/phpmyadmin";
 	};
@@ -331,12 +697,12 @@ sub query($$;$)
 		if ( my $sth = $dbh->prepare($query) ) 
 		{
 			$sth->execute or carp "couldn't execute: $sth->errstr\n";
-			#$dbh->commit  or warn "couldn't commit: $sth->errstr\n";
+			#$dbh->commit  or carp "couldn't commit: $sth->errstr\n";
 			return $sth;
 		} 
 		else
 		{
-			warn "couldn't prepare: $DBI::errstr\n";
+			carp "couldn't prepare: $DBI::errstr\n";
 			return $sth;
 		};
 	} 
@@ -355,183 +721,25 @@ sub query($$;$)
 	};
 };
 
-=head2 connect
+=head2 query_confirm
 
-    my ($dbh, $dsn, $drh) = $mysql->connect($dot, $warn, $debug);
+	$mysql->query_confirm($dbh, $query, $debug);
 
-$dot is a hashref of key/value pairs in the same format you'd find in ~/.my.cnf. Not coincidentally, that's where it expects you'll be getting them from.
-
-$warn allows you to determine whether to die or warn on failure or error. To warn, set $warn to a non-zero value. 
-
-$debug will print out helpful debugging messages should you be having problems.
+Use this if you want to interactively get user confirmation before executing a query.
 
 =cut
 
-sub connect($;$$)
+sub query_confirm
 {
-	my ($self, $dot, $warn, $debug) = @_;
-	my $dbh;
+	my ($self, $dbh, $query, $debug) = @_;
 
-	$perl->module_load( {module=>"DBI",        ports_name=>"p5-DBI",       ports_group=>"databases", debug=>1} );
-	$perl->module_load( {module=>"DBD::mysql", ports_name=>"p5-DBD-mysql", ports_group=>"databases", debug=>1} );
-
-	my $ac  = $self->autocommit( $dot );
-	my $dbv = $self->db_vars( $dot );
-	my $dsn = "DBI:$dbv->{'driver'}:database=$dbv->{'db'};host=$dbv->{'host'};port=$dbv->{'port'}";
-
-	if ($warn) 
+	if ( $utility->yes_or_no("\n\t$query \n\n Does this query look correct? ") )
 	{
-		$dbh = DBI->connect($dsn, $dbv->{'user'}, $dbv->{'pass'}, { RaiseError => 0, AutoCommit => $ac });
-		unless ($dbh)
-		{
-			carp "db connect failed: $!\n" if $debug;
-			return $dbh;
-		};
-	} 
-	else 
-	{
-		$dbh = DBI->connect($dsn, $dbv->{'user'}, $dbv->{'pass'},{ RaiseError => 0, AutoCommit => $ac } ) 
-				or croak "db connect failed: $!\n";
-	};
-	my $drh = DBI->install_driver( $dbv->{'driver'} );
-
-	return ($dbh, $dsn, $drh);
-};
-
-=head2 db_vars
-
-This sub is called internally by $mysql->connect and is used principally to set some reasonable defaults should you not pass along enough connection parameters in $dot. 
-
-=cut
-
-sub db_vars($)
-{
-	my ($self, $val) = @_;
-	my ($driver, $db, $host, $port, $user, $pass, $dir);
-
-	if ( $val->{'driver'} && $val->{'driver'} ne "" ) 
-	{    $driver= $val->{'driver'} } else { $driver= "mysql" };
-
-	if ( $val->{'db'}     && $val->{'db'}     ne "" ) 
-	{    $db    = $val->{'db'}     } else { $db    = "mysql" };
-
-	if ( $val->{'host'}   && $val->{'host'}   ne "" ) 
-	{    $host  = $val->{'host'}   } else { $host  = "localhost" };
-
-	if ( $val->{'port'}   && $val->{'port'}   ne "" ) 
-	{    $port  = $val->{'port'}   } else { $port  = "3306" };
-
-	if ( $val->{'user'}   && $val->{'user'}   ne "" ) 
-	{    $user  = $val->{'user'}   } else { $user  = "root" };
-
-	if ( $val->{'pass'}   && $val->{'pass'}   ne "" ) 
-	{    $pass  = $val->{'pass'}   } else { $pass  = "" };
-
-	if ( $val->{'dir_m'}  && $val->{'dir_m'}  ne "" ) 
-	{    $dir ="/var/db/mysql"} else { $dir   = $val->{'dir_m'} };     
-  
-	my %master = ( driver  => $driver,     db      => $db,      host    => $host,
-			port    => $port,       user    => $user,    pass    => $pass,
-			dir     => $dir );
-	return \%master;
-};
-
-sub autocommit 
-{
-
-=head2 autocommit
-
-=cut
-
-	my ($dot) = @_;
-
-	if ($dot->{'autocommit'} && $dot->{'autocommit'} ne "" ) 
-	{
-		return $dot->{'autocommit'};  #	SetAutocommit
-	} 
-	else 
-	{
-		return 1;                     #  Default to autocommit.
+		my $sth = $self->query($dbh, $query);
+		$sth->finish;
+		print "\nQuery executed successfully.\n" if $debug;
 	};
 };
-
-=head2 parse_dot_file
-
- $mysql->parse_dot_file ($file, $start, $debug)
-
-Example: 
-
- my $dot = $mysql->parse_dot_file(".my.cnf", "[mysql_replicate_manager]", 0);
-
- $file is the file to be parsed.
-
-$start is the [identifier] where we begin looking for settings.  This expects the format used in .my.cnf MySQL configuration files.
-
-A hashref is returned wih key value pairs
-
-=cut
-
-sub parse_dot_file($$;$)
-{
-	my ($self, $file, $start, $debug) = @_;
-
-	my ($homedir) = (getpwuid ($<))[7];
-	my $dotfile   = "$homedir/$file";
-
-	unless ( -e $dotfile ) {
-		print "parse_dot_file: creating a default .my.cnf file in $dotfile.\n";
-		my @lines = "[mysql]";
-		push @lines, "user=root";
-		push @lines, "pass=";
-		$utility->file_write($dotfile, @lines);
-		chmod(0700, $dotfile);
-	};
-
-	if (-r $dotfile) 
-	{
-		my (%array);
-		my $gotit = 0;
-	
-		print "parse_dot_file: $dotfile\n" if ($debug);
-		open(DOT, $dotfile) or carp "WARNING: Can't open $dotfile: $!";
-		while ( <DOT> ) 
-		{
-			next if /^#/;
-			my $line = $_; chomp $line;
-			unless ( $gotit ) 
-			{
-				print "1. $line\n" if $debug;
-				if ($line eq $start) 
-				{
-					$gotit = 1; 
-					next;
-				};
-			} 
-			else 
-			{
-				if ( $line =~ /^\[/ ) { last };
-				print "2. $line\n" if $debug;
-				$line =~ /(\w+)\s*=\s*(.*)\s*$/;
-				$array{$1} = $2 if $1;
-			};
-		};
-	
-		if ($debug) 
-		{
-			foreach my $key ( keys %array ) 
-			{
-				print "hash: $key\t=$array{$key}\n";
-			};
-		};
-		close(DOT);
-		return \%array;
-	} else 
-	{
-		carp "WARNING: parse_dot_file: can't read $dotfile!\n";
-		return 0;
-	};
-};
-
 
 =head2 sanity
 
@@ -570,55 +778,69 @@ sub sanity($)
 	};
 };
 
-=head2	is_newer
 
-	my $ver   = $mysql->version($dbh);
-	my $newer = $mysql->is_newer("4.1.0", $ver);
+=head2 shutdown_mysqld
 
-if ($newer) { print "you are brave!" };
+Shuts down mysql using a $drh handle.
 
-As you can see, is_newer can be very useful, especially when you need to execute queries with syntax differences between versions of Mysql.
+   my $rc = $mysql->shutdown_mysqld($dbvs, $drh);
 
-=cut
+$dbvs is a hashref containing: host, user, pass
 
-sub is_newer($$)
-{
-	my ($self, $min, $cur) = @_;
-
-	$min =~ /^([0-9]+)\.([0-9]{1,})\.([0-9]{1,})$/;
-	my @mins = ( $1, $2, $3 );
-	$cur =~ /^([0-9]+)\.([0-9]{1,})\.([0-9]{1,})$/;
-	my @curs = ( $1, $2, $3 );
-
-	if ( $curs[0] > $mins[0] ) { return 1; };
-	if ( $curs[1] > $mins[1] ) { return 1; };
-	if ( $curs[2] > $mins[2] ) { return 1; };
-
-	return 0;
-};
-
-=head2	version
-	
-	my $ver = $mysql->version($dbh);
-
-Returns a string representing the version of MySQL running.
+returns error_code 200 on success, 500 on error. See error_desc for details.
 
 =cut
 
-sub version($)
+sub shutdown_mysqld($$;$)
 {
-	my ($self, $dbh) = @_;
-	my ($sth, $minor);
+	my ($self, $db_v, $drh, $debug) = @_;
+	my $rc;
 
-	if ( $sth = $self->query($dbh, "SELECT VERSION()") )
-	{
-		my $r = $sth->fetchrow_arrayref;
-		($minor) = split(/-/, $r->[0]);
-		$sth->finish;
+	print "shutdown: shutting down mysqld $db_v->{'host'}..." if $debug;
+
+	if ( $drh ) {
+		$rc = $drh->func('shutdown', $db_v->{'host'}, $db_v->{'user'}, $db_v->{'pass'}, 'admin');
+	} else {
+		(my $dbh, my $dsn, $drh) = $self->connect($db_v, 1);
+		unless ( $drh ) {
+			print "shutdown_mysqld: FAILED: couldn't connect.\n";
+			return 0;
+		};
+		$rc = $drh->func('shutdown', $db_v->{'host'}, $db_v->{'user'}, $db_v->{'pass'}, 'admin');
 	};
 
-	return $minor;
+	if ($debug) 
+	{
+		print "shutdown->rc: $rc\n";
+		$rc ? print "success.\n" : print "failed.\n";
+	};
+
+	if ($rc) {
+		return { error_code=>200, error_desc=>"$db_v->{'host'} shutdown successful" };
+	} else {
+		return { error_code=>500, error_desc=>"$drh->err, $drh->errstr" };
+	};
 };
+
+
+=head2 status
+
+=cut
+
+sub status($)
+{
+	my ($self, $dbh) = @_;
+
+	unless ($dbh) { print "FAILED: no database handle passed to status()!\n"; return 0; };
+
+	if (my $sth = $self->query($dbh, "SHOW STATUS"))
+	{
+		while ( my $r = $sth->fetchrow_arrayref ) {
+			print "\t\t\t  $r->[0] \t $r->[1]\n";
+		};
+		$sth->finish;
+	}
+}
 
 =head2	tables_lock
 
@@ -669,170 +891,6 @@ Takes a statement handle and does a global unlock on all tables.  Quite useful a
 	$sth->finish;
 }
 
-sub install($$$$)
-{
-
-=head2 install
-
-Installs MySQL
-
-=cut
-
-	my ($self, $mysql, $site, $ver, $conf) = @_;
-
-	if ( $os eq "freebsd" ) 
-	{
-		$perl->module_load( {module=>"Mail::Toaster::FreeBSD"} );
-		my $freebsd = Mail::Toaster::FreeBSD->new();
-
-		my $installed = $freebsd->is_port_installed( "mysql-server");
-		if ($installed) {
-			print "MySQL is already installed as $installed.\n";
-		};
-
-		unless ($ver) 
-		{
-			$ver= $utility->answer("You have several choices for installing Mysql:
-
-     1. Install latest version from FreeBSD packages.
-
-        This will (very quickly) install whichever version of MySQL was released
-        with the version of FreeBSD you are running. Unless your version of FreeBSD
-        is recent, this is likely not what you want.
-
-     2. Install the latest \"stable\" release - currently 4.1
-
-     3. Install Mysql 3.23, which is the latest in the 3.x branch.
-
-     4. Install Mysql 4.0.x, which is the latest in the 4.0 branch.
-
-     5. Install Mysql 5.0  (not recommended).\n\n");
-
-		};
-
-		my $copts = "SKIP_DNS_CHECK";
-
-		if ( $conf ) {
-			$copts .= ",WITH_OPENSSL"      if $conf->{'install_mysql_ssl'};
-			$copts .= ",BUILD_OPTIMIZED"   if $conf->{'install_mysql_optimized'};
-			$copts .= ",WITH_LINUXTHREADS" if $conf->{'install_mysql_linuxthreads'};
-
-			if ( $conf->{'install_mysql_dir'} and $conf->{'install_mysql_dir'} ne "/var/db/mysql" ) 
-			{
-				$copts .= ",DB_DIR=" . $conf->{'install_mysql_dir'} 
-			};
-		};
-
-		my @port_args;
-
-		if ($ver == 1 && ! $installed) 
-		{
-			$freebsd->package_install("mysql41-server", "databases");
-			$installed = $freebsd->is_port_installed( "mysql-server");
-
-			unless ( $installed ) {
-				# use this for really old freebsd ports tree
-				$freebsd->package_install("mysql-server", "databases");
-				$installed = $freebsd->is_port_installed( "mysql-server");
-			};
-		};
-
-		if ($ver== 3 || $ver== 323 ) 
-		{
-			@port_args = qw(mysql323-server databases mysql323-server mysql-server-3.23);
-		}
-		elsif ($ver== 4 || $ver== 40 ) 
-		{
-			@port_args = qw(mysql40-server databases mysql40-server mysql-server-4.0);
-		}
-		elsif ($ver == 41 || $ver == 4.1) 
-		{
-			@port_args = qw(mysql41-server databases mysql41-server mysql-server-4.1);
-		}
-		elsif ($ver == 5 || $ver == 50 || $ver == 5.0) 
-		{
-			@port_args = qw(mysql50-server databases mysql50-server mysql-server-5.0);
-		} 
-		else {
-			# default version (latest stable)
-			@port_args = qw(mysql41-server databases mysql41-server mysql-server-4.1);
-		}; 
-
-		push @port_args, $copts;
-
-		unless ( $installed ) 
-		{
-			unless ( $freebsd->port_install(@port_args) ) {
-				print "Bummer, MySQL install failed!\n";
-				return 0;
-			};
-		};
-
-		$freebsd->port_install("p5-DBI",       "databases");
-		$freebsd->port_install("p5-DBD-mysql", "databases");
-
-		#  This would be great to install but until it recognizes a previously
-		#  installed mod_perl2, we can't use it via ports. :(
-		if ( $freebsd->is_port_installed("mod_perl2") ) {
-			$freebsd->port_install("p5-Apache-DBI", "www", undef, undef, "WITH_MODPERL2");
-		};
-
-		$installed = $freebsd->is_port_installed( "mysql-server");
-		if ( $installed ) {
-			print "MySQL is now installed as $installed.\n";
-		} else {
-			print "MySQL install FAILED!\n";
-			return 0;
-		};
-
-		$freebsd->rc_dot_conf_check("mysql_enable", "mysql_enable=\"YES\"");
-
-		unless ( -e "/etc/my.cnf" ) {
-			if ( -e "/usr/local/share/mysql/my-large.cnf") {
-				use File::Copy;
-				print "installing a default /etc/my.cnf\n";
-				copy("/usr/local/share/mysql/my-large.cnf", "/etc/my.cnf");
-			};
-		};
-
-		unless ( -e "/tmp/mysql.sock" ) 
-		{
-			print "Starting up MySQL.\n";
-			if ( -x "/usr/local/etc/rc.d/mysqld.sh" ) {
-				$utility->syscmd("sh /usr/local/etc/rc.d/mysqld.sh start");
-			};
-		};
-
-		return 1;
-	}
-	elsif ( $os eq "darwin" ) 
-	{
-		if ( -d "/usr/ports/dports" )
-		{
-			my $darwin = Mail::Toaster::Darwin->new();
-			$darwin->port_install("mysql4");
-			$darwin->port_install("p5-dbi");
-			$darwin->port_install("p5-dbd-mysql");
-		}
-		else
-		{
-			$mysql = "mysql-standard-4.0.15" unless $mysql;
-			$site  = "ftp://mysql.secsup.org/pub/software/mysql/Downloads/MySQL-5.0/" unless $site;
-
-			chdir("~/Desktop/");
-
-			unless ( -e "$mysql.tar.gz") {
-				$utility->get_file("$site/$mysql.dmg");
-			};
-
-			print "There is a $mysql.dmg file in ~/Desktop/. Read and follow the readme
-therein to install MySQL";	
-		};
-	};
-
-
-}
-
 sub InstallMysqlTool($;$$)
 {
 
@@ -846,8 +904,6 @@ sub InstallMysqlTool($;$$)
 
 	if ( $os eq "freebsd" ) 
 	{
-		$perl->module_load( {module=>"Mail::Toaster::FreeBSD"} );
-		my $freebsd = Mail::Toaster::FreeBSD->new();
 		$freebsd->port_install("p5-Crypt-Blowfish", "security");
 		$freebsd->port_install("p5-DBI",            "databases");
 		$freebsd->port_install("p5-Apache-DBI",     "www", undef, undef, "WITH_MODPERL2");
@@ -896,6 +952,30 @@ sub InstallMysqlTool($;$$)
 	};
 };
 
+=head2	version
+	
+	my $ver = $mysql->version($dbh);
+
+Returns a string representing the version of MySQL running.
+
+=cut
+
+sub version($)
+{
+	my ($self, $dbh) = @_;
+	my ($sth, $minor);
+
+	if ( $sth = $self->query($dbh, "SELECT VERSION()") )
+	{
+		my $r = $sth->fetchrow_arrayref;
+		($minor) = split(/-/, $r->[0]);
+		$sth->finish;
+	};
+
+	return $minor;
+};
+
+
 1;
 __END__
 
@@ -919,13 +999,36 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/internet/mail/toaster/
+The following are all man/perldoc pages: 
+
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT
 
 
-Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

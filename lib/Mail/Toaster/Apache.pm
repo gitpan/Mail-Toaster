@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 use strict;
-use warnings;
+#use warnings;
 
 #
-# $Id: Apache.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Apache.pm,v 4.10 2005/04/14 21:07:37 matt Exp $
 #
 
 package Mail::Toaster::Apache;
 
 use Carp;
 use vars qw($VERSION); 
-$VERSION  = '4.00';
+$VERSION  = '4.07';
 
 my $os = $^O;
 
@@ -41,11 +41,11 @@ use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new;
 
 =head1 NAME
 
-Mail::Toaster::Apache - 
+Mail::Toaster::Apache
 
 =head1 SYNOPSIS
 
-Install Apache 1 or 2 on FreeBSD
+Install Apache 1 or 2 based on settings in toaster-watcher.conf
 
 =head1 DESCRIPTION 
 
@@ -78,30 +78,524 @@ sub new()
 	return $self;
 }
 
-=head2 vhost_show
 
-Shows the contents of a virtualhost block that matches the virtual domain name passed in the $vals hashref. 
+=head2 InstallApache1
 
-	$apache->vhost_show($vals, $conf);
+	use Mail::Toaster::Apache;
+	my $apache = new Mail::Toaster::Apache;
+
+	$apache->install_apache1("/usr/local/src")
+
+Builds Apache from sources with DSO for all but mod_perl which must be compiled statically in order to work at all.
+
+Will build Apache in the directory as shown. After compile, the script will show you a few options for testing and completing the installation.
+
+Also installs mod_php4 and mod_ssl.
 
 =cut
 
-sub vhost_show($$)
+sub install_apache1($;$) 
+{
+	my ($self, $src, $conf) = @_;
+	if ( $os eq "darwin" ) 
+	{
+		print "\n\nNOTICE: Darwin comes with Apache pre-installed! Simply open
+System Preferences->Sharing and enable Web Sharing. If for some crazy reason you
+still want Apache1, simply follow the instructions here: \n";
+		print "http://www.macdevcenter.com/pub/a/mac/2002/12/18/apache_modssl.html\n";
+
+		return 0;
+	};
+
+	use File::Copy;
+
+	my $apache   = "apache_1.3.31";
+	my $mod_perl = "mod_perl-1.29";
+	my $mod_ssl  = "mod_ssl-2.8.19-1.3.31";
+	my $layout   = "FreeBSD.layout";
+
+	if ( $os eq "freebsd" ) 
+	{
+		use Mail::Toaster::FreeBSD;
+		my $freebsd = Mail::Toaster::FreeBSD->new();
+
+		if ( $conf->{'package_install_method'} eq "packages" ) 
+		{
+			$freebsd->package_install("mm");
+			$freebsd->package_install("gettext");
+			$freebsd->package_install("libtool");
+			$freebsd->package_install("apache");
+			$freebsd->package_install("p5-libwww");
+		} else {
+			$freebsd->port_install("mm",        "devel");
+			$freebsd->port_install("gettext",   "textproc");
+			$freebsd->port_install("libtool",   "devel");
+			$freebsd->port_install("apache",    "www", "apache13");
+			$freebsd->port_install("p5-libwww", "www");
+		};
+		$freebsd->port_install   ("cronolog", "sysutils");
+
+		my $log = "/var/log/apache";
+		unless ( -d $log) 
+		{
+			mkdir($log, 0755) or croak "Couldn't create $log: $!\n";
+			my $uid = getpwnam("www");
+			my $gid = getgrnam("www");
+			chown($uid, $gid, $log);
+		};
+
+		unless ( $freebsd->is_port_installed("apache") ) {
+			# get it registered in the ports db
+			$freebsd->package_install("apache");
+		};
+
+		$freebsd->rc_dot_conf_check("apache_enable", "apache_enable=\"YES\"");
+	};
+
+	$utility->chdir_source_dir("$src/www", $src);
+
+	unless ( -e "$apache.tar.gz" ) {
+		$utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
+	};
+
+	unless ( -e "$mod_perl.tar.gz" ) {
+		$utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
+	};
+
+	unless ( -e "$mod_ssl.tar.gz" ) {
+		$utility->get_file("http://www.modssl.org/source/$mod_ssl.tar.gz");
+	};
+
+	unless ( -e $layout ) 
+	{
+		$utility->get_file("http://www.tnpi.biz/internet/www/apache.layout");
+		move("apache.layout", $layout);
+	};
+
+	RemoveOldApacheSources($apache);
+
+	foreach my $package ($apache, $mod_perl, $mod_ssl) 
+	{
+		if ( -d $package )
+		{
+			my $r = $utility->source_warning($package, 1);
+			unless ($r) { croak "sorry, I can't continue.\n" };
+		};
+		$utility->archive_expand("$package.tar.gz");
+	};
+
+	chdir($mod_ssl);
+	if ( $os eq "darwin") { $utility->syscmd("./configure --with-apache=../$apache") } 
+	else {
+		$utility->syscmd("./configure --with-apache=../$apache --with-ssl=/usr --enable-shared=ssl --with-mm=/usr/local");
+	};
+	chdir("../$mod_perl");
+	if ( $os eq "darwin") {
+		$utility->syscmd( "perl Makefile.PL APACHE_SRC=../$apache NO_HTTPD=1 USE_APACI=1 PREP_HTTPD=1 EVERYTHING=1");
+	} else {
+		$utility->syscmd( "perl Makefile.PL DO_HTTPD=1 USE_APACI=1 APACHE_PREFIX=/usr/local EVERYTHING=1 APACI_ARGS='--server-uid=www, --server-gid=www, --enable-module=so --enable-module=most, --enable-shared=max --disable-shared=perl, --enable-module=perl, --with-layout=../$layout:FreeBSD, --without-confadjust'");
+	};
+	$utility->syscmd("make");
+
+	if ( $os eq "darwin") {
+		$utility->syscmd("make install");
+		chdir("../$apache");
+		$utility->syscmd( "./configure --with-layout=Darwin --enable-module=so --enable-module=ssl --enable-shared=ssl --activate-module=src/modules/perl/libperl.a --disable-shared=perl --without-execstrip");
+		$utility->syscmd("make");
+		$utility->syscmd("make install");
+	};
+
+	if (-e "../$apache/src/httpd") 
+	{
+		print <<EOM
+
+Apache build successful, now you must install as follows:
+
+For new installs:
+
+     cd $src/www/$mod_perl
+     make test
+     cd ../$apache; make certificate TYPE=custom
+     rm /usr/local/etc/apache/httpd.conf
+     cd ../$mod_perl; make install
+     cd /usr/ports/www/mod_php4; make install clean (optional)
+     apachectl stop; apachectl startssl
+
+For re-installs:
+
+     cd $src/www/$mod_perl;\n\tmake test
+     make install
+     cd /usr/ports/www/mod_php4; make install clean (optional)
+     apachectl stop; apachectl startssl
+EOM
+;
+	};
+
+	return 1;
+};
+
+
+
+=head2	install_apache2
+
+	use Mail::Toaster::Apache;
+	my $apache = new Mail::Toaster::Apache;
+
+	$apache->install_apache2($conf);
+
+Builds Apache from sources with DSO for all modules. Also installs mod_perl2 and mod_php4.
+
+Currently tested on FreeBSD and Mac OS X. On FreeBSD, the php is installed. It installs both the PHP cli and mod_php Apache module. This is done because the SpamAssassin + SQL module requires pear-DB and the pear-DB port thinks it needs the lang/php port installed. There are other ports which also have this requirement so it's best to just have it installed.
+
+This script also builds default SSL certificates, based on your preferences in openssl.cnf (usually in /etc/ssl) and makes a few tweaks to your httpd.conf (for using PHP & perl scripts). 
+
+Values in $conf are set in toaster-watcher.conf. Please refer to that file to see how you can influence your Apache build.
+
+=cut
+
+sub install_apache2
+{
+	my ($self, $conf) = @_;
+
+	if ( $os eq "freebsd" ) 
+	{
+		use Mail::Toaster::FreeBSD 1;
+		my $freebsd = Mail::Toaster::FreeBSD->new();
+
+		print "\n";
+		if ( $] < 5.006 ) 
+		{
+			$freebsd->port_install("perl5", "lang", "", "perl-5");
+			$utility->syscmd("/usr/local/bin/use.perl port");
+		};
+
+		if ( $conf->{'package_install_method'} eq "packages" ) 
+		{
+			$freebsd->package_install("apache2", "apache-2");
+			$freebsd->package_install("p5-libwww");
+		};
+
+		my $options = "WITH_OPENSSL_PORT";
+		$options .= ",WITH_PROXY_MODULES=yes" if $conf->{'install_apache_proxy'};
+		if ( $conf->{'install_apache_suexec'} ) {
+			$options .= ",WITH_SUEXEC=yes";
+			$options .= ",SUEXEC_DOCROOT=$conf->{'apache_suexec_docroot'}" if $conf->{'apache_suexec_docroot'};
+			$options .= ",SUEXEC_USERDIR=$conf->{'apache_suexec_userdir'}" if $conf->{'apache_suexec_userdir'};
+			$options .= ",SUEXEC_SAFEPATH=$conf->{'apache_suexec_safepath'}" if $conf->{'apache_suexec_safepath'};
+			$options .= ",SUEXEC_LOGFILE=$conf->{'apache_suexec_logfile'}" if $conf->{'apache_suexec_logfile'};
+			$options .= ",SUEXEC_UIDMIN=$conf->{'apache_suexec_uidmin'}" if $conf->{'apache_suexec_uidmin'};
+			$options .= ",SUEXEC_GIDMIN=$conf->{'apache_suexec_gidmin'}" if $conf->{'apache_suexec_gidmin'};
+			$options .= ",SUEXEC_CALLER=$conf->{'apache_suexec_caller'}" if $conf->{'apache_suexec_caller'};
+			$options .= ",SUEXEC_UMASK=$conf->{'apache_suexec_umask'}" if $conf->{'apache_suexec_umask'};
+		};
+
+		$freebsd->port_install ("apache2", "www", undef, "apache", $options);
+		$freebsd->port_install ("p5-libwww", "www");
+		$freebsd->port_install ("cronolog", "sysutils");
+
+		if ( $conf->{'package_install_method'} eq "packages" ) {
+			$freebsd->package_install("bison") or  $freebsd->port_install ("bison", "devel");
+			$freebsd->package_install("gd")    or  $freebsd->port_install ("gd", "graphics");
+		} else {
+			$freebsd->port_install ("bison", "devel");
+			$freebsd->port_install ("gd", "graphics");
+		};
+
+		if ( $conf->{'install_php'} == "5" ) {
+			$freebsd->port_install ("php5", "lang", undef, undef, "WITH_APACHE2");
+		} else {
+			$freebsd->port_install ("php4", "lang", undef, undef, "WITH_APACHE2");
+		};
+
+		if ( $conf->{'install_apache2_modperl'} ) {
+			$freebsd->port_install ("mod_perl2", "www");
+		};
+
+		$freebsd->rc_dot_conf_check("apache2_enable", "apache2_enable=\"YES\"");
+		$freebsd->rc_dot_conf_check("apache2ssl_enable", "apache2ssl_enable=\"YES\"");
+
+		$self->install_ssl_certs();
+		$self->conf_patch($conf);
+	}
+	elsif ( $os eq "darwin" )
+	{
+		print "\nInstalling Apache 2 on Darwin (MacOS X)?\n\n";
+
+		if ( -d "/usr/dports/dports" ) {
+			use Mail::Toaster::Darwin;
+			my $darwin = Mail::Toaster::Darwin->new();
+
+			$darwin->port_install("apache2");
+			$darwin->port_install("php4", "+apache2");
+		} 
+		else 
+		{
+			print "Yikes, I can't find DarwinPorts! Try following the instructions here:  
+http://www.tnpi.biz/internet/mail/toaster/darwin.shtml.\n";
+		};
+	}
+	else
+	{
+		print "\nTrying to Apache 2 on $os from sources. \n\n";
+
+		unless ( -d "/usr/local/src") { mkdir("/usr/local/src", 0755) };
+		unless ( -d "/usr/local/src/www") { mkdir("/usr/local/src/www", 0755) };
+		chdir("/usr/local/src/www");
+
+		my $apache   = "httpd-2.0.52";
+		my $mod_perl = "mod_perl-2.0.0-RC4";
+		my $mod_php  = "php-4.3.10";
+
+		unless ( -e "$apache.tar.gz" ) {
+			$utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
+		};
+
+		unless ( -e "$mod_perl.tar.gz" ) {
+			$utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
+		};
+
+		unless ( -e "$mod_php.tar.gz" ) {
+			$utility->get_file("http://us2.php.net/distributions/$mod_php.tar.gz");
+		};
+
+		foreach my $package ( $apache, $mod_perl, $mod_php) 
+		{
+			if ( -d $package )
+			{
+				my $r = $utility->source_warning($package, 1);
+				unless ($r) { croak "sorry, I can't continue.\n"; };
+			};
+			$utility->archive_expand("$package.tar.gz");
+		};
+	
+		if ( -d $apache ) 
+		{
+			chdir($apache);
+			$utility->syscmd("./configure --enable-layout=Darwin --enable-modules=all --enable-mods-shared=all --enable-so");
+			$utility->syscmd("make");
+			$utility->syscmd("make install");
+		};
+
+		if ( -d $mod_perl ) {
+			chdir($mod_perl);
+			$utility->syscmd("perl Makefile.PL");
+			$utility->syscmd("make");
+			$utility->syscmd("make install");
+		};
+
+		if ( -d $mod_php ) 
+		{
+			chdir($mod_php);
+			$utility->syscmd("./configure");
+			$utility->syscmd("make");
+			$utility->syscmd("make install");
+		};
+
+		print "Don't forget to add this to httpd.conf:  
+
+LoadModule perl_module modules/mod_perl.so
+
+";
+		print "sorry, not yet on $os \n";
+	}
+};
+
+
+=head2 install_ssl_certs
+
+Builds and installs SSL certificates in the locations that Apache expects to find them. This allows me to build a SSL enabled web server with a minimal amount of human interaction.
+
+
+=cut
+
+sub install_ssl_certs(;$)
+{
+	my ($self, $type) = @_;
+
+	my $crtdir = "/usr/local/etc/apache2/ssl.crt";
+	unless (-d $crtdir) { $utility->syscmd("mkdir -p $crtdir"); };
+
+	my $keydir = "/usr/local/etc/apache2/ssl.key";
+	unless (-d $keydir) { $utility->syscmd("mkdir -p $keydir"); };
+
+	if ($type eq "rsa") 
+	{
+		unless ( -e "$crtdir/server.crt" ) 
+		{
+			OpenSSLConfigNote();
+			InstallRSACert($crtdir, $keydir);
+		} else {
+			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
+		};
+	} 
+	elsif ( $type eq "dsa" ) 
+	{
+		unless ( -e "$crtdir/server-dsa.crt" ) {
+			#OpenSSLConfigNote();
+			#InstallDSACert($crtdir, $keydir);
+		} else {
+			print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
+		};
+	} 
+	else {
+		unless ( -e "$crtdir/server.crt" ) {
+			OpenSSLConfigNote();
+			InstallRSACert($crtdir, $keydir);
+		} else {
+			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
+		};
+		unless ( -e "$crtdir/server-dsa.crt" ) {
+#			OpenSSLConfigNote();
+#			InstallDSACert($crtdir, $keydir);
+		} else {
+			print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
+		};
+	};
+};
+
+
+=head2 restart
+
+Restarts Apache. 
+
+On FreeBSD, we use the rc.d script if it's available because it's smarter than apachectl. Under some instances, sending apache a restart signal will cause it to crash and not restart. The control script sends it a TERM, waits until it has done so, then starts it back up.
+
+    $apache->restart($vals);
+
+=cut
+
+sub restart($)
+{
+	my ($self, $vals) = @_;
+
+	# restart apache
+
+	print "restarting apache.\n" if $vals->{'debug'};
+
+	my $sudo = $utility->sudo();
+
+	if    ( -x "/usr/local/etc/rc.d/apache2.sh" ) {
+		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache2.sh stop");
+		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache2.sh start");
+	}
+	elsif ( -x "/usr/local/etc/rc.d/apache.sh" ) {
+		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache.sh stop");
+		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache.sh start");
+	}
+	else { 
+		my $apachectl = $utility->find_the_bin("apachectl");
+		if ( -x $apachectl ) {
+			$utility->syscmd("$sudo $apachectl graceful");
+		} else {
+			warn "WARNING: couldn't restart Apache!\n " 
+		}
+	};
+};
+
+=head2 vhost_create
+
+Create an Apache vhost container like this:
+
+  <VirtualHost *:80 >
+    ServerName blockads.com
+    ServerAlias ads.blockads.com
+    DocumentRoot /usr/home/blockads.com/ads
+    ServerAdmin admin@blockads.com
+    CustomLog "| /usr/local/sbin/cronolog /usr/home/example.com/logs/access.log" combined
+    ErrorDocument 404 "blockads.com
+  </VirtualHost>
+
+	my $apache->vhost_create($vals, $conf);
+
+	Required values:
+
+         ip  - an ip address
+       name  - vhost name (ServerName)
+     docroot - Apache DocumentRoot
+
+    Optional values
+
+ serveralias - Apache ServerAlias names (comma seperated)
+ serveradmin - Server Admin (email address)
+         cgi - CGI directory
+   customlog - obvious
+ customerror - obvious
+      sslkey - SSL certificate key
+     sslcert - SSL certificate
+ 
+=cut
+
+sub vhost_create($$)
 {
 	my ($self, $vals, $conf) = @_;
 
-	unless ( $self->vhost_exists($vals, $conf) ) {
-		return { error_code => 400, error_desc=>"Sorry, that virtual host does not exist."};
+	if ( $self->vhost_exists($vals, $conf) ) {
+		return { error_code=>400, error_desc=>"Sorry, that virtual host already exists!"};
 	};
 
+	# test all the values and make sure we've got enough to form a vhost
+	# minimum needed: vhost servername, ip[:port], documentroot
+
+	my $ip      = $vals->{'ip'} || '*:80';    # a default value
+	my $name    = lc($vals->{'vhost'});
+	my $docroot = $vals->{'documentroot'};
+	my $home    = $vals->{'admin_home'} || "/home";
+
+	unless ( $docroot ) {
+		if ( -d "$home/$name" ) { $docroot = "$home/$name" };
+		return { error_code=>400, error_desc=>"documentroot was not set and could not be determined!"} unless -d $docroot;
+	};
+
+	if ($vals->{'debug'}) { use Data::Dumper; print Dumper($vals); };
+
+	# define the vhost
+	my @lines = "\n<VirtualHost $ip>";
+	push @lines, "	ServerName $name";
+	push @lines, "	DocumentRoot $docroot";
+	push @lines, "	ServerAdmin "  . $vals->{'serveradmin'}  if $vals->{'serveradmin'};
+	push @lines, "	ServerAlias "  . $vals->{'serveralias'}  if $vals->{'serveralias'};
+	if ( $vals->{'cgi'} ) {
+		if    ( $vals->{'cgi'} eq "basic"    ) { push @lines, "	ScriptAlias /cgi-bin/ \"/usr/local/www/cgi-bin.basic/"; }
+		elsif ( $vals->{'cgi'} eq "advanced" ) { push @lines, "	ScriptAlias /cgi-bin/ \"/usr/local/www/cgi-bin.advanced/\""; }
+		elsif ( $vals->{'cgi'} eq "custom"   ) { push @lines, "	ScriptAlias /cgi-bin/ \"" . $vals->{'documentroot'} . "/cgi-bin/\""; }
+		else  {  push @lines, "	ScriptAlias "  .  $vals->{'cgi'} };
+		
+	};
+	# options needs some directory logic included if it's going to be used
+	# I won't be using this initially, but maybe eventually...
+	#push @lines, "	Options "      . $vals->{'options'}      if $vals->{'options'};
+
+	push @lines, "	CustomLog "    . $vals->{'customlog'}    if $vals->{'customlog'};
+	push @lines, "	CustomError "  . $vals->{'customerror'}  if $vals->{'customerror'};
+	if ( $vals->{'ssl'} ) {
+		if ( $vals->{'sslkey'} && $vals->{'sslcert'} && -f $vals->{'sslkey'} && $vals->{'sslcert'} ) {
+			push @lines, "	SSLEngine on";
+			push @lines, "	SSLCertificateKey "  . $vals->{'sslkey'}  if $vals->{'sslkey'};
+			push @lines, "	SSLCertificateFile " . $vals->{'sslcert'} if $vals->{'sslcert'};
+		} else {
+			return { error_code=>400, error_desc=>"FATAL: ssl is enabled but either the key or cert is missing!"};
+		};
+	};
+	push @lines, "</VirtualHost>\n";
+
+	print join ("\n", @lines) if $vals->{'debug'};
+
+	# write vhost definition to a file
 	my ($vhosts_conf) = $self->vhosts_get_file($vals, $conf);
 
-	(my $new, my $match, $vals)  = $self->vhosts_get_match($vals, $conf);
-	print "showing: \n" . join ("\n", @$match) . "\n";
+	if ( -f $vhosts_conf ) {
+		print "appending to file: $vhosts_conf\n" if $vals->{'debug'};
+		$utility->file_append($vhosts_conf, \@lines);
+	} else {
+		print "writing to file: $vhosts_conf\n" if $vals->{'debug'};
+		$utility->file_write($vhosts_conf, @lines);
+	};
 
-	return { error_code=>100, error_desc=>"exiting normally" };
+	$self->restart($vals);
+
+	print "returning success or error\n" if $vals->{'debug'};
+	return { error_code=>200, error_desc=>"vhost creation successful"};
 };
-
 
 =head2 vhost_enable
 
@@ -294,227 +788,6 @@ sub vhost_delete($$)
 	return { error_code=>200, error_desc=>"vhost deletion successful" };
 };
 
-=head2 vhosts_get_match
-
-Find a vhost declaration block in the Apache config file(s).
-
-=cut
-
-sub vhosts_get_match
-{
-	my ($self, $vals, $conf) = @_;
-
-	my ($vhosts_conf) = $self->vhosts_get_file ($vals, $conf);
-	if ($vals->{'disabled'}) { $vhosts_conf .= ".disabled" };
-
-	print "reading in the vhosts file $vhosts_conf\n" if $vals->{'debug'};
-	my @lines = $utility->file_read($vhosts_conf);
-
-	my ($in, $match, @new, @drop);
-	LINE: foreach my $line (@lines) 
-	{
-		if ( $match ) 
-		{
-			print "match: $line\n" if $vals->{'debug'};
-			push @drop, $line;
-			if ( $line =~ /documentroot[\s+]["]?(.*?)["]?[\s+]?$/i ) {
-				print "setting documentroot to $1\n" if $vals->{'debug'};
-				$vals->{'documentroot'} = $1; 
-			};
-		}
-		else { push @new, $line }; 
-
-		if ( $line =~ /^[\s+]?<\/virtualhost/i ) {
-			$in = 0; 
-			$match = 0; 
-			next LINE;
-		};
-
-		$in++ if $in;
-
-		if ( $line=~/^[\s+]?<virtualhost/i ) {
-			$in=1; next LINE;
-		};
-
-		my ($servername) = $line =~ /([a-z0-9-\.]+)(:\d+)?(\s+)?$/i;
-		if ($servername && $servername eq lc($vals->{'vhost'}) ) 
-		{
-			$match = 1;
-
-			# determine how many lines are in @new
-			my $length = @new;
-			print "array length: $length\n" if $vals->{'debug'};
-
-			# grab the lines from @new going back to the <virtualhost> declaration
-			# and push them onto @drop
-			for ( my $i = $in; $i > 0;   $i-- )
-			{
-				push @drop, @new[($length-$i)]; 
-				unless ( $vals->{'documentroot'}) {
-					if ( @new[($length-$i)] =~ /documentroot[\s+]["]?(.*?)["]?[\s+]?$/i ) {
-						print "setting documentroot to $1\n" if $vals->{'debug'};
-						$vals->{'documentroot'} = $1; 
-					};
-				};
-			};
-			# remove those lines from @new
-			for ( my $i = 0;   $i < $in; $i++ ) { pop @new; };
-		};
-	};
-
-	return \@new, \@drop, $vals;
-};
-
-=head2 vhosts_get_file
-
-If vhosts are each in their own file, this determines the file name the vhost will live in and returns it. The general methods on my systems works like this:
-
-   example.com would be stored in $apache/vhosts/example.com.conf
-
-so would any subdomains of example.com.
-
-thus, a return value for *.example.com will be "$apache/vhosts/example.com.conf".
-
-$apache is looked up from the contents of $conf.
-
-=cut
-
-sub vhosts_get_file
-{
-	my ($self, $vals, $conf) = @_;
-
-	# determine the path to the file the vhost is stored in
-	my $vhosts_conf = $conf->{'apache_dir_vhosts'};
-	if ( -d $vhosts_conf ) {
-		my ($vh_file_name) = lc($vals->{'vhost'}) =~ /([a-z0-9-]+\.[a-z0-9-]+)(\.)?$/;
-		$vhosts_conf .= "/$vh_file_name.conf";
-	} else {
-		$vhosts_conf .= ".conf";
-	};
-	
-	return $vhosts_conf;
-};
-
-
-=head2 vhost_create
-
-Create an Apache vhost container like this:
-
-  <VirtualHost *:80 >
-    ServerName blockads.com
-    ServerAlias ads.blockads.com
-    DocumentRoot /usr/home/blockads.com/ads
-    ServerAdmin admin@blockads.com
-    CustomLog "| /usr/local/sbin/cronolog /usr/home/example.com/logs/access.log" combined
-    ErrorDocument 404 "blockads.com
-  </VirtualHost>
-
-	my $apache->vhost_create($vals, $conf);
-
-=cut
-
-sub vhost_create($$)
-{
-	my ($self, $vals, $conf) = @_;
-
-	if ( $self->vhost_exists($vals, $conf) ) {
-		return { error_code=>400, error_desc=>"Sorry, that virtual host already exists!"};
-	};
-
-	# test all the values and make sure we've got enough to form a vhost
-	# minimum needed: vhost ip[:port], servername, documentroot
-
-	unless ( $vals->{'ip'} && $vals->{'documentroot'} ) {
-		return { error_code=>400, error_desc=>"You need to set at least the ip and documentroot!"};
-	};
-
-	if ($vals->{'debug'}) { use Data::Dumper; print Dumper($vals); };
-
-	# define the vhost
-	my @lines = "\n<VirtualHost "  . $vals->{'ip'} . ">";
-	push @lines, "	ServerName "   . lc($vals->{'vhost'});
-	push @lines, "	DocumentRoot " . $vals->{'documentroot'} if $vals->{'documentroot'};
-	push @lines, "	ServerAdmin "  . $vals->{'serveradmin'}  if $vals->{'serveradmin'};
-	push @lines, "	ServerAlias "  . $vals->{'serveralias'}  if $vals->{'serveralias'};
-	if ( $vals->{'cgi'} ) {
-		if    ( $vals->{'cgi'} eq "basic"    ) { push @lines, "	ScriptAlias /cgi-bin/ \"/usr/local/www/cgi-bin.basic/"; }
-		elsif ( $vals->{'cgi'} eq "advanced" ) { push @lines, "	ScriptAlias /cgi-bin/ \"/usr/local/www/cgi-bin.advanced/\""; }
-		elsif ( $vals->{'cgi'} eq "custom"   ) { push @lines, "	ScriptAlias /cgi-bin/ \"" . $vals->{'documentroot'} . "/cgi-bin/\""; }
-		else  {  push @lines, "	ScriptAlias "  .  $vals->{'cgi'} };
-		
-	};
-	# options needs some directory logic included if it's going to be used
-	# I won't be using this initially, but maybe eventually...
-	#push @lines, "	Options "      . $vals->{'options'}      if $vals->{'options'};
-	push @lines, "	CustomLog "    . $vals->{'customlog'}    if $vals->{'customlog'};
-	push @lines, "	CustomError "  . $vals->{'customerror'}  if $vals->{'customerror'};
-	if ( $vals->{'ssl'} ) {
-		if ( $vals->{'sslkey'} && $vals->{'sslcert'} && -f $vals->{'sslkey'} && $vals->{'sslcert'} ) {
-			push @lines, "	SSLEngine on";
-			push @lines, "	SSLCertificateKey "  . $vals->{'sslkey'}  if $vals->{'sslkey'};
-			push @lines, "	SSLCertificateFile " . $vals->{'sslcert'} if $vals->{'sslcert'};
-		} else {
-			return { error_code=>400, error_desc=>"FATAL: ssl is enabled but either the key or cert is missing!"};
-		};
-	};
-	push @lines, "</VirtualHost>\n";
-
-	print join ("\n", @lines) if $vals->{'debug'};
-
-	# write vhost definition to a file
-	my ($vhosts_conf) = $self->vhosts_get_file($vals, $conf);
-
-	if ( -f $vhosts_conf ) {
-		print "appending to file: $vhosts_conf\n" if $vals->{'debug'};
-		$utility->file_append($vhosts_conf, \@lines);
-	} else {
-		print "writing to file: $vhosts_conf\n" if $vals->{'debug'};
-		$utility->file_write($vhosts_conf, @lines);
-	};
-
-	$self->restart($vals);
-
-	print "returning success or error\n" if $vals->{'debug'};
-	return { error_code=>200, error_desc=>"vhost creation successful"};
-};
-
-=head2 restart
-
-Restarts Apache. 
-
-On FreeBSD, we use the rc.d script if it's available because it's smarter than apachectl. Under some instances, sending apache a restart signal will cause it to crash and not restart. The control script sends it a TERM, waits until it has done so, then starts it back up.
-
-    $apache->restart($vals);
-
-=cut
-
-sub restart($)
-{
-	my ($self, $vals) = @_;
-
-	# restart apache
-
-
-	print "restarting apache.\n" if $vals->{'debug'};
-
-	my $sudo = $utility->sudo();
-
-	if    ( -x "/usr/local/etc/rc.d/apache2.sh" ) {
-		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache2.sh restart");
-	}
-	elsif ( -x "/usr/local/etc/rc.d/apache.sh" ) {
-		$utility->syscmd("$sudo /usr/local/etc/rc.d/apache.sh restart");
-	}
-	else { 
-		my $apachectl = $utility->find_the_bin("apachectl");
-		if ( -x $apachectl ) {
-			$utility->syscmd("$sudo $apachectl graceful");
-		} else {
-			warn "WARNING: couldn't restart Apache!\n " 
-		}
-	};
-};
-
 =head2 vhost_exists
 
 Tests to see if a vhost definition already exists in your Apache config file(s).
@@ -529,7 +802,7 @@ sub vhost_exists
 	my $vhost       = lc($vals->{'vhost'});
 	my $vhosts_conf = $conf->{'apache_dir_vhosts'};
 
-	unless ( $vhosts_conf ) { die "FATAL: you must set apache_dir_vhosts in sysadmin.conf\n"; };
+	unless ( $vhosts_conf ) { croak "FATAL: you must set apache_dir_vhosts in sysadmin.conf\n"; };
 
 	if ( -d $vhosts_conf ) 
 	{
@@ -605,278 +878,130 @@ sub vhost_exists
 };
 
 
+=head2 vhost_show
 
-=head2	install_apache2
+Shows the contents of a virtualhost block that matches the virtual domain name passed in the $vals hashref. 
 
-	use Mail::Toaster::Apache;
-	my $apache = new Mail::Toaster::Apache;
-
-	$apache->install_apache2($conf);
-
-Builds Apache from sources with DSO for all modules. Also installs mod_perl2 and mod_php4.
-
-Currently tested on FreeBSD and Mac OS X. On FreeBSD, the php is installed. It installs both the PHP cli and mod_php Apache module. This is done because the SpamAssassin + SQL module requires pear-DB and the pear-DB port thinks it needs the lang/php port installed. There are other ports which also have this requirement so it's best to just have it installed.
-
-This script also builds default SSL certificates, based on your preferences in openssl.cnf (usually in /etc/ssl) and makes a few tweaks to your httpd.conf (for using PHP & perl scripts). 
-
-Values in $conf are set in toaster-watcher.conf. Please refer to that file to see how you can influence your Apache build.
+	$apache->vhost_show($vals, $conf);
 
 =cut
 
-sub install_apache2
+sub vhost_show($$)
 {
-	my ($self, $conf) = @_;
+	my ($self, $vals, $conf) = @_;
 
-	if ( $os eq "freebsd" ) 
-	{
-		use Mail::Toaster::FreeBSD 1;
-		my $freebsd = Mail::Toaster::FreeBSD->new();
+	unless ( $self->vhost_exists($vals, $conf) ) {
+		return { error_code => 400, error_desc=>"Sorry, that virtual host does not exist."};
+	};
 
-		print "\n";
-		if ( $] < 5.006 ) 
-		{
-			$freebsd->port_install("perl5", "lang", "", "perl-5");
-			$utility->syscmd("/usr/local/bin/use.perl port");
-		};
+	my ($vhosts_conf) = $self->vhosts_get_file($vals, $conf);
 
-		if ( $conf->{'package_install_method'} eq "packages" ) 
-		{
-			$freebsd->package_install("apache2", "apache-2");
-			$freebsd->package_install("p5-libwww");
-		} else {
-			$freebsd->port_install ("apache2", "www", undef, "apache", "WITH_OPENSSL_PORT");
-			$freebsd->port_install ("p5-libwww", "www");
-		};
+	(my $new, my $match, $vals)  = $self->vhosts_get_match($vals, $conf);
+	print "showing: \n" . join ("\n", @$match) . "\n";
 
-		$freebsd->port_install ("p5-libwww", "www");
-		$freebsd->port_install ("cronolog", "sysutils");
-
-		if ( $conf->{'package_install_method'} eq "packages" ) {
-			$freebsd->package_install("bison") or  $freebsd->port_install ("bison", "devel");
-			$freebsd->package_install("gd")    or  $freebsd->port_install ("gd", "graphics");
-		} else {
-			$freebsd->port_install ("bison", "devel");
-			$freebsd->port_install ("gd", "graphics");
-		};
-
-		if ( $conf->{'install_php'} == "5" ) {
-			$freebsd->port_install ("php5", "lang", undef, undef, "WITH_APACHE2");
-		} else {
-			$freebsd->port_install ("php4", "lang", undef, undef, "WITH_APACHE2");
-		};
-
-		if ( $conf->{'install_apache2_modperl'} ) {
-			$freebsd->port_install ("mod_perl2", "www");
-		};
-
-		$freebsd->rc_dot_conf_check("apache2_enable", "apache2_enable=\"YES\"");
-		$freebsd->rc_dot_conf_check("apache2ssl_enable", "apache2ssl_enable=\"YES\"");
-
-		$self->install_ssl_certs();
-		$self->conf_patch($conf);
-	}
-	elsif ( $os eq "darwin" )
-	{
-		print "\nInstalling Apache 2 on Darwin (MacOS X)?\n\n";
-
-		unless ( -d "/usr/local/src") { mkdir("/usr/local/src", 0755) };
-		unless ( -d "/usr/local/src/www") { mkdir("/usr/local/src/www", 0755) };
-		chdir("/usr/local/src/www");
-
-		my $apache   = "httpd-2.0.52";
-		my $mod_perl = "mod_perl-1.99_16";
-		my $mod_php  = "php-4.3.9";
-
-		unless ( -e "$apache.tar.gz" ) {
-			$utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
-		};
-
-		unless ( -e "$mod_perl.tar.gz" ) {
-			$utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
-		};
-
-		unless ( -e "$mod_php.tar.gz" ) {
-			$utility->get_file("http://us2.php.net/distributions/$mod_php.tar.gz");
-		};
-
-		foreach my $package ( $apache, $mod_perl, $mod_php) 
-		{
-			if ( -d $package )
-			{
-				my $r = $utility->source_warning($package, 1);
-				unless ($r) { croak "sorry, I can't continue.\n"; };
-			};
-			$utility->archive_expand("$package.tar.gz");
-		};
-	
-		if ( -d $apache ) 
-		{
-			chdir($apache);
-			$utility->syscmd("./configure --enable-layout=Darwin --enable-modules=all --enable-mods-shared=all --enable-so");
-			$utility->syscmd("make");
-			$utility->syscmd("make install");
-		};
-	}
-	else
-	{
-		print "sorry, not yet on $os \n";
-	}
+	return { error_code=>100, error_desc=>"exiting normally" };
 };
 
 
-=head2 InstallApache1
+=head2 vhosts_get_file
 
-	use Mail::Toaster::Apache;
-	my $apache = new Mail::Toaster::Apache;
+If vhosts are each in their own file, this determines the file name the vhost will live in and returns it. The general methods on my systems works like this:
 
-	$apache->install_apache1("/usr/local/src")
+   example.com would be stored in $apache/vhosts/example.com.conf
 
-Builds Apache from sources with DSO for all but mod_perl which must be compiled statically in order to work at all.
+so would any subdomains of example.com.
 
-Will build Apache in the directory as shown. After compile, the script will show you a few options for testing and completing the installation.
+thus, a return value for *.example.com will be "$apache/vhosts/example.com.conf".
 
-Also installs mod_php4 and mod_ssl.
+$apache is looked up from the contents of $conf.
 
 =cut
 
-sub install_apache1($;$) 
+sub vhosts_get_file
 {
-	my ($self, $src, $conf) = @_;
-	if ( $os eq "darwin" ) 
-	{
-		print "\n\nNOTICE: Darwin comes with Apache pre-installed! Simply open
-System Preferences->Sharing and enable Web Sharing. If for some crazy reason you
-still want Apache1, simply follow the instructions here: \n";
-		print "http://www.macdevcenter.com/pub/a/mac/2002/12/18/apache_modssl.html\n";
+	my ($self, $vals, $conf) = @_;
 
-		return 0;
-	};
-
-	use File::Copy;
-
-	my $apache   = "apache_1.3.31";
-	my $mod_perl = "mod_perl-1.29";
-	my $mod_ssl  = "mod_ssl-2.8.19-1.3.31";
-	my $layout   = "FreeBSD.layout";
-
-	if ( $os eq "freebsd" ) 
-	{
-		use Mail::Toaster::FreeBSD;
-		my $freebsd = Mail::Toaster::FreeBSD->new();
-
-		if ( $conf->{'package_install_method'} eq "packages" ) 
-		{
-			$freebsd->package_install("mm");
-			$freebsd->package_install("gettext");
-			$freebsd->package_install("libtool");
-			$freebsd->package_install("apache");
-			$freebsd->package_install("p5-libwww");
-		} else {
-			$freebsd->port_install("mm",        "devel");
-			$freebsd->port_install("gettext",   "textproc");
-			$freebsd->port_install("libtool",   "devel");
-			$freebsd->port_install("apache",    "www", "apache13");
-			$freebsd->port_install("p5-libwww", "www");
-		};
-		$freebsd->port_install   ("cronolog", "sysutils");
-
-		my $log = "/var/log/apache";
-		unless ( -d $log) 
-		{
-			mkdir($log, 0755) or croak "Couldn't create $log: $!\n";
-			my $uid = getpwnam("www");
-			my $gid = getgrnam("www");
-			chown($uid, $gid, $log);
-		};
-
-		unless ( $freebsd->is_port_installed("apache") ) {
-			# get it registered in the ports db
-			$freebsd->package_install("apache");
-		};
-
-		$freebsd->rc_dot_conf_check("apache_enable", "apache_enable=\"YES\"");
-	};
-
-	$utility->chdir_source_dir("$src/www", $src);
-
-	unless ( -e "$apache.tar.gz" ) {
-		$utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
-	};
-
-	unless ( -e "$mod_perl.tar.gz" ) {
-		$utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
-	};
-
-	unless ( -e "$mod_ssl.tar.gz" ) {
-		$utility->get_file("http://www.modssl.org/source/$mod_ssl.tar.gz");
-	};
-
-	unless ( -e $layout ) 
-	{
-		$utility->get_file("http://www.tnpi.biz/internet/www/apache.layout");
-		move("apache.layout", $layout);
-	};
-
-	RemoveOldApacheSources($apache);
-
-	foreach my $package ($apache, $mod_perl, $mod_ssl) 
-	{
-		if ( -d $package )
-		{
-			my $r = $utility->source_warning($package, 1);
-			unless ($r) { croak "sorry, I can't continue.\n" };
-		};
-		$utility->archive_expand("$package.tar.gz");
-	};
-
-	chdir($mod_ssl);
-	if ( $os eq "darwin") { $utility->syscmd("./configure --with-apache=../$apache") } 
-	else {
-		$utility->syscmd("./configure --with-apache=../$apache --with-ssl=/usr --enable-shared=ssl --with-mm=/usr/local");
-	};
-	chdir("../$mod_perl");
-	if ( $os eq "darwin") {
-		$utility->syscmd( "perl Makefile.PL APACHE_SRC=../$apache NO_HTTPD=1 USE_APACI=1 PREP_HTTPD=1 EVERYTHING=1");
+	# determine the path to the file the vhost is stored in
+	my $vhosts_conf = $conf->{'apache_dir_vhosts'};
+	if ( -d $vhosts_conf ) {
+		my ($vh_file_name) = lc($vals->{'vhost'}) =~ /([a-z0-9-]+\.[a-z0-9-]+)(\.)?$/;
+		$vhosts_conf .= "/$vh_file_name.conf";
 	} else {
-		$utility->syscmd( "perl Makefile.PL DO_HTTPD=1 USE_APACI=1 APACHE_PREFIX=/usr/local EVERYTHING=1 APACI_ARGS='--server-uid=www, --server-gid=www, --enable-module=so --enable-module=most, --enable-shared=max --disable-shared=perl, --enable-module=perl, --with-layout=../$layout:FreeBSD, --without-confadjust'");
+		$vhosts_conf .= ".conf";
 	};
-	$utility->syscmd("make");
+	
+	return $vhosts_conf;
+};
 
-	if ( $os eq "darwin") {
-		$utility->syscmd("make install");
-		chdir("../$apache");
-		$utility->syscmd( "./configure --with-layout=Darwin --enable-module=so --enable-module=ssl --enable-shared=ssl --activate-module=src/modules/perl/libperl.a --disable-shared=perl --without-execstrip");
-		$utility->syscmd("make");
-		$utility->syscmd("make install");
-	};
+=head2 vhosts_get_match
 
-	if (-e "../$apache/src/httpd") 
+Find a vhost declaration block in the Apache config file(s).
+
+=cut
+
+sub vhosts_get_match
+{
+	my ($self, $vals, $conf) = @_;
+
+	my ($vhosts_conf) = $self->vhosts_get_file ($vals, $conf);
+	if ($vals->{'disabled'}) { $vhosts_conf .= ".disabled" };
+
+	print "reading in the vhosts file $vhosts_conf\n" if $vals->{'debug'};
+	my @lines = $utility->file_read($vhosts_conf);
+
+	my ($in, $match, @new, @drop);
+	LINE: foreach my $line (@lines) 
 	{
-		print <<EOM
+		if ( $match ) 
+		{
+			print "match: $line\n" if $vals->{'debug'};
+			push @drop, $line;
+			if ( $line =~ /documentroot[\s+]["]?(.*?)["]?[\s+]?$/i ) {
+				print "setting documentroot to $1\n" if $vals->{'debug'};
+				$vals->{'documentroot'} = $1; 
+			};
+		}
+		else { push @new, $line }; 
 
-Apache build successful, now you must install as follows:
+		if ( $line =~ /^[\s+]?<\/virtualhost/i ) {
+			$in = 0; 
+			$match = 0; 
+			next LINE;
+		};
 
-For new installs:
+		$in++ if $in;
 
-     cd $src/www/$mod_perl
-     make test
-     cd ../$apache; make certificate TYPE=custom
-     rm /usr/local/etc/apache/httpd.conf
-     cd ../$mod_perl; make install
-     cd /usr/ports/www/mod_php4; make install clean (optional)
-     apachectl stop; apachectl startssl
+		if ( $line=~/^[\s+]?<virtualhost/i ) {
+			$in=1; next LINE;
+		};
 
-For re-installs:
+		my ($servername) = $line =~ /([a-z0-9-\.]+)(:\d+)?(\s+)?$/i;
+		if ($servername && $servername eq lc($vals->{'vhost'}) ) 
+		{
+			$match = 1;
 
-     cd $src/www/$mod_perl;\n\tmake test
-     make install
-     cd /usr/ports/www/mod_php4; make install clean (optional)
-     apachectl stop; apachectl startssl
-EOM
-;
+			# determine how many lines are in @new
+			my $length = @new;
+			print "array length: $length\n" if $vals->{'debug'};
+
+			# grab the lines from @new going back to the <virtualhost> declaration
+			# and push them onto @drop
+			for ( my $i = $in; $i > 0;   $i-- )
+			{
+				push @drop, @new[($length-$i)]; 
+				unless ( $vals->{'documentroot'}) {
+					if ( @new[($length-$i)] =~ /documentroot[\s+]["]?(.*?)["]?[\s+]?$/i ) {
+						print "setting documentroot to $1\n" if $vals->{'debug'};
+						$vals->{'documentroot'} = $1; 
+					};
+				};
+			};
+			# remove those lines from @new
+			for ( my $i = 0;   $i < $in; $i++ ) { pop @new; };
+		};
 	};
 
-	return 1;
+	return \@new, \@drop, $vals;
 };
 
 
@@ -900,7 +1025,7 @@ sub conf_patch(;$)
 	if ($conf->{'install_apache'} == 1 && $os eq "freebsd" ) { $prefix = "/usr/local/etc/apache" };
 	if ($conf->{'install_apache'} == 2 && $os eq "darwin"  ) { $prefix = "/etc/httpd"; };
 
-	(-d $prefix) ? chdir($prefix) : die "$prefix doesn't exist!\n";
+	(-d $prefix) ? chdir($prefix) : croak "$prefix doesn't exist!\n";
 
 	unless ( -e "$prefix/httpd.conf-2.0.patch")
 	{
@@ -950,58 +1075,6 @@ sub RemoveOldApacheSources
 	};
 };
 
-
-=head2 install_ssl_certs
-
-Builds and installs certificates in the locations that Apache expects them. This allows me to build a SSL enabled web server with a minimal amount of human interaction.
-
-
-=cut
-
-sub install_ssl_certs(;$)
-{
-	my ($self, $type) = @_;
-
-	my $crtdir = "/usr/local/etc/apache2/ssl.crt";
-	unless (-d $crtdir) { $utility->syscmd("mkdir -p $crtdir"); };
-
-	my $keydir = "/usr/local/etc/apache2/ssl.key";
-	unless (-d $keydir) { $utility->syscmd("mkdir -p $keydir"); };
-
-	if ($type eq "rsa") 
-	{
-		unless ( -e "$crtdir/server.crt" ) 
-		{
-			OpenSSLConfigNote();
-			InstallRSACert($crtdir, $keydir);
-		} else {
-			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
-		};
-	} 
-	elsif ( $type eq "dsa" ) 
-	{
-		unless ( -e "$crtdir/server-dsa.crt" ) {
-			#OpenSSLConfigNote();
-			#InstallDSACert($crtdir, $keydir);
-		} else {
-			print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
-		};
-	} 
-	else {
-		unless ( -e "$crtdir/server.crt" ) {
-			OpenSSLConfigNote();
-			InstallRSACert($crtdir, $keydir);
-		} else {
-			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
-		};
-		unless ( -e "$crtdir/server-dsa.crt" ) {
-#			OpenSSLConfigNote();
-#			InstallDSACert($crtdir, $keydir);
-		} else {
-			print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
-		};
-	};
-};
 
 sub OpenSSLConfigNote
 {
@@ -1095,12 +1168,34 @@ Don't export any of the symbols by default. Move all symbols to EXPORT_OK and ex
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/internet/mail/toaster/
+The following are all man/perldoc pages: 
 
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

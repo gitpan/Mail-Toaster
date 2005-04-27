@@ -2,23 +2,25 @@
 use strict;
 
 #
-# $Id: Logs.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Logs.pm,v 4.7 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Logs;
 
 use Carp;
+use Getopt::Std;
+use POSIX;   # needed for floor()
 
 use vars qw( $VERSION);
-$VERSION = "4.0";
+$VERSION = "4.5";
 
 use lib "lib";
 use lib "../..";
 use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
 use Mail::Toaster::Perl;    my $perl    = Mail::Toaster::Perl->new;
+use vars qw/ %spam /;
 
 use File::Path;
-use Getopt::Std;
 #use POSIX;
 
 my $os = $^O;
@@ -144,13 +146,13 @@ sub CheckSetup($)
 
 	unless ( -e $logbase ) 
 	{
-		mkpath($logbase, 0, 0755) or warn "Couldn't create $logbase: $!\n";
-		chown($uid, $gid, $logbase) or warn "Couldn't chown $logbase to $uid: $!\n";
+		mkpath($logbase, 0, 0755) or carp "Couldn't create $logbase: $!\n";
+		chown($uid, $gid, $logbase) or carp "Couldn't chown $logbase to $uid: $!\n";
 	} 
 	else 
 	{
 		if ( $uid && -w $logbase ) {
-			chown($uid, $gid, $logbase) or warn "Couldn't chown $logbase to $uid: $!\n";
+			chown($uid, $gid, $logbase) or carp "Couldn't chown $logbase to $uid: $!\n";
 		};
 	};
 
@@ -158,14 +160,14 @@ sub CheckSetup($)
 
 	unless ( -e $dir ) 
 	{
-		mkpath($dir, 0, 0755) or warn "Couldn't create $dir: $!\n";
-		chown($uid, $gid, $dir) or warn "Couldn't chown $dir to $uid: $!\n";
+		mkpath($dir, 0, 0755) or carp "Couldn't create $dir: $!\n";
+		chown($uid, $gid, $dir) or carp "Couldn't chown $dir to $uid: $!\n";
 	} 
 	else 
 	{
 		unless ( -d $dir ) 
 		{
-			warn "Please remove $dir. It needs to be a directory!\n";
+			carp "Please remove $dir. It needs to be a directory!\n";
 		};
 	};
 
@@ -217,7 +219,7 @@ sub CheckForFlags($$;$)
 	{
 		print "Mail::Logs by Matt Simerson v$VERSION\n\n";
 		print "\nI need you to pass me a command like this:\n\n";
-		die "maillog <protocol> [-r] [-v]
+		croak "maillog <protocol> [-r] [-v]
 
 <protocol> is one of: 
 
@@ -254,9 +256,9 @@ Count the number of connections we've blocked (via rblsmtpd) for each RBL that w
 	my $supervise = $conf->{'logs_supervise'}; $supervise ||= "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$rbl_log";
-	my %spam      = $self->counter_read($countfile, $debug);
+	   %spam      = $self->counter_read($countfile, $debug);
 
-	ProcessRblLogs(\%spam, $conf, "0", $debug, CheckLogFiles("$logbase/smtp/current") );
+	ProcessRblLogs($conf, "0", $debug, CheckLogFiles("$logbase/smtp/current") );
 
 	print "      Spam Counts\n\n" if $debug;
 
@@ -271,6 +273,8 @@ Count the number of connections we've blocked (via rblsmtpd) for each RBL that w
 
 	RotateMailLogs( "$supervise/smtp/log" );
 	CompressYesterdaysLogfile( $conf, "smtplog" );
+
+	$self->counter_write($countfile, %spam);
 };
 
 sub smtp_count($$)
@@ -301,7 +305,7 @@ Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd da
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\nsmtp_count: Ack, no logfiles!\n\n";
+		carp "\nsmtp_count: Ack, no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -409,7 +413,7 @@ Count the number of connections and successful authentications via IMAP and IMAP
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n   imap_count ERROR: no logfiles!\n\n";
+		carp "\n   imap_count ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -479,7 +483,7 @@ Count the number of connections and successful authentications via POP3 and POP3
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "    ERROR: no logfiles!\n\n";
+		carp "    ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -549,7 +553,6 @@ Count the number of webmail authentications.
 =cut
 
 	my ($self, $conf, $syslog) = @_;
-	my ($success, $connect);
 
 	my @logfiles = CheckLogFiles( $syslog );
 
@@ -564,14 +567,23 @@ Count the number of webmail authentications.
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n    ERROR: no logfiles!\n\n";
+		carp "\n    ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
-		$success   = `grep "Successful webmail login" @logfiles | wc -l`;
-		$connect   = `grep "Successful webmail login" @logfiles | wc -l`;
-		$success   = $success * 1;
-		$connect   = $connect * 1;
+		# older log style
+		my $success   = `grep "Successful webmail login" @logfiles | wc -l`;
+		my $connect   = `grep "Successful webmail login" @logfiles | wc -l`;
+
+		# newer log entries
+		# Feb 21 10:24:41 cadillac sqwebmaild: LOGIN, user=matt@cadillac.net, ip=[66.227.213.209]
+		# Feb 21 10:27:00 cadillac sqwebmaild: LOGIN FAILED, user=matt@cadillac.net, ip=[66.227.213.209]
+		my $failed    = `grep webmail @logfiles | grep "LOGIN FAILED" | wc -l`;
+		my $connect2  = `grep webmail @logfiles | grep LOGIN | wc -l`;
+		my $success2  = $connect2 - $failed;
+
+		$success   = $success + $success2;
+		$connect   = $connect + $connect2;
 
 		if ( $success >= $count{'success_last'} ) {
 	 		$count{'success'} = $count{'success'} + ( $success - $count{'success_last'} ) }
@@ -615,7 +627,7 @@ Count statistics logged by SpamAssassin.
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n   spamassassin_count ERROR: no logfiles!\n\n";
+		carp "\n   spamassassin_count ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -684,7 +696,7 @@ Count statistics logged by qmail scanner.
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		warn "\n    ERROR: no logfiles!\n\n";
+		carp "\n    ERROR: no logfiles!\n\n";
 	} 
 	else 
 	{
@@ -754,7 +766,7 @@ Roll the qmail-smtpd logs (without 2>&1 output generated by rblsmtpd).
 
 	my $cronolog  = $utility->find_the_bin("cronolog");
 	my $countfile = "$logbase/$counters/$rbl_log";
-	my %spam      = $self->counter_read($countfile, $debug);
+	   %spam      = $self->counter_read($countfile, $debug);
 
 	my $tai64nlocal;
 	if ( $conf->{'logs_archive_untai'} ) {
@@ -763,9 +775,9 @@ Roll the qmail-smtpd logs (without 2>&1 output generated by rblsmtpd).
 	};
 
 	if ($tai64nlocal) {
-		ProcessRblLogs(\%spam, $conf, "1", $debug, "| $tai64nlocal | $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
+		ProcessRblLogs($conf, "1", $debug, "| $tai64nlocal | $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
 	} else {
-		ProcessRblLogs(\%spam, $conf, "1", $debug, "| $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
+		ProcessRblLogs($conf, "1", $debug, "| $cronolog $logbase/\%Y/\%m/\%d/smtplog" );
 	};
 
 	$self->counter_write($countfile, %spam);
@@ -873,7 +885,7 @@ Tell multilog to rotate the maillogs for the array of dirs supplied.
 	my (@dirs) = @_;
 
 	my $svc = $utility->find_the_bin("svc");
-	for ( @dirs ) { system "$svc -a $_" };
+	for ( @dirs ) { $utility->syscmd("$svc -a $_") };
 };
  
 sub SetupDateVariables($)
@@ -944,21 +956,23 @@ sub ProcessPOP3Logs($$@)
 	}
 };
 
-sub ProcessRblLogs($$$$@)
+sub ProcessRblLogs($$$@)
 {
 
 =head2 ProcessRblLogs
 
 =cut
 
-	my ($spam, $conf, $roll, $debug, @files) = @_;
+#	ProcessRblLogs($conf, "0", $debug, CheckLogFiles("$logbase/smtp/current") );
+
+	my ($conf, $roll, $debug, @files) = @_;
 
 	if ($roll) 
 	{
 		open OUT, $files[0];
 		while (<STDIN>) {
 			chomp;
-			CountRblLine($spam, $_, $debug);
+			CountRblLine($_, $debug);
 			print "$_\n" if $conf->{'logs_taifiles'};
 			print OUT "$_\n" if $conf->{'logs_archive'};
 		};
@@ -969,17 +983,17 @@ sub ProcessRblLogs($$$$@)
 		foreach my $file (@files) 
 		{
 			print "ProcessRblLogs: reading file $file..." if $debug;
-			open(INFILE, $file) or warn "couldn't read $file: $!\n";
+			open(INFILE, $file) or carp "couldn't read $file: $!\n";
 			while (<INFILE>) 
 			{
 				chomp;
-				CountRblLine($spam, $_, $debug);
+				CountRblLine($_, $debug);
 			};
 			close(INFILE);
 			print "done.\n" if $debug;
-		};
-	};
-};
+		}
+	}
+}
  
 sub CountRblLine($$;$)
 {
@@ -988,17 +1002,17 @@ sub CountRblLine($$;$)
 
 =cut
 
-	my ($spam, $line, $debug) = @_;
+	my ($line, $debug) = @_;
 
-	if    ( $_ =~ /dsbl/ )       { $spam->{'smtp_block_dsbl'}++;     } 
-	elsif ( $_ =~ /spamhaus/ )   { $spam->{'smtp_block_spamhaus'}++; } 
-	elsif ( $_ =~ /spamcop/ )    { $spam->{'smtp_block_spamcop'}++;  } 
-	elsif ( $_ =~ /ORDB/ )       { $spam->{'smtp_block_ordb'}++;     } 
-	elsif ( $_ =~ /mail-abuse/ ) { $spam->{'smtp_block_maps'}++;     } 
-	elsif ( $_ =~ /Reverse/ )    { $spam->{'smtp_block_dns'}++;      }
-	else  { print $line if $debug; $spam->{'smtp_block_other'}++;    };
+	if    ( $_ =~ /dsbl/ )       { $spam{'smtp_block_dsbl'}++;     } 
+	elsif ( $_ =~ /spamhaus/ )   { $spam{'smtp_block_spamhaus'}++; } 
+	elsif ( $_ =~ /spamcop/ )    { $spam{'smtp_block_spamcop'}++;  } 
+	elsif ( $_ =~ /ORDB/ )       { $spam{'smtp_block_ordb'}++;     } 
+	elsif ( $_ =~ /mail-abuse/ ) { $spam{'smtp_block_maps'}++;     } 
+	elsif ( $_ =~ /Reverse/ )    { $spam{'smtp_block_dns'}++;      }
+	else  { print $line if $debug; $spam{'smtp_block_other'}++;    };
 
-	$spam->{'smtp_block_count'}++;
+	$spam{'smtp_block_count'}++;
 };
 
 sub ProcessSendLogs($$$$@)
@@ -1043,7 +1057,7 @@ sub ProcessSendLogs($$$$@)
 		foreach my $file (@files) 
 		{
 			print "ProcessSendLogs: reading file $file.\n" if ($debug);
-			open(INFILE, $file) or warn "couldn't read $file: $!\n";
+			open(INFILE, $file) or carp "couldn't read $file: $!\n";
 			while (<INFILE>) 
 			{
 				chomp;
@@ -1131,8 +1145,8 @@ $file is the file to read from. $debug is optional, it prints out verbose messag
 	{
 		print "\n\nWARN: the file $file is empty! Creating...";
 
-		my %spam = ( "created" => time() );
-		$self->counter_write($file, %spam);
+		my %hash = ( "created" => time() );
+		$self->counter_write($file, %hash);
 
 		print "done.\n";
 		return 0;
@@ -1292,15 +1306,35 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/internet/mail/toaster/
+The following are all man/perldoc pages: 
 
-Mail::Toaster::CGI, Mail::Toaster::DNS, Mail::Toaster::Logs,
-Mail::Toaster::Qmail, Mail::Toaster::Setup
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

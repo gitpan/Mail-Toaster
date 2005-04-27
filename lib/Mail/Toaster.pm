@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Toaster.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Toaster.pm,v 4.12 2005/04/14 21:07:37 matt Exp $
 #
 
 package Mail::Toaster;
@@ -10,10 +10,10 @@ package Mail::Toaster;
 use Carp;
 use vars qw($VERSION);
 
-#$VERSION = sprintf "%d.%02d", q$Revision: 4.1 $ =~ /(\d+)/g;
+#$VERSION = sprintf "%d.%02d", q$Revision: 4.12 $ =~ /(\d+)/g;
 # this has problems being detected with perl 5.6.
 
-$VERSION  = '4.00';
+$VERSION  = '4.06';
 
 use Mail::Toaster::Utility; my $utility = new Mail::Toaster::Utility;
 
@@ -204,6 +204,15 @@ sub toaster_check
 
 	# Do other sanity tests here
 
+	# check for running processes
+	use Mail::Toaster::Setup; my $setup = new Mail::Toaster::Setup;
+	if ($debug) {
+		print "checking running processes...";
+		$setup->test_processes($conf);
+	} else {
+		$setup->test_processes($conf, 1);
+	}
+
 	# check that we can't SMTP AUTH with random user names and passwords
 
 	# make sure watcher.log isn't larger than 1MB
@@ -311,9 +320,79 @@ sub toaster_check
 };
 
 
+=head2 learn_mailboxes
+
+This sub trawls through a mail system finding mail messages that have arrived since the last time it ran and passing them through sa-learn to train SpamAssassin what you think is spam versus ham. It make decisions based on settings defined in toaster-watcher.conf.
+
+=cut
+
+sub learn_mailboxes
+{
+	my ($self, $conf, $debug) = @_;
+	
+	my $days = $conf->{'maildir_learn_interval'};
+	unless ($days) {
+		warn "maildir_learn_interval not set in \$conf!";
+		return 0;
+	};
+
+	my $log = $conf->{'qmail_log_base'};
+	unless ($log) {
+		print "NOTICE: qmail_log_base is not set in toaster-watcher.conf! Using default /var/log/mail. \n";
+		$log = "/var/log/mail";
+	};
+	print "learn_mailboxes: qmail log base is: $log\n" if $debug;
+	$log  = "$log/learn.log";
+
+	# create the log file if it does not exist
+	unless ( -e $log ) 
+	{ 
+		$utility->logfile_append($log, ["toaster-watcher.pl", "created file"]); 
+		croak unless (-e $log);
+	};
+
+	unless ( -M $log > $days )
+	{
+		print "learn_mailboxes: skipping, $log is less than $days old\n" if $debug;
+		return 0;
+	} 
+	else 
+	{
+		$utility->logfile_append($log, ["toaster-watcher.pl", "learn_mailboxes running."] ); 
+		print "learn_mailboxes: checks passed, getting ready to clean\n" if $debug;
+	};
+
+	my $tmp      = $conf->{'toaster_tmp_dir'}    ||= "/tmp";
+	my $spamlist = "$tmp/toaster-spam-learn-me"; unlink $spamlist if ( -e $spamlist);
+	my $hamlist  = "$tmp/toaster-ham-learn-me";  unlink $hamlist  if ( -e $hamlist );
+
+	my @paths = $self->get_maildir_paths($conf, $debug);
+
+	foreach my $path (@paths)
+	{
+		if ( $path && -d $path ) 
+		{
+			print "learn_mailboxes: processing in $path\n" if $debug;
+
+			$self->maildir_learn_ham  ($conf, $path, $debug) if ($conf->{'maildir_learn_Read'  });
+			$self->maildir_learn_spam ($conf, $path, $debug) if ($conf->{'maildir_learn_Spam'  });
+		}
+		else
+		{
+			print "learn_mailboxes: $path does not exist, skipping!\n";
+		};
+	}
+
+	my $nice    = $utility->find_the_bin("nice");
+	my $salearn = $utility->find_the_bin("sa-learn");
+
+	$utility->syscmd("$nice $salearn --ham  -f $hamlist");   unlink $hamlist;
+	$utility->syscmd("$nice $salearn --spam -f $spamlist");  unlink $spamlist;
+};
+
 =head2 clean_mailboxes
 
-This sub does all sorts of fun things. The most important function is to trawl through a mail system cleaning out old mail messages that exceed some pre-configured threshhold as defined in toaster-watcher.conf.
+This sub trawls through a mail system cleaning out old mail messages that exceed some pre-configured threshhold as defined in toaster-watcher.conf.
 
 Peter Brezny suggests adding another option which is good. Set a window during which the cleaning script can run so that it's not running during the highest load times.
 
@@ -337,6 +416,7 @@ sub clean_mailboxes($;$)
 	print "clean_mailboxes: qmail log base is: $log\n" if $debug;
 	$log  = "$log/clean.log";
 
+	# create the log file if it does not exist
 	unless ( -e $log ) 
 	{ 
 		$utility->file_write($log, "created file"); 
@@ -354,142 +434,243 @@ sub clean_mailboxes($;$)
 		print "clean_mailboxes: checks passed, getting ready to clean\n" if $debug;
 	};
 
+	my @paths = $self->get_maildir_paths($conf, $debug);
+
+	foreach my $path (@paths)
+	{
+		if ( $path && -d $path ) 
+		{
+			print "clean_mailboxes: processing in $path\n" if $debug;
+
+			$self->maildir_clean_ham  ($conf, $path, $debug) if ($conf->{'maildir_clean_Read'  });
+			$self->maildir_clean_new  ($conf, $path, $debug) if ($conf->{'maidir_clean_Unread' });
+			$self->maildir_clean_sent ($conf, $path, $debug) if ($conf->{'maidir_clean_Sent'   });
+			$self->maildir_clean_trash($conf, $path, $debug) if ($conf->{'maidir_clean_Trash'  });
+			$self->maildir_clean_spam ($conf, $path, $debug) if ($conf->{'maildir_clean_Spam'  });
+		}
+		else
+		{
+			print "clean_mailboxes: $path does not exist, skipping!\n";
+		};
+	}
+
+	print "done.\n" if $debug;
+}
+
+sub maildir_clean_spam
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	my $find = $utility->find_the_bin("find");
+
+	my $days = $conf->{'maildir_clean_Spam'};
+	
+	print "clean_spam: cleaning spam messages older than $days\n" if $debug;
+
+	if ( -d "$path/Maildir/.Spam" ) 
+	{
+		$utility->syscmd("$find $path/Maildir/.Spam/cur -type f -mtime +$days -exec rm {} \\;");
+		$utility->syscmd("$find $path/Maildir/.Spam/new -type f -mtime +$days -exec rm {} \\;");
+	} 
+	else {
+		print "clean_spam: skipped cleaning because $path/Maildir/.Spam does not exist.\n" if $debug;
+	};
+}
+
+sub get_maildir_paths
+{
+	my ($self, $conf, $debug) = @_;
+
+	my @paths;
+	my $vpdir    = $conf->{'vpopmail_home_dir'};
+
+	# this method requires a MySQL queries for each email address
+#	foreach ( `$vpdir/bin/vpopbull -n -V` ) {
+#		my $path = `$vpdir/bin/vuserinfo -d $_`;
+#		push @paths, $path;
+#	};
+#	chomp @paths;
+#	return @paths;
+
+	# this method requires a SQL query for each domain
 	use Mail::Toaster::Qmail;
 	my $qmail = Mail::Toaster::Qmail->new();
 
-	my $qmaildir = $conf->{'qmail_dir'}; $qmaildir ||= "/var/qmail";
+	my $qmaildir = $conf->{'qmail_dir'} ||= "/var/qmail";
+	my @domains  = $qmail->get_domains_from_assign("$qmaildir/users/assign",$debug);
 
-	my @domains = $qmail->get_domains_from_assign("$qmaildir/users/assign",$debug);
 	my $count = @domains;
-	print "clean_mailboxes: found $count domains.\n" if $debug;
+	print "get_maildir_paths: found $count domains.\n" if $debug;
 
-	my $find    = $utility->find_the_bin("find");
-	my $salearn = $utility->find_the_bin("sa-learn");
-
-	foreach my $hash (@domains)
+	foreach (@domains)
 	{
-		my $domain = $hash->{'dom'};
+		my $domain = $_->{'dom'};
 
-		print "clean_mailboxes: processing $domain mailboxes.\n" if $debug;
+		print "get_maildir_paths: processing $domain mailboxes.\n" if $debug;
 
-		my $vpdir = $conf->{'vpopmail_home_dir'};
-		my @paths = `$vpdir/bin/vuserinfo -d -D $domain`;
-		chomp @paths;
-
-		foreach my $path (@paths)
-		{
-			if ( $path && -d $path ) 
-			{
-				print "clean_mailboxes: processing in $path\n" if $debug;
-
-				if ($conf->{'maildir_clean_Read_learn'} ) 
-				{
-					carp "No sa-learn found!\n" unless ( -x $salearn);
-					if ( -d "$path/Maildir/cur") {
-						print "clean_mailboxes: training SpamAsassin from ham (read) messages\n" if $debug;
-
-						$days = $conf->{'maildir_clean_Read_learn_days'};
-						if ($days) 
-						{
-							print "clean_mailboxes: removing read messages older than $days days.\n" if $debug;
-							$utility->syscmd("$find $path/Maildir/cur  -type f -mtime +$days -exec $salearn --ham --no-rebuild {} \\;");
-						} 
-						else 
-						{
-							$utility->syscmd("$salearn --ham $path/Maildir/cur");
-							if ( -d "$path/Maildir/.read" ) {
-								$utility->syscmd("$salearn --ham $path/Maildir/.read/cur");
-							};
-							if ( -d "$path/Maildir/.Read" ) {
-								$utility->syscmd("$salearn --ham $path/Maildir/.Read/cur");
-							};
-						};
-					} 	
-					else 
-					{
-						print "clean_mailboxes: ERROR, $path/Maildir/cur does not exist!\n" if $debug;
-					};
-				};
-
-				$days = $conf->{'maildir_clean_Read'};
-				if ($days) 
-				{
-					print "clean_mailboxes: cleaning read messages older than $days days\n" if $debug;
-					if ( -d "$path/Maildir/cur" ) {
-						$utility->syscmd("$find $path/Maildir/cur  -type f -mtime +$days -exec rm {} \\;");
-					} else {
-						print "clean_mailboxes: FAILED because $path/Maildir/cur does not exist.\n" if $debug;
-					};
-				};
-
-				$days = $conf->{'maildir_clean_Unread'};
-				if ($days) 
-				{
-					print "clean_mailboxes: cleaning unread messages older than $days days\n" if $debug;
-					if ( -d "$path/Maildir/new" ) {
-						$utility->syscmd("$find $path/Maildir/new  -type f -mtime +$days -exec rm {} \\;");
-					} else {
-						print "clean_mailboxes: FAILED because $path/Maildir/new does not exist.\n" if $debug;
-					};
-				};
-
-				$days = $conf->{'maildir_clean_Sent'};
-				if ($days) 
-				{
-					print "clean_mailboxes: cleaning sent messages older than $days days\n" if $debug;
-					if ( -d "$path/Maildir/.Sent" ) {
-						$utility->syscmd("$find $path/Maildir/.Sent/new -type f -mtime +$days -exec rm {} \\;");
-						$utility->syscmd("$find $path/Maildir/.Sent/cur -type f -mtime +$days -exec rm {} \\;");
-					} else {
-						print "clean_mailboxes: skipped cleaning because $path/Maildir/.Sent does not exist.\n" if $debug;
-					};
-				};
-
-				$days = $conf->{'maildir_clean_Trash'};
-				if ($days) 
-				{
-					print "clean_mailboxes: cleaning deleted messages older than $days days\n" if $debug;
-					if ( -d "$path/Maildir/.Trash" ) {
-						$utility->syscmd("$find $path/Maildir/.Trash/new -type f -mtime +$days -exec rm {} \\;");
-						$utility->syscmd("$find $path/Maildir/.Trash/cur -type f -mtime +$days -exec rm {} \\;");
-					} else {
-						print "clean_mailboxes: skipped cleaning because $path/Maildir/.Trash does not exist.\n" if $debug;
-					};
-				};
-
-				if ( $conf->{'maildir_clean_Spam_learn'} ) 
-				{
-					print "clean_mailboxes: training SpamAsassin from spam messages\n" if $debug;
-					if ( -d "$path/Maildir/.Spam" ) {
-						carp "No sa-learn found!\n" unless ( -x $salearn);
-						$utility->syscmd("$salearn --spam $path/Maildir/.Spam/cur");
-						$utility->syscmd("$salearn --spam $path/Maildir/.Spam/new");
-					} else {
-						print "clean_mailboxes: skipped training because $path/Maildir/.Spam does not exist.\n" if $debug;
-					};
-				};
-
-				$days = $conf->{'maildir_clean_Spam'};
-				if ($days) 
-				{
-					print "clean_mailboxes: cleaning spam messages older than $days\n" if $debug;
-					if ( -d "$path/Maildir/.Spam" ) {
-						$utility->syscmd("$find $path/Maildir/.Spam/cur -type f -mtime +$days -exec rm {} \\;");
-						$utility->syscmd("$find $path/Maildir/.Spam/new -type f -mtime +$days -exec rm {} \\;");
-					} else {
-						print "clean_mailboxes: skipped cleaning because $path/Maildir/.Spam does not exist.\n" if $debug;
-					};
-				};
-			}
-			else
-			{
-				print "clean_mailboxes: $path does not exist, skipping!\n";
-			};
-		}
-		print "done.\n" if $debug;
+		my @list = `$vpdir/bin/vuserinfo -d -D $domain`;
+		chomp @list;
+		push @paths, @list;
 	};
+
+	chomp @paths;
+
+	$count = @paths; 
+	print "found $count mailboxes.\n";
+
+	return @paths;
+}
+
+sub maildir_learn_spam
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/.Spam" ) {
+		print "learn_spam: skipped spam learning because $path/Maildir/.Spam does not exist.\n" if $debug;
+		return 0;
+	};
+
+	my $find = $utility->find_the_bin("find");
+	my $tmp  = $conf->{'toaster_tmp_dir'};
+	my $list = "$tmp/toaster-spam-learn-me";
+
+#	my $salearn = $utility->find_the_bin("sa-learn");
+#	unless ( -x $salearn) {
+#		carp "No sa-learn found!\n";
+#		return 0;
+#	};
+
+	print "maildir_learn_spam: finding new messages to learn from.\n" if $debug;
+
+	# how often do we process spam?  It's not efficient (or useful) to feed spam 
+	# through sa-learn if we've already learned from them.
+
+	my $interval = $conf->{'maildir_learn_interval'} || 7;   # default 7 days
+	$interval = $interval + 2;
+
+	my @files = `$find $path/Maildir/.Spam/cur -type f -mtime +1 -mtime -$interval;`;
+	chomp @files;
+	$utility->file_append($list, \@files);
+
+	@files = `$find $path/Maildir/.Spam/new -type f -mtime +1 -mtime -$interval;`;
+	chomp @files;
+	$utility->file_append($list, \@files);
+
+#	$utility->syscmd("$salearn --spam $path/Maildir/.Spam/cur");
+#	$utility->syscmd("$salearn --spam $path/Maildir/.Spam/new");
+};
+
+sub maildir_clean_trash
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/.Trash" ) {
+		print "clean_trash: skipped cleaning because $path/Maildir/.Trash does not exist.\n" if $debug;
+		return 0;
+	};
+
+	my $find = $utility->find_the_bin("find");
+	my $days = $conf->{'maildir_clean_Trash'};
+
+	print "clean_trash: cleaning deleted messages older than $days days\n" if $debug;
+
+	$utility->syscmd("$find $path/Maildir/.Trash/new -type f -mtime +$days -exec rm {} \\;");
+	$utility->syscmd("$find $path/Maildir/.Trash/cur -type f -mtime +$days -exec rm {} \\;");
+}
+
+sub maidir_clean_sent
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/.Sent" ) {
+		print "clean_sent: skipped cleaning because $path/Maildir/.Sent does not exist.\n" if $debug;
+		return 0;
+	};
+
+	my $find = $utility->find_the_bin("find");
+	my $days = $conf->{'maildir_clean_Sent'};
+
+	print "clean_sent: cleaning sent messages older than $days days\n" if $debug;
+
+	$utility->syscmd("$find $path/Maildir/.Sent/new -type f -mtime +$days -exec rm {} \\;");
+	$utility->syscmd("$find $path/Maildir/.Sent/cur -type f -mtime +$days -exec rm {} \\;");
+};
+
+sub maildir_clean_new
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/new" ) {
+		print "clean_new: FAILED because $path/Maildir/new does not exist.\n" if $debug;
+	};
+
+	my $find = $utility->find_the_bin("find");
+	my $days = $conf->{'maildir_clean_Unread'};
+
+	print "clean_new: cleaning unread messages older than $days days\n" if $debug;
+	$utility->syscmd("$find $path/Maildir/new  -type f -mtime +$days -exec rm {} \\;");
+};
+
+sub maildir_clean_ham
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/cur" ) {
+		print "clean_ham: FAILED because $path/Maildir/cur does not exist.\n" if $debug;
+	};
+
+	my $find = $utility->find_the_bin("find");
+	my $days = $conf->{'maildir_clean_Read'};
+
+	print "clean_ham: cleaning read messages older than $days days\n" if $debug;
+	$utility->syscmd("$find $path/Maildir/cur  -type f -mtime +$days -exec rm {} \\;");
 }
 	
+sub maildir_learn_ham
+{
+	my ($self, $conf, $path, $debug) = @_;
+
+	unless ( -d "$path/Maildir/cur") {
+		print "learn_ham: ERROR, $path/Maildir/cur does not exist!\n" if $debug;
+		return 0;
+	};
+
+	my $tmp  = $conf->{'toaster_tmp_dir'};
+	my $list = "$tmp/toaster-ham-learn-me";
+
+	my $find = $utility->find_the_bin("find");
+
+	print "learn_ham: training SpamAsassin from ham (read) messages\n" if $debug;
+
+	my $interval = $conf->{'maildir_learn_interval'} || 7;
+	$interval = $interval + 2;
+
+	my $days = $conf->{'maildir_learn_Read_days'};
+	if ($days) 
+	{
+		print "learn_ham: learning read messages older than $days days.\n" if $debug;
+		my @files = `$find $path/Maildir/cur -type f -mtime +$days -mtime -$interval;`;
+		chomp @files;
+		$utility->file_append($list, \@files);
+	} 
+	else 
+	{
+		if ( -d "$path/Maildir/.read" ) {
+			#$utility->syscmd("$salearn --ham $path/Maildir/cur");
+			my @files = `$find $path/Maildir/.read/cur -type f`;
+			chomp @files;
+			$utility->file_append($list, \@files);
+		};
+
+		if ( -d "$path/Maildir/.Read" ) {
+			#$utility->syscmd("$salearn --ham $path/Maildir/.Read/cur");
+			my @files = `$find $path/Maildir/.Read/cur -type f`;
+			chomp @files;
+			$utility->file_append($list, \@files);
+		};
+	};
+}
+
 
 1;
 __END__
@@ -505,19 +686,41 @@ None known. Report any to matt@tnpi.biz.
 
 =head1 TODO
 
- Add support for Darwin (MacOS X) and Linux
+ Add support for Darwin (MacOS X) - mostly done
+ Add support for Linux
  Update openssl & courier ssl .cnf files
  Install an optional stub DNS resolver (dnscache)
 
 =head1 SEE ALSO
 
-Mail::Toaster::CGI, Mail::Toaster::DNS, Mail::Toaster::Logs, Mail::Toaster::Qmail, 
-Mail::Toaster::Setup, Mail::Toaster::Watcher, Mail::Toaster::Utility,
-toaster-watcher.conf, toaster.conf
+The following are man (perldoc) pages: 
+
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin 
+ Mail::Toaster::Ezmlm 
+ Mail::Toaster::FreeBSD 
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf 
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

@@ -2,14 +2,14 @@
 use strict;
 
 #
-# $Id: CGI.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: CGI.pm,v 4.6 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::CGI;
 
 use Carp;
 use vars qw($VERSION); 
-$VERSION  = '4.00';
+$VERSION  = '4.04';
 
 =head1 NAME
 
@@ -498,7 +498,7 @@ sub squirrelmail_submit($$$)
 				<input type="hidden" name="login_username" value="">
 				<input type="hidden" name="secretkey" value="">
 			<td width="20" valign="middle" align="center">
-				<p><font size="+1" color="green"> 3 </font></p></td>
+				<p class="hilite16"> 3 </p></td>
 			<td width="25"><input type="submit" value="Go" onclick="copydata(\'squirrel\')"></td>
 			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
 			</form>
@@ -568,9 +568,9 @@ $ssl is a binary value, representing whether the form URL should be http or http
 	else
 	{
 		if ( $ssl ) {
-			return '<input type="hidden" name="ssl" value="1"> <font color="green">selected</font>';
+			return '<input type="hidden" name="ssl" value="1"> selected';
 		} else {
-			return '<input type="hidden" name="ssl" value="0"> <font color="green">disabled</font>';
+			return '<input type="hidden" name="ssl" value="0"> disabled';
 		};
 	};
 };
@@ -618,7 +618,7 @@ sub email_line($$)
 	}
 	else 
 	{
-		return '<input name="email" type="hidden" id="email" value="' . $address . '"><font color="green">' .$address.'</font>';
+		return '<input name="email" type="hidden" id="email" value="' . $address . '">' .$address;
 	};
 };
 
@@ -644,26 +644,45 @@ __END__
 
 Matt Simerson <matt@tnpi.biz>
 
-
 =head1 BUGS
 
 None known. Report any to author.
 
-
 =head1 TODO
 
-Wow, TODO is caught up. Yay!
-
+TODO is caught up. Yay!
 
 =head1 SEE ALSO
 
-Mail::Toaster::CGI, Mail::Toaster::DNS, Mail::Toaster::Logs,
-Mail::Toaster::Qmail, Mail::Toaster::Setup
+The following are all man/perldoc pages: 
+
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

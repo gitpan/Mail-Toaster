@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Perl.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Perl.pm,v 4.10 2005/03/24 03:38:35 matt Exp $
 #
 
 package Mail::Toaster::Perl;
@@ -10,7 +10,7 @@ package Mail::Toaster::Perl;
 use Carp;
 use vars qw($VERSION);
 
-$VERSION = '4.00';
+$VERSION = '4.07';
 
 my $os = $^O;
 
@@ -60,9 +60,65 @@ sub new
 };
 
 
+
+=head2 check
+
+Checks perl to make sure the version is higher than a minimum (supplied) value.
+
+   $perl->check($vals);
+
+Input is a hashref with at least the following values set: min. If min is unset, it defaults to 5.6.1 (5.006001).
+
+   $perl->check( {min=>5.006001} );
+
+returns 1 for success, 0 for failure.
+
+=cut
+
+sub check
+{
+	my ($self, $vals) = @_;
+
+	my $min   = $vals->{'min'};   $min   ||= 5.006001;
+	my $timer = $vals->{'timer'}; $timer ||= 60;
+	my $debug = $vals->{'debug'};
+
+	unless ($] < $min) {
+		print "using Perl " . $] . " which is current enough, skipping.\n" if $debug;
+		return 1;
+	};
+
+	# we probably can't install anything unless we're root
+	return 0 unless ( $< eq 0 );
+
+	warn qq{\a\a\a
+**************************************************************************
+**************************************************************************
+  Version $] of perl is NOT SUPPORTED by several mail toaster components. 
+  You should strongly consider upgrading perl before continuing.  Perl 
+  version 5.6.1 is the lowest version supported.
+
+  Press return to begin upgrading your perl... (or Control-C to cancel)
+**************************************************************************
+**************************************************************************
+	};
+
+	print "You have two choices: perl 5.6.x or perl 5.8.x. I recommend that if you upgrade
+to perl 5.8.x as it's already quite stable, in widespread use, and many of the new perl programs
+such as SpamAssassin require it for full functionality.";
+
+	my $version = "perl-5.6";
+	if ( $utility->yes_or_no("Would you like me to install 5.8?"), 5 ) {
+		$version = "perl-5.8";
+	};
+
+	$self->perl_install( {version=>$version} );
+};
+
+
 =head2 module_install
 
-Downloads and installs a perl module.
+Downloads and installs a perl module from sources.
 
     $perl->module_install($vals, $conf);
 
@@ -72,14 +128,30 @@ $vals is a hashref with the following values:
     archive - archived module name (CGI-1.35.tar.gz)
     site    - site to download from
     url     - path to downloads on site
-
+    targets - build targets: 
+    
+    
 The values get concatenated to a url like this: $site/$url/$module.tar.gz
 
 $conf is toaster-watcher.conf settings and is optional.
 
-Once downloaded, we expand the archive and do a make, make test, and finally, make install if everything goes well. After install, we clean up the sources and exit. The module install builds from sources only. Compare to module_load which will attempt to build from FreeBSD ports, CPAN, and then finally resort to sources if all else fails.
+Once downloaded, we expand the archive and attempt to build it. You can optionally pass build targets but if you don't, the default targets are: make, make test, and make install. After install, we clean up the sources and exit. 
+
+This method builds from sources only. Compare to module_load which will attempt to build from FreeBSD ports, CPAN, and then finally resort to sources if all else fails.
 
 returns 1 for success, 0 for failure.
+
+Example:
+
+ my $vals = {
+    module   => 'Mail-Toaster',
+    archive  => 'Mail-Toaster-4.01.tar.gz',
+    site     => 'http://www.tnpi.biz',
+    url      => '/internet/mail/toaster/src',
+    targets  => ['perl Makefile.PL', 'make install'],
+ };
+
+ $perl->module_install($vals);
 
 =cut
 
@@ -92,7 +164,7 @@ sub module_install($;$)
 	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
 	$utility->chdir_source_dir($src);
 
-	$utility->syscmd("rm -rf $module-*");   # nuke any old versions
+	#$utility->syscmd("rm -rf $module-*");   # nuke any old versions
 
 	my $site = $vals->{'site'};
 	$site ||= $conf->{'toaster_dl_site'};
@@ -103,29 +175,81 @@ sub module_install($;$)
 	$url ||= "/internet/mail/toaster";
 
 	my $archive = $vals->{'archive'};
-	if ( $archive ) { $utility->get_file("$site/$url/$archive")       }
-	else            { $utility->get_file("$site/$url/$module.tar.gz") };
+	if ( $archive ) { 
+		if ( -e $archive && $utility->yes_or_no("\n\nYou have a (possibly older) version already downloaded at $src/$archive. Shall I use the existing archive: ") ) 
+		{
+			print "using existing archive: $archive\n";
+		} 
+		else {
+			print "trying to fetch $site/$url/$archive\n";
+			$utility->get_file("$site/$url/$archive");
+			unless ( -e $archive ) { $utility->get_file("$site/$url/$archive.tar.gz"); };
+			unless ( -e $archive ) { $utility->get_file("$site/$url/$module.tar.gz");  };
+		};
+	} 
+	else {
+		print "trying to fetch $site/$url/$module.tar.gz\n";
+		$utility->get_file("$site/$url/$module.tar.gz");
+		unless ( -e "$module.tar.gz" ) {
+			print "FAILED: I don't know how to fetch $module\n";
+			return 0;
+		};
+	}
 
-	$utility->archive_expand($archive) if ( -e $archive );
-	$utility->archive_expand("$module.tar.gz") if ( -e "$module.tar.gz" );;
+	print "checking for previous build sources.\n";
+	if ( -d $module ) {
+		unless ( $utility->source_warning($module, 1, $src) )
+		{
+			carp "\nmodule_install: OK then, skipping install.\n";
+			return 0;
+		}
+		else {
+			$utility->syscmd("rm -rf $module");
+		};
+	};
+
+	if ( -e $archive ) {
+		print "decompressing $archive\n";
+		$utility->archive_expand($archive);
+	} else {
+		if ( -e "$module.tar.gz" ) {
+			$utility->archive_expand("$module.tar.gz");
+		} else {
+			print "FAILED: couldn't find $module sources.\n";
+		}
+	}
 
 	my $found;
+	print "looking for $module in $src...";
 	foreach my $file ( $utility->get_dir_files($src) )
 	{
-		if ( $file =~ /$module-/ ) 
+		if ( $file =~ /$module-/ || $file =~ /$module/ ) 
 		{
+			next unless -d $file;
+
+			print "found: $file\n";
 			$found++;
 			chdir($file);
-			my $r = $utility->syscmd("perl Makefile.PL"); return 0 if ($r);
-			   $r = $utility->syscmd("make test");        return 0 if ($r);
-			   $r = $utility->syscmd("make install");     return 0 if ($r);
+
+			my $targets = $vals->{'targets'};
+			unless ( @$targets[0] )
+			{
+				print "module_install: using default targets.\n";
+				@$targets = ( "perl Makefile.PL", "make", "make install")
+			};
+
+			print "installing with targets " . join(", ", @$targets) . "\n";
+			foreach ( @$targets ) {
+				return 0 if $utility->syscmd($_);
+			};
+
 			chdir("..");
 			$utility->syscmd("rm -rf $file");
 			last;
 		};
 	};
 
-	return 1 if $found;
+	$found ? return 1 : return 0;
 };
 
 =head2 module_load
@@ -152,6 +276,10 @@ returns 1 for success, 0 for failure.
 sub module_load($)
 {
 	my ($self, $vals) = @_;    # was: my ($mod, $name, $dir, $warn) = @_;
+
+	unless ( $vals && $vals->{'module'} ) {
+		croak "Sorry, you called module_load incorrectly!\n";
+	};
 
 	my $mod   = $vals->{'module'};
 	my $name  = $vals->{'ports_name'};
@@ -214,60 +342,6 @@ sub module_load($)
 	return 0;
 };
 
-=head2 check
-
-Checks perl to make sure the version is higher than a minimum (supplied) value.
-
-   $perl->check($vals);
-
-Input is a hashref with at least the following values set: min. If min is unset, it defaults to 5.6.1 (5.006001).
-
-   $perl->check( {min=>5.006001} );
-
-returns 1 for success, 0 for failure.
-
-=cut
-
-sub check
-{
-	my ($self, $vals) = @_;
-
-	my $min   = $vals->{'min'};   $min   ||= 5.006001;
-	my $timer = $vals->{'timer'}; $timer ||= 60;
-	my $debug = $vals->{'debug'};
-
-	unless ($] < $min) {
-		print "using Perl " . $] . " which is current enough, skipping.\n" if $debug;
-		return 1;
-	};
-
-	# we probably can't install anything unless we're root
-	return 0 unless ( $< eq 0 );
-
-	warn qq{\a\a\a
-**************************************************************************
-**************************************************************************
-  Version $] of perl is NOT SUPPORTED by several mail toaster components. 
-  You should strongly consider upgrading perl before continuing.  Perl 
-  version 5.6.1 is the lowest version supported.
-
-  Press return to begin upgrading your perl... (or Control-C to cancel)
-**************************************************************************
-**************************************************************************
-	};
-
-	print "You have two choices: perl 5.6.x or perl 5.8.x. I recommend that if you upgrade
-to perl 5.8.x as it's already quite stable, in widespread use, and many of the new perl programs
-such as SpamAssassin require it for full functionality.";
-
-	my $version = "perl-5.6";
-	if ( $utility->yes_or_no("Would you like me to install 5.8?"), 5 ) {
-		$version = "perl-5.8";
-	};
-
-	$self->perl_install( {version=>$version} );
-};
-
 
 =head2 perl_install
 
@@ -289,6 +363,7 @@ Example with option:
 $perl->perl_install( {version=>"perl-5.8.5", options=>"ENABLE_SUIDPERL"} );
 
 =cut
+
 
 sub perl_install
 {
@@ -413,12 +488,34 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-Mail::Toaster - http://www.tnpi.biz/internet/mail/toaster/
+The following are all man/perldoc pages: 
 
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

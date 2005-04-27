@@ -1,0 +1,151 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster</title>
+<link rev="made" href="mailto:matt@g5e.simerson.net" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#methods">METHODS</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#email_send">email_send</a></li>
+		<li><a href="#toaster_check">toaster_check</a></li>
+		<li><a href="#learn_mailboxes">learn_mailboxes</a></li>
+		<li><a href="#clean_mailboxes">clean_mailboxes</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>A collection of Perl programs and modules with oodles of code snippets that make working with mail systems much less work. Everything you need to build a industrial strength mail system.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>A collection of perl scripts and modules that are terribly useful for building and maintaining a mail system. Written for FreeBSD and Mac OS X. It's become quite useful on other platforms and will grow to support other MTA's (think postfix) in the future.</p>
+<p>
+</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<pre>
+    use Mail::Toaster;
+        my $toaster = Mail::Toaster-&gt;new;</pre>
+<p>
+</p>
+<h2><a name="email_send">email_send</a></h2>
+<p>Email test routines for testing a mail toaster installation.</p>
+<pre>
+   $toaster-&gt;email_send($conf, &quot;clean&quot;);
+   $toaster-&gt;email_send($conf, &quot;spam&quot;);
+   $toaster-&gt;email_send($conf, &quot;attach&quot;);
+   $toaster-&gt;email_send($conf, &quot;virus&quot;);</pre>
+<p>This sends 4 test emails of various types to the email address configured in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="toaster_check">toaster_check</a></h2>
+<pre>
+    $toaster-&gt;toaster_check($conf);</pre>
+<p>Runs a series of tests to keep your toaster ship shape:</p>
+<pre>
+  make sure watcher.log is less than 1MB
+  make sure ~alias/.qmail-* exist and are not empty
+  verify multilog down files are removed if maillogs is used</pre>
+<p>
+</p>
+<h2><a name="learn_mailboxes">learn_mailboxes</a></h2>
+<p>This sub trawls through a mail system finding mail messages that have arrived since the last time it ran and passing them through sa-learn to train SpamAssassin what you think is spam versus ham. It make decisions based on settings defined in toaster-watcher.conf.</p>
+<p>
+</p>
+<h2><a name="clean_mailboxes">clean_mailboxes</a></h2>
+<p>This sub trawls through a mail system cleaning out old mail messages that exceed some pre-configured threshhold as defined in toaster-watcher.conf.</p>
+<p>Peter Brezny suggests adding another option which is good. Set a window during which the cleaning script can run so that it's not running during the highest load times.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to <a href="mailto:matt@tnpi.biz.">matt@tnpi.biz.</a></p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<pre>
+ Add support for Darwin (MacOS X) - mostly done
+ Add support for Linux
+ Update openssl &amp; courier ssl .cnf files
+ Install an optional stub DNS resolver (dnscache)</pre>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The following are man (perldoc) pages:</p>
+<pre>
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin 
+ Mail::Toaster::Ezmlm 
+ Mail::Toaster::FreeBSD 
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility</pre>
+<pre>
+ Mail::Toaster::Conf
+ toaster.conf 
+ toaster-watcher.conf</pre>
+<pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
+ <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2004-2005, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

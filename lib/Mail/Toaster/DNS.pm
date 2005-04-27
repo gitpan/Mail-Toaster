@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: DNS.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: DNS.pm,v 4.5 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::DNS;
@@ -10,7 +10,7 @@ package Mail::Toaster::DNS;
 use Carp;
 use vars qw($VERSION);
 
-$VERSION = '4.00';
+$VERSION = '4.03';
 
 use lib "lib";
 use lib "../..";
@@ -247,16 +247,34 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/computing/
+The following are all man/perldoc pages: 
 
-  Mail::Toaster::CGI, Mail::Toaster::DNS, 
-  Mail::Toaster::Logs, Mail::Toaster::Qmail, 
-  Mail::Toaster::Setup
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
 
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

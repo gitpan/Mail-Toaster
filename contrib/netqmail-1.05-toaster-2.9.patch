@@ -1,3 +1,5 @@
+20050124    12/15/2005
+
 This is a collection of several popular qmail patches rolled into one.  This
 composite patch applies to netqmail 1.05.  The patches included are:
 
@@ -1086,7 +1088,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirflags.c ./netqmail-
 +#include	<sys/types.h>
 +#include	<string.h>
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +int maildir_hasflag(const char *filename, char flag)
 +{
@@ -1178,7 +1180,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirgetquota.h ./netqma
 +extern "C" {
 +#endif
 +
-+static const char maildirgetquota_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char maildirgetquota_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +#define	QUOTABUFSIZE	256
 +
@@ -1209,7 +1211,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirmisc.h ./netqmail-1
 +extern "C" {
 +#endif
 +
-+static const char maildirmisc_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char maildirmisc_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +/*
 +**
@@ -1366,7 +1368,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildiropen.c ./netqmail-1
 +
 +#include	"maildirmisc.h"
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +char *maildir_getlink(const char *filename)
 +{
@@ -1491,7 +1493,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirparsequota.c ./netq
 +#include	<stdlib.h>
 +#include	<string.h>
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +int maildir_parsequota(const char *n, unsigned long *s)
 +{
@@ -1574,7 +1576,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirquota.c ./netqmail-
 +#include	<time.h>
 +#include	"numlib.h"
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +/* Read the maildirsize file */
 +
@@ -2235,7 +2237,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/maildirquota.h ./netqmail-
 +extern "C" {
 +#endif
 +
-+static const char maildirquota_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char maildirquota_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +int maildir_checkquota(const char *,	/* Pointer to directory */
 +	int *,	/* Initialized to -1, or opened descriptor for maildirsize */
@@ -2277,7 +2279,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/numlib.h ./netqmail-1.05/n
 +extern "C" {
 +#endif
 +
-+static const char numlib_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char numlib_h_rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +#if	HAVE_CONFIG_H
 +#include	"config.h"
@@ -4149,12 +4151,12 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/qregex.c ./netqmail-1.05/q
 @@ -0,0 +1,57 @@
 +/*
 + * qregex (v2)
-+ * $Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $
++ * $Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $
 + *
 + * Author  : Evan Borgstrom (evan at unixpimps dot org)
 + * Created : 2001/12/14 23:08:16
-+ * Modified: $Date: 2004/11/16 20:57:30 $
-+ * Revision: $Revision: 4.0 $
++ * Modified: $Date: 2005/03/24 03:38:34 $
++ * Revision: $Revision: 4.1 $
 + *
 + * Do POSIX regex matching on addresses for anti-relay / spam control.
 + * It logs to the maillog
@@ -4416,7 +4418,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/strpidt.c ./netqmail-1.05/
 +#include	"numlib.h"
 +#include	<string.h>
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +char *str_pid_t(pid_t t, char *arg)
 +{
@@ -4446,7 +4448,7 @@ diff -urN ../netqmail-1.05-toaster-orig/netqmail-1.05/strtimet.c ./netqmail-1.05
 +#include	"numlib.h"
 +#include	<string.h>
 +
-+static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.0 2004/11/16 20:57:30 matt Exp $";
++static const char rcsid[]="$Id: netqmail-1.05-toaster-2.9.patch,v 4.1 2005/03/24 03:38:34 matt Exp $";
 +
 +char *str_time_t(time_t t, char *arg)
 +{

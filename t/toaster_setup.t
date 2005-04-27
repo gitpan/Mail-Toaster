@@ -17,6 +17,6 @@ $loaded = 1;
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-system "./toaster_setup.pl -s test";
-print "ok 1 - toaster_setup\n";
+system "./toaster_setup.pl -s test2";
+#print "ok 1 - toaster_setup\n";
 

@@ -2,12 +2,12 @@
 use strict;
 
 #
-# $Id: toaster-watcher.pl,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: toaster-watcher.pl,v 4.7 2005/04/14 21:07:37 matt Exp $
 # 
 
 use vars qw/$VERSION/;
 
-$VERSION = "4.00";
+$VERSION = "4.06";
 
 =head1 NAME
 
@@ -45,10 +45,12 @@ my $debug   = $conf->{'toaster_debug'}; $debug ||= $opt_d;
 if ($opt_v) { $verbose = 1; print "$0 v$VERSION\n"; };
 
 my $logfile   = $conf->{'toaster_watcher_log'};
-$utility->logfile_append($logfile, ["watcher", "Starting up"]) if $logfile;
+if ($logfile ) {
+	$utility->logfile_append($logfile, ["watcher", "Starting up"]);
+	$utility->logfile_append($logfile, ["watcher", "Running toaster_check"]);
+}
 
-$utility->logfile_append($logfile, ["watcher", "Running toaster_check"]) if $logfile;
-$toaster->toaster_check($conf, $debug);
+$toaster->toaster_check($conf, $verbose);
 
 
 =item build_smtp_run
@@ -94,7 +96,6 @@ If the new generated file is different than the installed version, we
 install the updated run file and restart the daemon.
 
 =cut
-
 
 
 $utility->logfile_append($logfile, ["watcher", "Building send/run"]) if $logfile;
@@ -227,7 +228,17 @@ if ($conf->{'maildir_clean_interval'} )
 
 	$toaster->clean_mailboxes($conf, $debug);
 	print "done.\n"	if ($verbose);
-};
+}
+
+if ($conf->{'maildir_learn_interval'} )
+{
+	print "learning mailbox messages..." if ($verbose);
+	$utility->logfile_append($logfile, ["watcher","learning mailbox messages"]) if $logfile;
+
+	$toaster->learn_mailboxes($conf, $debug);
+	print "done.\n"	if ($verbose);
+}
+
 
 $utility->logfile_append($logfile, ["watcher","rebuilding SSL temp keys"]) if $logfile;
 $qmail->rebuild_ssl_temp_keys($conf, $verbose);
@@ -278,7 +289,7 @@ http://www.tnpi.biz/internet/mail/toaster/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2004-2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

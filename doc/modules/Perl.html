@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Perl</title>
+<link rev="made" href="mailto:matt@g5e.simerson.net" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#methods">METHODS</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#check">check</a></li>
+		<li><a href="#module_install">module_install</a></li>
+		<li><a href="#module_load">module_load</a></li>
+		<li><a href="#perl_install">perl_install</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::Perl</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Perl functions for working with perl and loading modules.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>Mail::Toaster::Perl is a few frequently used functions that make dealing with perl and perl modules a little more managable. The following methods are available:</p>
+<pre>
+        check       - checks perl version
+        install     - installs perl
+        module_load - loads a perl module (attempts to install if missing)</pre>
+<p>See the description for each method below.</p>
+<p>
+</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<p>To use a a method in this class, you must first request a Mail::Toaster::Perl object:</p>
+<pre>
+  use Mail::Toaster::Perl;
+  my $perl = Mail::Toaster::Perl-&gt;new();</pre>
+<p>You can then call subsequent methods with $perl-&gt;method();</p>
+<p>
+</p>
+<h2><a name="check">check</a></h2>
+<p>Checks perl to make sure the version is higher than a minimum (supplied) value.</p>
+<pre>
+   $perl-&gt;check($vals);</pre>
+<p>Input is a hashref with at least the following values set: min. If min is unset, it defaults to 5.6.1 (5.006001).</p>
+<pre>
+   $perl-&gt;check( {min=&gt;5.006001} );</pre>
+<p>returns 1 for success, 0 for failure.</p>
+<p>
+</p>
+<h2><a name="module_install">module_install</a></h2>
+<p>Downloads and installs a perl module from sources.</p>
+<pre>
+    $perl-&gt;module_install($vals, $conf);</pre>
+<p>$vals is a hashref with the following values:</p>
+<pre>
+    module  - module name          (CGI)
+    archive - archived module name (CGI-1.35.tar.gz)
+    site    - site to download from
+    url     - path to downloads on site
+    targets - build targets: 
+    
+    
+The values get concatenated to a url like this: $site/$url/$module.tar.gz</pre>
+<p>$conf is toaster-watcher.conf settings and is optional.</p>
+<p>Once downloaded, we expand the archive and attempt to build it. You can optionally pass build targets but if you don't, the default targets are: make, make test, and make install. After install, we clean up the sources and exit.</p>
+<p>This method builds from sources only. Compare to module_load which will attempt to build from FreeBSD ports, CPAN, and then finally resort to sources if all else fails.</p>
+<p>returns 1 for success, 0 for failure.</p>
+<p>Example:</p>
+<pre>
+ my $vals = {
+    module   =&gt; 'Mail-Toaster',
+    archive  =&gt; 'Mail-Toaster-4.01.tar.gz',
+    site     =&gt; '<a href="http://www.tnpi.biz">http://www.tnpi.biz</a>',
+    url      =&gt; '/internet/mail/toaster/src',
+    targets  =&gt; ['perl Makefile.PL', 'make install'],
+ };</pre>
+<pre>
+ $perl-&gt;module_install($vals);</pre>
+<p>
+</p>
+<h2><a name="module_load">module_load</a></h2>
+<pre>
+    $perl-&gt;module_load( $hashref );</pre>
+<p>Loads a required Perl module. If the load fails, we attempt to install the required module (rather than failing gracelessly).</p>
+<p>Input is a  hashref which uses the following values:</p>
+<pre>
+    module      - the name of the module: (ie. LWP::UserAgent)
+    ports_name  - is the name of the FreeBSD port
+    ports_group - is is the ports group ( &quot;ls /usr/ports&quot; to see groups)
+    warn        - if set, we warn instead of dying upon failure
+    timer       - how long (in seconds) to wait for user input (default 60)
+    site        - site to download sources from
+    url         - url at site (see module_install)
+    archive     - downloadable archive name (module-1.03.tar.gz)</pre>
+<p>returns 1 for success, 0 for failure.</p>
+<p>
+</p>
+<h2><a name="perl_install">perl_install</a></h2>
+<pre>
+    $perl-&gt;perl_install( {version=&gt;&quot;perl-5.8.5&quot;} );</pre>
+<p>currently only works on FreeBSD and Darwin (Mac OS X)</p>
+<p>input is a hashref with the following values:</p>
+<pre>
+    version - perl version to install
+    options - compile flags to set (comma separated list)</pre>
+<p>On FreeBSD, version is the directory name such as ``perl5.8'' derived from /usr/ports/lang/perl5.8. Ex: $perl-&gt;perl_install( {version=&gt;``perl5.8''} );</p>
+<p>On Darwin, it's the directory name of the port in Darwin Ports. Ex: $perl-&gt;perl_install( {version=&gt;``perl-5.8''} ) because perl is installed from /usr/ports/dports/lang/perl5.8. Otherwise, it's the exact version to download and install, ex: ``perl-5.8.5''.</p>
+<p>Example with option:</p>
+<p>$perl-&gt;perl_install( {version=&gt;``perl-5.8.5'', options=&gt;``ENABLE_SUIDPERL''} );</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The following are all man/perldoc pages:</p>
+<pre>
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility</pre>
+<pre>
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf</pre>
+<pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
+ <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

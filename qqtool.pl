@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: qqtool.pl,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: qqtool.pl,v 4.4 2005/04/14 21:07:37 matt Exp $
 #
 
 =head1 NAME
@@ -38,8 +38,8 @@ Run the script without any parameters and it will show you a menu of options.
 =head2 Sample Output
 
  # qqtool.pl
-          Qmail Queue Tool   v 1.4
-  
+          Qmail Queue Tool   v 1.6
+
    -a  action (delete, expire, list)
    -h  header to match (From, To, Subject, Date)
    -q  queue to search (local/remote)
@@ -59,17 +59,15 @@ To list messages in queue with string "foo" in the headers:
 
 =head2  User Preferences
 
-There are two settings you can alter:
+There is one settings you can alter:
 
   $qdir is the path to your qmail queue
-  $qcontrol is your qmail-send control directory
 
-If you aren't using the defaults (/var/qmail/queue, /service/send"), edit qqtool.pl and adjust those values.
+If you aren't using the default (/var/qmail/queue), edit qqtool.pl and adjust it.
 
 =cut
 
 my $qdir     = "/var/qmail/queue";
-my $qcontrol = "/service/send";
 
 
 #######################################################################
@@ -78,16 +76,18 @@ my $qcontrol = "/service/send";
 
 my $author = "Matt Simerson";
 my $email  = "matt\@tnpi.biz";
-my $version = "1.4";
+my $version = "1.6";
 
 use Getopt::Std;
 use vars qw/ $opt_a $opt_h $opt_q $opt_s $opt_v $remotes $locals/;
 getopts('a:h:q:s:v');
 
 use Mail::Toaster::Utility 4; my $utility = Mail::Toaster::Utility->new();
-use Mail::Toaster::Qmail   4;  my $qmail   = Mail::Toaster::Qmail->new();
+use Mail::Toaster::Qmail   4; my $qmail   = Mail::Toaster::Qmail->new();
 
 print "           Qmail Queue Tool   v $version\n\n";
+
+my $qcontrol = $qmail->find_qmail_send_control_dir();
 
 # Make sure the qmail queue directory is set correctly
 $qmail->queue_check($qdir, $opt_v);
@@ -97,19 +97,19 @@ unless ( $opt_a ) { PrintUsage(); die "\n"; };
 if ( $opt_q ) 
 {
 	# if a queue is specified, only check it.
-	if    ($opt_q eq "remote") { $remotes = GetMessages("remote"); } 
-	elsif ($opt_q eq "local" ) { $locals  = GetMessages("local");  };
+	if    ($opt_q eq "remote") { $remotes = messages_get("remote"); } 
+	elsif ($opt_q eq "local" ) { $locals  = messages_get("local");  };
 }
 else
 {
 	# otherwise, check both queues
-	$remotes = GetMessages("remote");
-	$locals  = GetMessages("local");
+	$remotes = messages_get("remote");
+	$locals  = messages_get("local");
 	print "\n";
 };
 
-if    ($opt_a eq "list"  ) { ListMessages  ($remotes, $locals) }
-elsif ($opt_a eq "delete") { DeleteMessages($remotes, $locals) }
+if    ($opt_a eq "list"  ) { messages_list  ($remotes, $locals) }
+elsif ($opt_a eq "delete") { messages_delete($remotes, $locals) }
 elsif ($opt_a eq "expire") { ExpireMessages($remotes, $locals) }
 else                       { PrintUsage(); };
 
@@ -139,7 +139,7 @@ sub PrintUsage
 ";
 };
 
-sub DeleteMessage
+sub message_delete
 {
 	my ($tree, $id) = @_;
 
@@ -174,38 +174,36 @@ sub DeleteMessage
 	print "done.\n";
 };
 
-sub DeleteMessages
+sub messages_delete
 {
 	$qmail->check_control($qcontrol);
 	
 	my $r = $qmail->send_stop();
-	if ($r) {
-		die "qmail-send wouldn't die!\n";
-	};
-	
+	die "qmail-send wouldn't die!\n" if ($r);
+
 	# we'll get passed an array of the local, remote, or both queues
 	foreach my $q (@_)
 	{
 		foreach my $hash (@$q)
 		{
-			my $header = GetHeaders($hash->{'tree'}, $hash->{'num'});
+			my $header = headers_get($hash->{'tree'}, $hash->{'num'});
 			
-			if ( ! $opt_s ) {
-				DeleteMessage($hash->{'tree'}, $hash->{'num'});
+			unless ( $opt_s ) {
+				message_delete($hash->{'tree'}, $hash->{'num'});
 				next;
 			};
 			
 			if ( $opt_h ) {
 				if ($header->{$opt_h} =~ /$opt_s/) 
 				{
-					DeleteMessage($hash->{'tree'}, $hash->{'num'});
+					message_delete($hash->{'tree'}, $hash->{'num'});
 				};
 			} else {
 				foreach my $key (keys %$header)
 				{
 					if ( $header->{$key} =~ /$opt_s/ ) 
 					{
-						DeleteMessage($hash->{'tree'}, $hash->{'num'});
+						message_delete($hash->{'tree'}, $hash->{'num'});
 					};
 				};
 			};
@@ -233,10 +231,10 @@ sub ExpireMessages
 	{
 		foreach my $hash (@$q)
 		{
-			my $header = GetHeaders($hash->{'tree'}, $hash->{'num'});
+			my $header = headers_get($hash->{'tree'}, $hash->{'num'});
 			my $id = "$hash->{'tree'}/$hash->{'num'}";
 			
-			if ( ! $opt_s ) 
+			unless ( $opt_s ) 
 			{
 				ExpireMessage("$qdir/info/$id");
 				next;
@@ -281,26 +279,25 @@ Expiring messages does not remove them from the queue.  It merely alters their e
 
 }
 
-sub ListMessages
+sub messages_list
 {
 	foreach my $q (@_)
 	{
 		foreach my $hash (@$q)
 		{			
-			my $header = GetHeaders($hash->{'tree'}, $hash->{'num'});
+			my $header = headers_get($hash->{'tree'}, $hash->{'num'});
 			my $id = "$hash->{'tree'}/$hash->{'num'}";
 			
-			if ( !$opt_s) {
+			unless ( $opt_s) {
 				PrintMessage($id, $header);
 				next;
 			};
-			
-			if ( $opt_h ) {
-				if ($header->{$opt_h} =~ /$opt_s/) 
-				{
-					PrintMessage($id, $header);
-				};
-			} else {
+
+			if ( $opt_h ) 
+			{
+				PrintMessage($id, $header) if ($header->{$opt_h} =~ /$opt_s/);
+			} 
+			else {
 				foreach my $key (keys %$header)
 				{
 					if ( $header->{$key} =~ /$opt_s/ ) 
@@ -337,14 +334,12 @@ sub PrintMessage
 	print "\n";
 };
 
-sub GetHeaders
+sub headers_get
 {
 	my ($tree, $id) = @_;
 	my %hash;
-	
-	my $mess = "$qdir/mess/$tree/$id";
-	my @lines = $utility->file_read($mess);
-	foreach my $line (@lines)
+
+	foreach my $line ( $utility->file_read("$qdir/mess/$tree/$id") )
 	{
 		if ( $line =~ /^([a-zA-Z\-]*):\s(.*)$/ ) {
 			print "header: $line\n" if $opt_v;
@@ -356,40 +351,37 @@ sub GetHeaders
 	return \%hash;
 };
 
-sub GetMessages
+sub messages_get
 {
 	my ($qsubdir) = @_;
 	my $queue = "$qdir/$qsubdir";
 	my @messages;
 	my ($up1dir, $id, $tree, $queu);
 	
-	my @dirlist = $utility->get_dir_files($queue);
-	
-	foreach my $dir (@dirlist) 
+	foreach my $dir ( $utility->get_dir_files($queue)) 
 	{
-		my @files = $utility->get_dir_files($dir);
-		foreach my $file (@files)
+		foreach my $file ( $utility->get_dir_files($dir) )
 		{
-			($up1dir, $id)   = StripLastDirFromPath($file);
-			($up1dir, $tree) = StripLastDirFromPath($up1dir);
-			($up1dir, $queu) = StripLastDirFromPath($up1dir);
+			($up1dir, $id)   = $utility->path_parse($file);
+			($up1dir, $tree) = $utility->path_parse($up1dir);
+			($up1dir, $queu) = $utility->path_parse($up1dir);
 
-			print "GetMessages: id: $id\n" if ($opt_v);
+			print "messages_get: id: $id\n" if ($opt_v);
 
 			my %hash = (
 				num   => $id,
 				file  => $file,
 				tree  => $tree,
-			   queu  => $queu
+				queu  => $queu
 			);
 			push @messages, \%hash;
 
-			print "GetMessages: file   : $file\n" if ($opt_v);
+			print "messages_get: file   : $file\n" if ($opt_v);
 		};
 	};
 	my $count = @messages;
 	print "$qsubdir has $count messages\n";
-	
+
 	return \@messages;
 };
 
@@ -440,6 +432,6 @@ http://www.tnpi.biz/internet/mail/toaster/
 
 =head1 COPYRIGHT
 
-Copyright 2003, Matt Simerson. All Rights Reserved.
+Copyright 2003-2005, The Network People, Inc. All Rights Reserved.
 
 =cut

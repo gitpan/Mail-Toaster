@@ -1,5 +1,5 @@
 # 
-# $Id: toaster.conf-dist,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: toaster.conf-dist,v 4.1 2005/02/10 01:59:29 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
@@ -80,7 +80,7 @@ web_isoqlog_require_ssl         = 0
 web_isoqlog_name                = Isoqlog:
 web_isoqlog_description         = detailed message statistics
 
-web_qs_stat                     = 1
+web_qs_stat                     = 0
 web_qs_stat_host                = 0
 web_qs_stat_url                 = /qss/index.php
 web_qs_stat_require_ssl         = 0

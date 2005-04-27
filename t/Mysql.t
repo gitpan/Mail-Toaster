@@ -6,7 +6,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..2\n"; }
+BEGIN { $| = 1; print "1..3\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use lib "lib";
 use Mail::Toaster::Mysql;
@@ -21,3 +21,8 @@ print "ok 1 - Mail::Toaster::Mysql\n";
 
 my $mysql = Mail::Toaster::Mysql->new;
 $mysql ? print "ok 2 - new\n" : print "not ok 2 - new\n";
+
+
+$r = $mysql->db_vars();
+$r ? print "ok 3 - db_vars\n" : print "not ok 3 - db_vars\n";
+

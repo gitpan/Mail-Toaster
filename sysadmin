@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 #
-# $Id: sysadmin,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: sysadmin,v 4.1 2004/11/22 19:24:42 matt Exp $
 #
 
 use strict;
@@ -41,7 +41,7 @@ my $conf          = $utility->parse_config({file=>"sysadmin.conf"});
 my $provision = Mail::Toaster::Provision->new($ARGV[0]);
 
 $iam = $provision->what_am_i();
-exit unless $provision->check_what_am_i($iam);
+exit unless $provision->what_am_i_check($iam);
 
 $ENV{'GATEWAY_INTERFACE'} ? ProcessCGI($iam) : ProcessShell($iam);
 

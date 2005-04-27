@@ -1,5 +1,5 @@
 #
-# $Id: httpd.conf-2.0.patch,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: httpd.conf-2.0.patch,v 4.2 2004/11/28 06:44:55 matt Exp $
 #
 
 # Author: Matt Simerson
@@ -8,8 +8,9 @@
 # apply this to the stock httpd.conf.
 #
 
-*** httpd-std.conf	Fri Nov  7 21:30:13 2003
---- httpd.conf	Sat Nov 22 01:01:22 2003
+
+*** httpd.conf.orig     Wed Nov 24 19:14:30 2004
+--- httpd.conf  Sat Nov 27 16:44:01 2004
 ***************
 *** 386,392 ****
   # http://httpd.apache.org/docs-2.0/mod/core.html#options
@@ -29,12 +30,19 @@
   # AllowOverride controls what directives may be placed in .htaccess files.
 ***************
 *** 403,408 ****
---- 403,415 ----
+--- 403,422 ----
   
   </Directory>
   
 + <Directory "/usr/local/www/squirrelmail">
 +     Options Indexes ExecCGI
++     AllowOverride None
++     Order allow,deny
++     Allow from all
++ </Directory>
++ 
++ <Directory "/usr/local/share/isoqlog/htmltemp/images">
++     Options None
 +     AllowOverride None
 +     Order allow,deny
 +     Allow from all
@@ -52,7 +60,7 @@
   
   #
   # AccessFileName: The name of the file to look for in each directory
---- 439,445 ----
+--- 453,459 ----
   # negotiated documents.  The MultiViews Option can be used for the 
   # same purpose, but it is much slower.
   #
@@ -61,14 +69,14 @@
   #
   # AccessFileName: The name of the file to look for in each directory
 ***************
-*** 592,597 ****
---- 593,601 ----
+*** 595,600 ****
+--- 609,617 ----
   # We include the /icons/ alias for FancyIndexed directory listings.  If you
   # do not use FancyIndexing, you may comment this out.
   #
 + Alias /squirrelmail/ "/usr/local/www/squirrelmail/"
 + Alias /isoqlog/images/ "/usr/local/share/isoqlog/htmltemp/images/"
-+ Alias /phpMyAdmin/ "/usr/local/www/phpMyAdmin
++ Alias /phpMyAdmin/ "/usr/local/www/phpMyAdmin/"
   Alias /icons/ "/usr/local/www/icons/"
   
   <Directory "/usr/local/www/icons">
@@ -81,7 +89,7 @@
   
   #
   # For files that include their own HTTP headers:
---- 913,921 ----
+--- 920,928 ----
   # To use CGI scripts outside of ScriptAliased directories:
   # (You will also need to add "ExecCGI" to the "Options" directive.)
   #

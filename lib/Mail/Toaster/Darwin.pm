@@ -2,14 +2,14 @@
 use strict;
 
 #
-# $Id: Darwin.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Darwin.pm,v 4.8 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Darwin;
 
 use Carp;
 use vars qw($VERSION);
-$VERSION = '4.0';
+$VERSION = '4.6';
 
 use lib "lib";
 use lib "../..";
@@ -44,43 +44,7 @@ sub new
 	return $self;
 }
 
-=head2 ports_update
-
-Updates the Darwin Ports tree (/usr/ports/dports/*).
-
-	$darwin->ports_update();
-
-=cut
-
-sub ports_update
-{
-	print "\n\nports_update: You might want to update your ports tree!\n\n";
-
-	if( $utility->yes_or_no( "\n\nWould you like me to do it for you?:") )
-	{   
-		my $cvsbin = $utility->find_the_bin("cvs");
-
-		print "Updating Darwin ports...\n";
-		if ( -d "/usr/ports/dports" ) 
-		{
-			chdir("/usr/ports/dports");
-			if ( -x "/opt/local/bin/portindex") 
-			{
-				$utility->syscmd("/opt/local/bin/portindex");
-			} 
-			elsif ( -x "/usr/local/bin/portindex" ) 
-			{
-				$utility->syscmd("/usr/local/bin/portindex");
-			};
-			$utility->syscmd("$cvsbin -z3 update -dP");
-		} 
-		else {
-			print "FAILED! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n";
-		};
-	};
-};
-
-sub port_install($)
+sub port_install($;$)
 {
 
 =head2 port_install
@@ -91,7 +55,7 @@ That's it. Really. Honest. Nothing more.
 
 =cut
 
-	my ($self, $name) = @_;
+	my ($self, $name, $opts) = @_;
 
 #	$self->ports_check_age("30");
 
@@ -105,7 +69,7 @@ That's it. Really. Honest. Nothing more.
 		return 0;
 	};
 
-	my $r = $utility->syscmd( "$port install $name");
+	my $r = $utility->syscmd( "$port install $name $opts");
 #	$utility->syscmd( "port clean $name");
 	return $r;
 };
@@ -123,6 +87,82 @@ sub ports_check_age($;$)
 	else
 	{
 		print "ports_check_age: Ports file is current (enough).\n";
+	};
+};
+
+=head2 ports_update
+
+Updates the Darwin Ports tree (/usr/ports/dports/*).
+
+	$darwin->ports_update();
+
+=cut
+
+sub ports_update
+{
+	my $cvsbin = $utility->find_the_bin("cvs");
+
+	unless (-x $cvsbin) { print "FATAL: could not find cvs, please install Developer Tools!\n"; exit 0; };
+
+	print "Updating Darwin ports...\n";
+
+	my $portsdir = "/usr/darwinports";
+	if ( ! -d $portsdir && -e "/usr/dports"      ) { $portsdir = "/usr/dports";       };
+	if ( ! -d $portsdir && -e "/usr/ports/dports") { $portsdir = "/usr/ports/dports"; };
+
+	if ( -d $portsdir ) 
+	{
+		print "\n\nports_update: You might want to update your ports tree!\n\n";
+		unless ( $utility->yes_or_no( "\n\nWould you like me to do it for you?:") )
+		{
+			print "ok then, skipping update.\n";
+			return 0;
+		};
+		chdir($portsdir);
+
+		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+
+		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
+		$utility->syscmd($cmd);
+		$utility->syscmd('cvs -q -z3 update -dP');
+
+		if ( -x "/opt/local/bin/portindex") 
+		{
+			$utility->syscmd("/opt/local/bin/portindex");
+		} 
+		elsif ( -x "/usr/local/bin/portindex" ) 
+		{
+			$utility->syscmd("/usr/local/bin/portindex");
+		};
+	} 
+	else {
+		print "WARNING! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n If you need to install DarwinPorts, please visit this URL for details: http://darwinports.opendarwin.org/getdp/ or the DarwinPorts guide: http://darwinports.opendarwin.org/docs/ch01s03.html.\n\n";
+
+		unless ( $utility->yes_or_no("Do you want me to try and set up darwin ports for you?") ) 
+		{
+			print "ok, skipping install.\n"; exit 0;
+		};
+
+		$utility->chdir_source_dir("/usr");
+
+		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
+		$utility->syscmd($cmd);
+		$cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P darwinports';
+		$utility->syscmd($cmd);
+		chdir("/usr");
+		$utility->syscmd("mv darwinports dports");
+		unless ( -d "/etc/ports" ) { mkdir("/etc/ports", 0755) };
+		$utility->syscmd("cp dports/base/doc/sources.conf /etc/ports/");
+		$utility->syscmd("cp dports/base/doc/ports.conf /etc/ports/");
+		$utility->file_append("/etc/ports/sources.conf", "file:///usr/dports/dports");
+
+		my $portindex = $utility->find_the_bin("portindex");
+		unless (-x $portindex) {
+			print "compiling darwin ports base.\n";
+			chdir("/usr/dports/base");
+			$utility->syscmd("./configure; make; make install");
+		};
 	};
 };
 
@@ -145,16 +185,35 @@ Needs more documentation.
 
 =head1 SEE ALSO
 
- http://www.tnpi.biz/internet/mail/toaster
- http://www.tnpi.biz/internet/mail/toaster/docs/
+The following are all man/perldoc pages: 
 
-Mail::Toaster::Apache, Mail::Toaster::DNS, Mail::Toaster::FreeBSD, Mail::Toaster::Mysql,
-Mail::Toaster::Passwd, Mail::Toaster::Perl, Mail::Toaster::Quota, Mail::Toaster::Utility
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

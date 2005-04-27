@@ -1,0 +1,71 @@
+--- cvs/scripts/Mail-Toaster/toaster-watcher.conf-dist	Mon Feb  7 17:29:53 2005
++++ toaster-watcher.conf	Mon Feb  7 17:28:56 2005
+@@ -1,5 +1,5 @@
+ # 
+-# $Id: toaster-watcher.conf.darwin.patch,v 1.2 2005/02/14 15:39:01 matt Exp $
++# $Id: toaster-watcher.conf.darwin.patch,v 1.2 2005/02/14 15:39:01 matt Exp $
+ #
+ # Extensive documentation for this file and it's settings is available
+ # It is included in the docs directory of the Mail::Toaster 
+@@ -34,14 +34,14 @@
+ toaster_dl_site                = http://www.tnpi.biz    # select a mirror
+ toaster_dl_url                 = /internet/mail/toaster
+ toaster_version                = 0     # 0 = latest release # v = 4.01
++toaster_http_base              = /Library/WebServer
++toaster_http_docs              = /Library/WebServer/Documents
++toaster_cgi-bin                = /Library/WebServer/CGI-Executables
+-toaster_http_base              = /usr/local/www
+-toaster_http_docs              = /usr/local/www/data
+-toaster_cgi-bin                = /usr/local/www/cgi-bin
+ toaster_tmp_dir                = /tmp
+ toaster_src_dir                = /usr/local/src
+ toaster_debug                  = 0
+ toaster_hostname               = mail.example.com
++system_config_dir              = /opt/local/etc
+-system_config_dir              = /usr/local/etc
+ toaster_admin_email            = postmaster@example.com
+ toaster_test_email             = test@example.com
+ toaster_test_email_pass        = cHanGeMe
+@@ -148,7 +148,7 @@
+ qmail_log_base                 = /var/log/mail
+ qmail_log_user                 = qmaill
+ qmail_log_group                = qnofiles
++qmail_mysql_include            = /opt/local/lib/mysql/libmysqlclient.a
+-qmail_mysql_include            = /usr/local/lib/mysql/libmysqlclient.a
+ qmail_group                    = qmail
+ qmail_user_alias               = alias
+ qmail_user_daemon              = qmaild
+@@ -165,7 +165,7 @@
+ 
+ vpopmail_user                  = vpopmail
+ vpopmail_group                 = vchkpw
++vpopmail_home_dir              = /opt/local/vpopmail
+-vpopmail_home_dir              = /usr/local/vpopmail
+ vpopmail_learn_passwords       = 1
+ vpopmail_default_domain        = 0
+ vpopmail_roaming_users         = 1
+@@ -403,10 +403,10 @@
+ qmailadmin_modify_quotas        = 1
+ qmailadmin_domain_autofill      = 1
+ qmailadmin_return_to_mailhome   = 0
++qmailadmin_spam_command         = | /opt/local/bin/maildrop /usr/local/etc/mail/mailfilter
+-qmailadmin_spam_command         = | /usr/local/bin/maildrop /usr/local/etc/mail/mailfilter
+ qmailadmin_cgi-bin_dir          = 0  # override toaster_cgi-bin
+ qmailadmin_http_docroot         = 0  # override toaster_http_docs
++qmailadmin_http_images          = /Library/WebServer/Documents/images
+-qmailadmin_http_images          = /usr/local/www/data/images
+ 
+ 
+ #######################################
+@@ -500,9 +500,9 @@
+ #      Apache Suexec Options          #
+ #######################################
+ 
++apache_suexec_docroot          = /Library/WebServer/Documents
+-apache_suexec_docroot          = /usr/local/www/data
+ apache_suexec_userdir          = html
++apache_suexec_safepath         = /opt/local/bin:/usr/bin:/bin
+-apache_suexec_safepath         = /usr/local/bin:/usr/bin:/bin
+ apache_suexec_logfile          = /var/log/apache/suexec.log
+ apache_suexec_uidmin           = 1000
+ apache_suexec_gidmin           = 1000

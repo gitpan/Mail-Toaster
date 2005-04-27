@@ -1,0 +1,284 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>Mail::Toaster::Provision</title>
+<link rev="made" href="mailto:matt@g5e.simerson.net" />
+</head>
+
+<body style="background-color: white">
+
+<p><a name="__index__"></a></p>
+<!-- INDEX BEGIN -->
+
+<ul>
+
+	<li><a href="#name">NAME</a></li>
+	<li><a href="#synopsis">SYNOPSIS</a></li>
+	<li><a href="#description">DESCRIPTION</a></li>
+	<li><a href="#dependencies">DEPENDENCIES</a></li>
+	<li><a href="#methods">METHODS</a></li>
+	<ul>
+
+		<li><a href="#new">new</a></li>
+		<li><a href="#dns">dns</a></li>
+		<li><a href="#quota_set">quota_set</a></li>
+		<li><a href="#user">user</a></li>
+		<li><a href="#user_usage">user_usage</a></li>
+		<li><a href="#user_options">user_options</a></li>
+		<li><a href="#usage_action">usage_action</a></li>
+		<li><a href="#web">web</a></li>
+		<li><a href="#web_check_setup">web_check_setup</a></li>
+		<li><a href="#web_usage">web_usage</a></li>
+		<li><a href="#web_get_options">web_get_options</a></li>
+		<li><a href="#what_am_i_check">what_am_i_check</a></li>
+		<li><a href="#what_am_i">what_am_i</a></li>
+	</ul>
+
+	<li><a href="#author">AUTHOR</a></li>
+	<li><a href="#bugs">BUGS</a></li>
+	<li><a href="#todo">TODO</a></li>
+	<li><a href="#see_also">SEE ALSO</a></li>
+	<li><a href="#copyright">COPYRIGHT</a></li>
+</ul>
+<!-- INDEX END -->
+
+<hr />
+<p>
+</p>
+<h1><a name="name">NAME</a></h1>
+<p>Mail::Toaster::Provision</p>
+<p>
+</p>
+<hr />
+<h1><a name="synopsis">SYNOPSIS</a></h1>
+<p>Account provisioning methods.</p>
+<p>
+</p>
+<hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>A suite of methods for provisioning various account types on unix like systems (Mac OS X, *BSD, Linux). Builds system accounts (/etc/passwd), web hosting accounts, mail hosting accounts, and DNS hosting accounts.</p>
+<p>
+</p>
+<hr />
+<h1><a name="dependencies">DEPENDENCIES</a></h1>
+<pre>
+ Quota         (/usr/ports/sysutils/p5-Quota)</pre>
+<p>
+</p>
+<hr />
+<h1><a name="methods">METHODS</a></h1>
+<p>
+</p>
+<h2><a name="new">new</a></h2>
+<p>To use the following methods, you must first create a provision object. Then invoke any of the methods that follow using your provision object.</p>
+<pre>
+  use Mail::Toaster::Provision;
+  my $prov = Mail::Toaster::Provision-&gt;new();</pre>
+<pre>
+  $vals = { action =&gt; $ARGV[0], debug =&gt; 1 };</pre>
+<pre>
+  $prov-&gt;example_method($vals, $conf);</pre>
+<p>All the public methods will expect to be passed $conf. $conf is a hashref of values pulled from sysadmin.conf. You can get it by calling $utility-&gt;parse_config as follows:</p>
+<pre>
+   $conf = $utility-&gt;parse_config({file=&gt;&quot;sysadmin.conf&quot;});</pre>
+<p>$utility is a Mail::Toaster::Utility object.</p>
+<p>
+</p>
+<h2><a name="dns">dns</a></h2>
+<p>dns will provision a DNS account using the programming API of a NicTool DNS server.</p>
+<p>
+</p>
+<h2><a name="quota_set">quota_set</a></h2>
+<p>Sets a user file system quota.</p>
+<pre>
+   my $vals = {
+      user             =&gt; &quot;bob&quot;,
+      quota            =&gt; 1000,
+   };</pre>
+<pre>
+   $prov-&gt;quota_set($vals, $conf);</pre>
+<p>quota is set in megabytes. A hard limit will be set 5 megs larger than the soft limit.</p>
+<p>This method depends on the perl module Quota.</p>
+<p>
+</p>
+<h2><a name="user">user</a></h2>
+<pre>
+        $prov-&gt;user($vals, $conf)</pre>
+<p>$vals is a hashref of values</p>
+<pre>
+        my $vals = { 
+                'action'  =&gt; $ARGV[0],
+                'debug'   =&gt; $opt_v,
+        };</pre>
+<p>user will call several private methods, beginning with user_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.</p>
+<p>user is very fault tolerant. It makes backup copies of the master.passwd files before altering them and tests to make sure the alterations it made are sane. If something is screwy, it saves a date stamped backup of the file.</p>
+<p>It also sets user quotas.</p>
+<p>
+</p>
+<h2><a name="user_usage">user_usage</a></h2>
+<p>returns the following message if improper or missing arguments are passed:</p>
+<pre>
+        useradmin [action] [username]</pre>
+<pre>
+    required values:</pre>
+<pre>
+       -username</pre>
+<pre>
+    optional values:</pre>
+<pre>
+       -password
+       -shell
+       -homedir
+       -comment
+       -quota
+       -uid
+       -gid
+       -expire date
+       -domain</pre>
+<p>If domain is set, then tit's assumed that you're setting up a web hosted account and you want the home directory to be /home/domain.com instead of /home/user. This integrates quite nicely with Apache's mass virtual hosting.</p>
+<p>
+</p>
+<h2><a name="user_options">user_options</a></h2>
+<p>Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.</p>
+<p>
+</p>
+<h2><a name="usage_action">usage_action</a></h2>
+<p>return the following message:</p>
+<pre>
+  usage $0 action [params]</pre>
+<pre>
+        action is one of:</pre>
+<pre>
+       create  - adding users, domains, etc
+       destroy - permanently removing objects</pre>
+<pre>
+       disable - temporarily disable
+       enable  - restore disabled objects</pre>
+<pre>
+       show    - show current objects and settings</pre>
+<pre>
+       repair  - misc repair options
+       test    - test settings</pre>
+<p>
+</p>
+<h2><a name="web">web</a></h2>
+<pre>
+        $prov-&gt;web ($vals, $conf)</pre>
+<p>$vals is a hashref of values</p>
+<pre>
+        my $vals = { 
+                'action'  =&gt; $ARGV[0],
+                'debug'   =&gt; $opt_v,
+        };</pre>
+<p>web will call several private methods, beginning with web_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.</p>
+<p>
+</p>
+<h2><a name="web_check_setup">web_check_setup</a></h2>
+<p>Performs various tests on the apache config settings:</p>
+<pre>
+ make sure apache conf dir exists
+ make sure vhost config is set up</pre>
+<p>
+</p>
+<h2><a name="web_usage">web_usage</a></h2>
+<p>returns the following message if improper or missing arguments are passed:</p>
+<pre>
+        webadmin action -vhost [vhost name]</pre>
+<pre>
+    required values:</pre>
+<pre>
+       -vhost</pre>
+<pre>
+    optional values:</pre>
+<pre>
+       -ip             - IP address to listen on (default *)
+       -serveralias    - comma separated list of aliases
+       -serveradmin    - email of server admin
+       -documentroot   - path to html files
+       -redirect       - url to redirect site to
+       -options        - server options ex. FollowSymLinks MultiViews Indexes ExecCGI Includes
+       -ssl            - ssl enabled ? 
+       -sslcert        - path to ssl certificate
+       -sslkey         - path to ssl key
+       -cgi            - basic | advanced | custom
+       -customlog      - custom logging directive
+       -customerror    - custom error logging directive</pre>
+<pre>
+       -awstats        - include alias for awstats
+       -phpmyadmin     - include alias for php</pre>
+<p>
+</p>
+<h2><a name="web_get_options">web_get_options</a></h2>
+<p>Collects web account settings from the command line arguments or a HTML form.</p>
+<p>
+</p>
+<h2><a name="what_am_i_check">what_am_i_check</a></h2>
+<p>To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options:</p>
+<pre>
+  dnsadmin
+  mailadmin
+  useradmin
+  webadmin</pre>
+<p>This simply checks to make sure a valid one has been invoked.</p>
+<p>
+</p>
+<h2><a name="what_am_i">what_am_i</a></h2>
+<pre>
+        $prov-&gt;what_am_i($debug)</pre>
+<p>Determine what the filename of this program is.</p>
+<p>
+</p>
+<hr />
+<h1><a name="author">AUTHOR</a></h1>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>
+</p>
+<hr />
+<h1><a name="bugs">BUGS</a></h1>
+<p>None known. Report any to author.</p>
+<p>
+</p>
+<hr />
+<h1><a name="todo">TODO</a></h1>
+<p>
+</p>
+<hr />
+<h1><a name="see_also">SEE ALSO</a></h1>
+<p>The following are all man/perldoc pages: 
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility</p>
+<pre>
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf</pre>
+<pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
+ <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+<p>
+</p>
+<hr />
+<h1><a name="copyright">COPYRIGHT</a></h1>
+<p>Copyright (c) 2004-2005, The Network People, Inc.
+All rights reserved.</p>
+<p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
+<p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
+<p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+
+</body>
+
+</html>

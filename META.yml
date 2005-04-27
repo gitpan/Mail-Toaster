@@ -1,12 +1,17 @@
+# http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         Mail-Toaster
-version:      4.00
+version:      4.06
 version_from: lib/Mail/Toaster.pm
 installdirs:  site
 requires:
-    DBI:                           1
-    Net::DNS:                      0.2
     Date::Parse:                   1
+    DBI:                           1
+    Email::Valid:                  0
+    Mail::Ezmlm:                   0
+    Net::DNS:                      0.2
+    Quota:                         0
+    vpopmail:                      0
 
 distribution_type: module
-generated_by: ExtUtils::MakeMaker version 6.12
+generated_by: ExtUtils::MakeMaker version 6.17

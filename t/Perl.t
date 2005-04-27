@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Perl.t,v 4.0 2004/11/16 20:57:31 matt Exp $
+# $Id: Perl.t,v 4.1 2004/11/18 03:57:00 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -23,13 +23,14 @@ print "ok 1 - Mail::Toaster::Perl\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-my $perl = Mail::Toaster::Perl->new();
 
+my $perl = Mail::Toaster::Perl->new();
 $perl ? print "ok 2 - perl object\n" : print "not ok 2\n";
 
-$r = $perl->check;
 
+$r = $perl->check;
 $r ? print "ok 3 - version check\n" : print "not ok 3 (version check)\n";
+
 
 $r = $perl->module_load( {
 		module      => "CGI",
@@ -37,5 +38,4 @@ $r = $perl->module_load( {
 		ports_group => "www",
 		timer       => 10,
 	} );
-
 $r ? print "ok 4 - module load\n" : print "not ok 4 (module_load)\n";

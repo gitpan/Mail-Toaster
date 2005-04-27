@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Utility.t,v 4.0 2004/11/16 20:57:31 matt Exp $
+# $Id: Utility.t,v 4.1 2004/11/22 19:24:42 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -10,7 +10,7 @@
 # Change 1..1 below to 1..last_test_to_print .
 # (It may become useful if the test is moved to ./t subdirectory.)
 
-BEGIN { $| = 1; print "1..19\n"; }
+BEGIN { $| = 1; print "1..27\n"; }
 END {print "not ok 1\n" unless $loaded;}
 use lib "lib";
 use Mail::Toaster::Utility;
@@ -64,8 +64,8 @@ my $rm = $utility->find_the_bin("rm");
 $r = $utility->chdir_source_dir("/tmp");
 $r ? print "ok 14 - chdir_source_dir\n" : print "not ok 14 (chdir_source_dir)\n";
 
-$r = $utility->get_file("http://www.tnpi.biz/internet/mail/toaster/etc/maildrop-qmail-domain");
-$r ? print "ok 15 - get_file\n" : print "not ok 15 (get_file)\n";
+$r = $utility->file_get("http://www.tnpi.biz/internet/mail/toaster/etc/maildrop-qmail-domain");
+$r ? print "ok 15 - file_get\n" : print "not ok 15 (file_get)\n";
 
 $r = $utility->syscmd("$rm /tmp/maildrop-qmail-domain");
 $r ? print "not ok 16 - syscmd\n" : print "ok 16 - syscmd\n";
@@ -79,5 +79,31 @@ $r ? print "ok 18 - drives_get_mounted\n" : print "not ok 18 (drives_get_mounted
 (@list) = $utility->get_the_date();
 $list[0] ? print "ok 19 - get_the_date\n" : print "not ok 19 (get_the_date)\n";
 
+$r = $utility->is_hashref( {test=>1} );  # should succeed
+$r ? print "ok 20 - is_hashref\n" : print "not ok 20 (is_hashref)\n";
+
+$r = $utility->is_hashref( );             # should fail
+$r ? print "not ok 21 - is_hashref\n" : print "ok 21 (is_hashref)\n";
+
+$r = $utility->install_from_source( "string", "string" );
+$r ? print "not ok 22 - install_from_sources\n" : print "ok 22 (install_from_sources)\n";
+
+$r = $utility->install_from_source( {int_test=>1}, "string" );
+$r ? print "not ok 23 - install_from_sources\n" : print "ok 23 (install_from_sources)\n";
+
+$r = $utility->install_from_source( "string", {int_test=>1} );
+$r ? print "not ok 24 - install_from_sources\n" : print "ok 24 (install_from_sources)\n";
+
+$r = $utility->install_from_source( {int_test=>1}, {int_test=>1} );
+$r ? print "ok 25 - install_from_sources\n" : print "not ok 25 (install_from_sources)\n";
+
+$r = $utility->is_arrayref( ['test'] );  # should succeed
+$r ? print "ok 26 - is_arrayref\n" : print "not ok 26 (is_arrayref)\n";
+
+$r = $utility->is_arrayref( );             # should fail
+$r ? print "not ok 27 - is_arrayref\n" : print "ok 27 (is_arrayref)\n";
 
 
+
+__END__
+print $r . "\n";

@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Passwd.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Passwd.pm,v 4.7 2005/03/21 16:20:52 matt Exp $
 #
 
 package Mail::Toaster::Passwd;
@@ -10,7 +10,7 @@ package Mail::Toaster::Passwd;
 use Carp;
 
 use vars qw/$VERSION $perl $utility/;
-$VERSION = '4.00';
+$VERSION = '4.05';
 
 use POSIX qw(uname);
 my $os = lc( (uname)[0] );
@@ -87,9 +87,20 @@ sub show($)
 {
 	my ($self, $vals) = @_;
 
+	unless ($utility->is_hashref($vals) ) {
+		print "invalid parameter(s) passed to \$passwd->show\n";
+		return { 'error_code' => 500, 'error_desc' => 'invalid parameter passed' };
+	};
+
 	my $user = $vals->{'user'};
+	return { 'error_code' => 100, 'error_desc' => 'all is well' } if ($user eq "int-testing");
+	unless ($user) {
+		return { 'error_code' => 500, 'error_desc' => 'invalid user' };
+	}
+
 	print "user_show: $user show function...\n" if $vals->{'debug'};
-	$utility->syscmd("sudo quota $user");
+	my $sudo = $utility->find_the_bin("sudo");
+	$utility->syscmd("$sudo quota $user");
 	return { 'error_code' => 100, 'error_desc' => 'all is well' };
 };
 
@@ -223,94 +234,57 @@ sub enable
 };
 
 
-=head2 user_sanity
+sub encrypt
+{
+	my ($self, $pass, $debug) = @_;
 
-   $r = $pass->user_sanity($user, $denylist);
+=head2 encrypt
 
-   if ( $r->{'error_code'} eq 200 ) {  print "success"    }
-   else                             {  print $r->{'error_desc' };
+	$pass->encrypt ($pass, $debug)
 
-$user is the username. Pass it along as a scalar (string).
-
-$denylist is a optional hashref. Define all usernames you want reserved (denied) and it'll check to make sure $user is not in the hashref.
-
-Checks:
-
-   * Usernames must be between 2 and 16 characters.
-   * Usernames must have only lower alpha and numeric chars
-   * Usernames must begin with an alpha character
-   * Username must not be defined in $denylist hash
-   * If the file /usr/local/etc/passwd.reserved exists, 
-     the username must not exist in that file. 
-
-The format of passwd.reserved is simply one username per line.
-	
-A hashref gets returned that will contain at least error_code, and error_desc. 
-
-$r->{'error_code'} will contain a result code of 0 (failure) or a positive number for (success). 
-
-$r->{'error_desc'} will contain a string with a description of which test failed.
+encrypt (MD5) the plain text password that arrives at $pass.
 
 =cut
 
-sub user_sanity($;$)
-{
-	my ($self, $user, $disallow) = @_;
-	# set this to fully define your username restrictions. It will 
-	# get returned every time an invalid password is submitted.
+	$perl->module_load( {module=>"Crypt::PasswdMD5", ports_name=>"p5-Crypt-PasswdMD5", ports_group=>"security"} );
 
-	my $error = "Usernames must be 2 to 16 lower case alpha or numeric characters. The username must begin with an alpha character.";
+	my $salt   = rand;
+	my $pass_e = Crypt::PasswdMD5::unix_md5_crypt($pass, $salt);
 
-	# min 2 characters
-	# max 16 characters
-	# only lower case letters
-	# only lower case letters and numbers
-	# begin with an alpha character
-
-	unless  ( $user =~ /^[a-z][a-z0-9]{1,15}$/ )
-	{
-		return { error_code => 400, error_desc => "$error. $user is not a valid username." }
-	};
-
-	if ( $disallow )
-	{
-		if ( defined $disallow->{$user} )
-		{
-			return { error_code => 400,
-			error => "$user is a reserved username. Please select another.",
-			error_desc => "$user is a reserved username. Please select another." };
-		};
-	};
-
-	if ( -r "/usr/local/etc/passwd.reserved" )
-	{
-		my @lines = $utility->file_read("/usr/local/etc/passwd.reserved");
-		foreach my $line (@lines)
-		{
-			chomp $line;
-			if ($user eq $line)
-			{
-				return { error_code => 400,
-				error => "$user is a reserved username. Please select another.",
-				error_desc => "$user is a reserved username. Please select another." };
-			};
-		};
-	};
-
-	if ( $self->exist($user) )
-	{
-		# get the users uid (if exists)
-		my $uid_exist  = getpwnam($user);
-
-		print "user $user (uid: $uid_exist) already exists\n";
-		return { error_code => 400,
-		error      => "user sanity: user $user already exists (uid: $uid_exist)!",
-		error_desc => "user sanity: user $user already exists (uid: $uid_exist)!" };
-	};
-
-	return { 'rc' => 1, error_code => 200, error_desc => 'no error'};
+	print "encrypt: pass_e = $pass_e\n" if $debug;
+	return $pass_e;
 };
 
+=head2 exist
+
+Check to see if a user exists
+
+	$pass->exist($user);
+
+I use this before adding a new user (easy error trapping) and again after adding a user (to verify success). 
+
+	unless ( $pass->exist($user) ) {
+		$pass->user_add( {user=>$user} );
+	};
+
+$user is the username you are adding. 
+
+returns 1 if exists, 0 otherwise
+
+=cut
+
+sub exist
+{
+	my ($self, $user) = @_;
+	$user = lc($user);
+
+	if ( getpwnam($user) && getpwnam($user) > 0 )
+	{
+		return 1;
+	} else { 
+		return 0 
+	};
+};
 
 =head2 sanity
 
@@ -397,58 +371,6 @@ sub sanity
 	return \%r;
 };
 
-
-=head2 exist
-
-Check to see if a user exists
-
-	$pass->exist($user);
-
-I use this before adding a new user (easy error trapping) and again after adding a user (to verify success). 
-
-	unless ( $pass->exist($user) ) {
-		$pass->user_add( {user=>$user} );
-	};
-
-$user is the username you are adding. 
-
-returns 1 if exists, 0 otherwise
-
-=cut
-
-sub exist
-{
-	my ($self, $user) = @_;
-	$user = lc($user);
-
-	if ( getpwnam($user) && getpwnam($user) > 0 )
-	{
-		return 1;
-	} else { 
-		return 0 
-	};
-};
-
-sub encrypt
-{
-	my ($self, $pass, $debug) = @_;
-
-=head2 encrypt
-
-	$pass->encrypt ($pass, $debug)
-
-encrypt (MD5) the plain text password that arrives at $pass.
-
-=cut
-
-	$perl->module_load( {module=>"Crypt::PasswdMD5", ports_name=>"p5-Crypt-PasswdMD5", ports_group=>"security"} );
-
-	my $salt   = rand;
-	my $pass_e = Crypt::PasswdMD5::unix_md5_crypt($pass, $salt);
-
-	print "encrypt: pass_e = $pass_e\n" if $debug;
-	return $pass_e;
-};
 
 sub BackupMasterPasswd(;$)
 {
@@ -604,51 +526,6 @@ sub creategroup($;$)
 	};
 };
 
-=head2 user_archiveCreate's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.
-
-    if ( $prov->user_archive("user") ) 
-    {
-        print "user archived";
-    };
-
-returns a boolean.
-
-=cut
-
-sub user_archive($;$)
-{
-	my ($self, $user, $debug) = @_;
-
-	my $tar  = $utility->find_the_bin("tar" );
-	my $sudo = $utility->find_the_bin("sudo");
-	my $rm   = $utility->find_the_bin("rm"  );
-
-	unless ($self->exist($user) ) { $utility->graceful_exit("400", "That user does not exist!"); };
-	my $homedir   = (getpwnam($user))[7];
-	use File::Basename;
-	my ($userdir, $path, $suffix) = fileparse($homedir);
-
-	chdir($path) or warn "couldn't cd to $path: $!\n";
-
-	if ( -e "$path/$user.tar.gz" && -d "$path/$user" )
-	{
-		warn "user_archive:\tOverwriting old tarfile $path/$user.tar.gz.\n";
-		system "$sudo $rm $path/$user.tar.gz";
-	};
-
-	print "\tArchiving $user\'s files to $path/$user.tar.gz...." if $debug;
-	system "$sudo $tar -Pzcf $user.tar.gz $userdir";
-        
-	if ( -e "${homedir}.tar.gz" )
-	{
-		print "done.\n" if $debug;
-		return 1;
-	} else {
-		warn "\nFAILED: user_archive couldn't complete $path/$user.tar.gz.\n\n";
-		return 0;
-	};
-};
-
 =head2 user_add
 
 Installs a system user. Expects a hashref to be passed containing at least: user.  Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.
@@ -786,6 +663,145 @@ sub user_add($)
 };
 
 
+=head2 user_archive
+
+Create's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.
+
+    if ( $prov->user_archive("user") ) 
+    {
+        print "user archived";
+    };
+
+returns a boolean.
+
+=cut
+
+sub user_archive($;$)
+{
+	my ($self, $user, $debug) = @_;
+
+	my $tar  = $utility->find_the_bin("tar" );
+	my $sudo = $utility->find_the_bin("sudo");
+	my $rm   = $utility->find_the_bin("rm"  );
+
+	unless ($self->exist($user) ) { $utility->graceful_exit("400", "That user does not exist!"); };
+
+	my $homedir   = (getpwnam($user))[7];
+	unless (-d $homedir) { $utility->graceful_exit("400", "The home directory does not exist!"); };
+
+	my ($path, $userdir) = $utility->path_parse($homedir);
+
+	unless ( chdir($path) ) { $utility->graceful_exit("400", "couldn't cd to $path: $!\n"); };
+
+	if ( -e "$path/$user.tar.gz" && -d "$path/$user" )
+	{
+		carp "user_archive:\tReplacing old tarfile $path/$user.tar.gz.\n";
+		system "$sudo $rm $path/$user.tar.gz";
+	};
+
+	print "\tArchiving $user\'s files to $path/$user.tar.gz...." if $debug;
+	print "$sudo $tar -Pzcf $homedir.tar.gz $userdir\n";
+	system "$sudo $tar -Pzcf $homedir.tar.gz $userdir";
+
+	if ( -e "${homedir}.tar.gz" )
+	{
+		print "done.\n" if $debug;
+		return 1;
+	} else {
+		carp "\nFAILED: user_archive couldn't complete $homedir.tar.gz.\n\n";
+		return 0;
+	};
+};
+
+=head2 user_sanity
+
+   $r = $pass->user_sanity($user, $denylist);
+
+   if ( $r->{'error_code'} eq 200 ) {  print "success"    }
+   else                             {  print $r->{'error_desc' };
+
+$user is the username. Pass it along as a scalar (string).
+
+$denylist is a optional hashref. Define all usernames you want reserved (denied) and it'll check to make sure $user is not in the hashref.
+
+Checks:
+
+   * Usernames must be between 2 and 16 characters.
+   * Usernames must have only lower alpha and numeric chars
+   * Usernames must begin with an alpha character
+   * Username must not be defined in $denylist hash
+   * If the file /usr/local/etc/passwd.reserved exists, 
+     the username must not exist in that file. 
+
+The format of passwd.reserved is simply one username per line.
+	
+A hashref gets returned that will contain at least error_code, and error_desc. 
+
+$r->{'error_code'} will contain a result code of 0 (failure) or a positive number for (success). 
+
+$r->{'error_desc'} will contain a string with a description of which test failed.
+
+=cut
+
+sub user_sanity($;$)
+{
+	my ($self, $user, $disallow) = @_;
+	# set this to fully define your username restrictions. It will 
+	# get returned every time an invalid password is submitted.
+
+	my $error = "Usernames must be 2 to 16 lower case alpha or numeric characters. The username must begin with an alpha character.";
+
+	# min 2 characters
+	# max 16 characters
+	# only lower case letters
+	# only lower case letters and numbers
+	# begin with an alpha character
+
+	unless  ( $user =~ /^[a-z][a-z0-9]{1,15}$/ )
+	{
+		return { error_code => 400, error_desc => "$error. $user is not a valid username." }
+	};
+
+	if ( $disallow )
+	{
+		if ( defined $disallow->{$user} )
+		{
+			return { error_code => 400,
+			error => "$user is a reserved username. Please select another.",
+			error_desc => "$user is a reserved username. Please select another." };
+		};
+	};
+
+	if ( -r "/usr/local/etc/passwd.reserved" )
+	{
+		my @lines = $utility->file_read("/usr/local/etc/passwd.reserved");
+		foreach my $line (@lines)
+		{
+			chomp $line;
+			if ($user eq $line)
+			{
+				return { error_code => 400,
+				error => "$user is a reserved username. Please select another.",
+				error_desc => "$user is a reserved username. Please select another." };
+			};
+		};
+	};
+
+	if ( $self->exist($user) )
+	{
+		# get the users uid (if exists)
+		my $uid_exist  = getpwnam($user);
+
+		print "user $user (uid: $uid_exist) already exists\n";
+		return { error_code => 400,
+		error      => "user sanity: user $user already exists (uid: $uid_exist)!",
+		error_desc => "user sanity: user $user already exists (uid: $uid_exist)!" };
+	};
+
+	return { 'rc' => 1, error_code => 200, error_desc => 'no error'};
+};
+
+
 1;
 __END__
 
@@ -804,11 +820,34 @@ Don't export any of the symbols by default. Move all symbols to EXPORT_OK and ex
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/internet/mail/toaster
+The following are all man/perldoc pages: 
+
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2004, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

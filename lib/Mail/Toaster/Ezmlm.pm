@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Ezmlm.pm,v 4.1 2004/11/16 21:20:01 matt Exp $
+# $Id: Ezmlm.pm,v 4.9 2005/03/24 03:38:35 matt Exp $
 #
 
 package Mail::Toaster::Ezmlm;
@@ -10,17 +10,12 @@ package Mail::Toaster::Ezmlm;
 #use Carp;
 use vars qw($VERSION $perl $utility);
 
-$VERSION = '4.0';
+$VERSION = '4.6';
 
 use lib "lib";
 use lib "../..";
 use Mail::Toaster::Utility;         $utility = Mail::Toaster::Utility->new;
 eval {require Mail::Toaster::Perl}; $perl    = Mail::Toaster::Perl->new;
-
-$perl->module_load( {module=>"Mail::Ezmlm", ports_name=>"p5-Mail::Ezmlm", ports_group=>"mail"} );
-$perl->module_load( {module=>"vpopmail", ports_name=>'p5-vpopmail', ports_group=>'mail'} );
-use vpopmail;
-use Mail::Ezmlm;
 
 sub new;
 sub authenticate;
@@ -69,6 +64,166 @@ sub new
 	bless ($self, $class);
 	return $self;
 }
+
+=head2 Check_VpopAuth
+
+Authenticates a HTTP user against vpopmail to verify the user has permission to do what they're asking.
+
+=cut
+
+sub authenticate($$;$)
+{
+	my ($self, $domain, $password, $debug) = @_;
+
+	print "attempting to authenticate postmaster\@$domain..." if $debug;
+
+	$perl->module_load( {module=>"vpopmail", ports_name=>'p5-vpopmail', ports_group=>'mail'} );
+	require vpopmail;
+
+	if ( vpopmail::vauth_user('postmaster', $domain, $password, undef) )
+	{
+		print "ok.<br>" if $debug;
+		return 1;
+	} else { 
+		print "AUTHENTICATION FAILED! (dom: $domain, pass: $password)<br>";
+		print "if you are certain the authentication information is correct, then
+it's quite likely you can't authenticate because your web server is not running as
+a user that has permission to run this script. You can:
+
+  a: run this script suid vpopmail
+  b: run the web server as user vpopmail
+
+The easiest and most common methods is:
+
+  chown vpopmail /path/to/ezmlm.cgi
+  chmod 4755 /path/to/ezmlm.cgi
+
+\n\n";
+
+		return 0; 
+	};
+}
+
+=head2 dir_check
+
+Check a directory and see if it's a directory and readable.
+
+    $ezmlm->dir_check($dir);
+
+return 0 if not, return 1 if OK.
+
+=cut
+
+sub dir_check($$;$)
+{
+	my ($self, $dir, $br, $debug) = @_;
+
+	print "dir_check: checking: $dir..." if $debug;
+
+	unless ( -d $dir && -r $dir ) 
+	{
+		print "ERROR: No read permissions to $dir: $! $br";
+		return 0;
+	} else {
+		print "ok.$br" if $debug;
+		return 1;
+	};
+};
+
+sub footer($)
+{
+	shift;  # $self
+	my $VERSION = shift;
+
+	print '<hr> <p align="center"><font size="-2">
+		<a href="http://www.tnpi.biz/computing/mail/toaster">Mail::Toaster::Ezmlm</a> ', $VERSION, ' -
+		&copy; <a href="http://www.tnpi.biz">The Network People, Inc.</a> 1999-2005 <br><br>
+        <!--Donated to the toaster community by <a href="mailto:sam.mayes@sudhian.com">Sam Mayes</a>--></font>
+     </p>
+  </body>
+</html>';
+};
+
+
+=head2 lists_get
+
+Get a list of Ezmlm lists for a given mail directory. This is designed to work with vpopmail where all the list for example.com are in ~vpopmail/domains. 
+
+    $ezmlm->lists_get("example.com");
+
+=cut
+
+sub lists_get($$;$)
+{
+	my ($self, $domain, $br, $debug) = @_;
+
+	my %lists;
+
+	$perl->module_load( {module=>"vpopmail", ports_name=>'p5-vpopmail', ports_group=>'mail'} );
+	require vpopmail;
+
+	my $dir = vpopmail::vgetdomaindir($domain);
+
+	unless ( -d $dir ) {
+		print "FAILED: invalid directory ($dir) returned from vgetdomaindir $br";
+		return 0;
+	};
+
+	print "domain dir for $domain: $dir<br>" if $debug;
+
+	print "now fetching a list of ezmlm lists..." if $debug;
+
+	foreach my $all ( $utility->get_dir_files($dir) ) 
+	{
+		next unless ( -d $all );
+
+		foreach my $second ( $utility->get_dir_files($all) ) 
+		{
+			next unless ( -d $second );	
+			if ( $second =~ /subscribers$/ ) 
+			{
+				print "found one: $all, $second<br>" if $debug;
+				my ($path, $dir) = $utility->path_parse($all);
+				print "list name: $dir<br>" if $debug;
+				$lists{$dir} = $all;
+			} else {
+				print "failed second match: $second<br>" if $debug;
+			}
+		}
+	}
+
+	print "done.<br>" if $debug;
+
+	return \%lists;
+};
+
+
+=head2 logo
+
+Put the logo on the HTML page. Sets the URL from $conf.
+
+    $ezmlm->logo($conf);
+
+$conf is values from toaster.conf.
+
+Example: $ezmlm->logo( {
+        web_logo_url => 'http://www.tnpi.biz/images/head.jpg',
+        web_log_alt  => 'tnpi.biz logo',
+    } );
+
+=cut
+
+
+sub logo
+{
+	my ($self, $conf) = @_;
+
+	my $logo = $conf->{'web_logo_url'}; $logo ||= "http://www.tnpi.biz/images/head.jpg";
+	my $text = $conf->{'web_logo_alt_text'}; $text ||= "tnpi.biz logo";
+
+	return "<img src=\"$logo\" alt=\"$text\">";
+};
+
 
 =head2 process_cgi
 
@@ -151,11 +306,15 @@ sub process_cgi($$;$)
 			exit 0;
 		};
 
+		$perl->module_load( {module=>"vpopmail", ports_name=>'p5-vpopmail', ports_group=>'mail'} );
 		print "running vpopmail v", vpopmail::vgetversion(), "<br>" if $debug;
 #		print "selected list: $list_sel<br>" if $debug;
 
+		$perl->module_load( {module=>"Mail::Ezmlm", ports_name=>"p5-Mail::Ezmlm", ports_group=>"mail"} );
+		require Mail::Ezmlm;
+
 		$list_dir = $ezlists->{$list_sel};
-		$self->dir_check($list_dir, $br, $debug);
+		return 0 unless $self->dir_check($list_dir, $br, $debug);
 		my $list = new Mail::Ezmlm($list_dir);
 
 		if ( $action eq "list" )
@@ -182,89 +341,72 @@ sub process_cgi($$;$)
 	$self->footer($VERSION);
 }
 
-=head2 Check_VpopAuth
+=head2 process_shell
 
-Authenticates a HTTP user against vpopmail to verify the user has permission to do what they're asking.
+Get input from the command line options and proceed accordingly.
 
 =cut
 
-sub authenticate($$;$)
+sub process_shell()
 {
-	my ($self, $domain, $password, $debug) = @_;
+	my ($self) = @_;
+	use vars qw($opt_a $opt_d $opt_f $opt_v $list $debug);
 
-	print "attempting to authenticate postmaster\@$domain..." if $debug;
+	$perl->module_load( {module=>"Mail::Ezmlm", ports_name=>"p5-Mail::Ezmlm", ports_group=>"mail"} );
+	require Mail::Ezmlm;
 
-	if ( vauth_user('postmaster', $domain, $password, undef) )
-	{
-		print "ok.<br>" if $debug;
-		return 1;
-	} else { 
-		print "AUTHENTICATION FAILED! (dom: $domain, pass: $password)<br>";
-		print "if you are certain the authentication information is correct, then
-it's quite likely you can't authenticate because your web server is not running as
-a user that has permission to run this script. You can:
+	use Getopt::Std;
+	getopts('a:d:f:v');
 
-  a: run this script suid vpopmail
-  b: run the web server as user vpopmail
+	my $br = "\n";
+	$opt_v ? $debug = 1 : $debug = 0;
 
-The easiest and most common methods is:
+	# set up based on command line options
+	my $list_dir;
+	$list_dir = $opt_d if $opt_d;
 
-  chown vpopmail /path/to/ezmlm.cgi
-  chmod 4755 /path/to/ezmlm.cgi
-
-\n\n";
-
-		return 0; 
+	# set a default list dir if not already set
+	unless ( $list_dir ) {
+		$list_dir = "/usr/local/vpopmail/domains/simerson.net/friends";
+		print "You didn't set the list directory! Use the -d options!\n";
 	};
-}
+	return 0 unless $self->dir_check($list_dir, $br, $debug);
 
-=head2 lists_get
+	if ( $opt_a && $opt_a eq "list" )
+	{
+		$list = new Mail::Ezmlm($list_dir);
+		$self->subs_list($list, $list_dir, $br, $debug );
+		return 1;
+	};
 
-Get a list of Ezmlm lists for a given mail directory. This is designed to work with vpopmail where all the list for example.com are in ~vpopmail/domains. 
+	unless ($opt_a && $opt_a eq "add") {
+		usage(); return 0;
+	};
 
-    $ezmlm->lists_get("example.com");
+	# since we're adding, fetch a list of email addresses
+	my $requested;
+	my $list_file = $opt_f; $list_file ||= "ezmlm.importme";
 
-=cut
-
-sub lists_get($$;$)
-{
-	my ($self, $domain, $br, $debug) = @_;
-
-	my %lists;
-
-	my $dir = vgetdomaindir($domain);
-
-	unless ( -d $dir ) {
-		print "FAILED: invalid directory ($dir) returned from vgetdomaindir $br";
+	unless ( -e $list_file ) 
+	{
+		print "FAILED: cannot find $list_file!\n Try specifying it with -f.\n";
 		return 0;
 	};
 
-	print "domain dir for $domain: $dir<br>" if $debug;
-
-	print "now fetching a list of ezmlm lists..." if $debug;
-
-	foreach my $all ( $utility->get_dir_files($dir) ) 
-	{
-		next unless ( -d $all );
-
-		foreach my $second ( $utility->get_dir_files($all) ) 
-		{
-			next unless ( -d $second );	
-			if ( $second =~ /subscribers$/ ) 
-			{
-				print "found one: $all, $second<br>" if $debug;
-				my ($path, $dir) = $utility->path_parse($all);
-				print "list name: $dir<br>" if $debug;
-				$lists{$dir} = $all;
-			} else {
-				print "failed second match: $second<br>" if $debug;
-			}
-		}
+	if ( -r $list_file ) {
+		my @lines = $utility->file_read($list_file);
+		$requested = \@lines;
+	} else {
+		print "FAILED: $list_file not readable!\n";
+		return 0;
 	}
 
-	print "done.<br>" if $debug;
+	$list = new Mail::Ezmlm($list_dir);
+	#$list->setlist($list_dir);    # use this to switch lists
 
-	return \%lists;
+	$self->subs_add($list, $list_dir, $requested, $br);
+
+	return 1;
 };
 
 =head2 subs_add
@@ -328,76 +470,6 @@ sub subs_add($$$$)
 	printf "failed.......%5d  $br", $failed;
 };
 
-=head2 process_shell
-
-Get input from the command line options and proceed accordingly.
-
-=cut
-
-sub process_shell()
-{
-	my ($self) = @_;
-	use vars qw($opt_a $opt_d $opt_f $opt_v $list $debug);
-
-	require Mail::Ezmlm;
-
-	use Getopt::Std;
-	getopts('a:d:f:v');
-
-	my $br = "\n";
-	$opt_v ? $debug = 1 : $debug = 0;
-
-	# set up based on command line options
-	my $list_dir;
-	unless ($opt_a && $opt_a eq "add") {
-		usage(); return 0;
-	};
-	$list_dir = $opt_d if $opt_d;
-
-	# set a default list dir if not already set
-	unless ( $list_dir ) {
-		$list_dir = "/usr/local/vpopmail/domains/simerson.net/friends";
-		print "You didn't set the list directory! Use the -d options!\n";
-	};
-	$self->dir_check($list_dir, $br, $debug);
-
-	if ( $opt_a eq "list" )
-	{
-		$list = new Mail::Ezmlm($list_dir);
-		$self->subs_list($list, $list_dir, $br, $debug );
-		return 1;
-	};
-
-	unless ($opt_a eq "add") {
-		usage(); return 0;
-	};
-
-	# since we're adding, fetch a list of email addresses
-	my $requested;
-	my $list_file = $opt_f; $list_file ||= "ezmlm.importme";
-
-	unless ( -e $list_file ) 
-	{
-		print "FAILED: cannot find $list_file!\n Try specifying it with -f.\n";
-		exit 0;
-	};
-
-	if ( -r $list_file ) {
-		my @lines = $utility->file_read($list_file);
-		$requested = \@lines;
-	} else {
-		print "FAILED: $list_file not readable!\n";
-		exit 0;
-	}
-
-	$list = new Mail::Ezmlm($list_dir);
-	#$list->setlist($list_dir);    # use this to switch lists
-
-	$self->subs_add($list, $list_dir, $requested, $br);
-
-	return 1;
-};
-
 =head2 subs_list
 
 Print out a list of subscribers to an Ezmlm mailing list.
@@ -427,57 +499,6 @@ sub subs_list($$$;$)
 	print "$br done. $br";
 };
 
-=head2 logo
-
-Put the logo on the HTML page. Sets the URL from $conf.
-
-    $ezmlm->logo($conf);
-
-$conf is values from toaster.conf.
-
-Example: $ezmlm->logo( {
-        web_logo_url => 'http://www.tnpi.biz/images/head.jpg',
-        web_log_alt  => 'tnpi.biz logo',
-    } );
-
-=cut
-
-sub logo
-{
-	my ($self, $conf) = @_;
-
-	my $logo = $conf->{'web_logo_url'}; $logo ||= "http://www.tnpi.biz/images/head.jpg";
-	my $text = $conf->{'web_logo_alt_text'}; $text ||= "tnpi.biz logo";
-
-	return "<img src=\"$logo\" alt=\"$text\">";
-};
-
-=head2 dir_check
-
-Check a directory and see if it's a directory and readable.
-
-    $ezmlm->dir_check($dir);
-
-die if not, return 1 if OK.
-
-=cut
-
-sub dir_check($$;$)
-{
-	my ($self, $dir, $br, $debug) = @_;
-
-	print "dir_check: checking: $dir..." if $debug;
-
-	unless ( -d $dir && -r $dir ) 
-	{
-		print "FATAL: Sorry, no read permissions to $dir: $! $br";
-		exit 0;
-	} else {
-		print "ok.$br" if $debug;
-		return 1;
-	};
-};
-
 sub usage
 {
 	print "\n$0 -a [ add | remove | list ]
@@ -487,20 +508,6 @@ sub usage
      -f   file    - file containing list of email addresses
      -v   verbose - print debugging options\n\n
 ";
-};
-
-sub footer($)
-{
-	shift;  # $self
-	my $VERSION = shift;
-
-	print '<hr> <p align="center"><font size="-2">
-		<a href="http://www.tnpi.biz/computing/mail/toaster">Mail::Toaster::Ezmlm</a> ', $VERSION, ' -
-		&copy; <a href="http://www.tnpi.biz">The Network People, Inc.</a> 1999-2004 <br><br>
-        Donated to the toaster community by <a href="mailto:sam.mayes@sudhian.com">Sam Mayes</a></font>
-     </p>
-  </body>
-</html>';
 };
 
 
@@ -523,13 +530,37 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-http://www.tnpi.biz/computing/
+The following are all man/perldoc pages: 
+
+ Mail::Toaster 
+ Mail::Toaster::Apache 
+ Mail::Toaster::CGI  
+ Mail::Toaster::DNS 
+ Mail::Toaster::Darwin
+ Mail::Toaster::Ezmlm
+ Mail::Toaster::FreeBSD
+ Mail::Toaster::Logs 
+ Mail::Toaster::Mysql
+ Mail::Toaster::Passwd
+ Mail::Toaster::Perl
+ Mail::Toaster::Provision
+ Mail::Toaster::Qmail
+ Mail::Toaster::Setup
+ Mail::Toaster::Utility
+
+ Mail::Toaster::Conf
+ toaster.conf
+ toaster-watcher.conf
+
+ http://matt.simerson.net/computing/mail/toaster/
+ http://matt.simerson.net/computing/mail/toaster/docs/
+
 
 Mail::Toaster
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004, The Network People, Inc.
+Copyright (c) 2005, The Network People, Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

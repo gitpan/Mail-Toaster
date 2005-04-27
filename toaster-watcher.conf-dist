@@ -1,13 +1,12 @@
 # 
-# $Id: toaster-watcher.conf-dist,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: toaster-watcher.conf-dist,v 4.21 2005/04/17 12:52:10 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
 # distribution, in perl pod format (perldoc toaster-watcher.conf)
-# and posted online at the following URLs:
+# and posted online at the following URL:
 #
-#   http://www.tnpi.biz/internet/mail/toaster/docs/ or
-#   http://www.tnpi.biz/support/phpBB/viewtopic.php?t=81
+#   http://www.tnpi.biz/internet/mail/toaster/docs/
 #
 # Many values require keyword parameters, pathnames, or a binary value
 # binary values are either 0 or 1, 1 being yes, 0 being no
@@ -23,13 +22,14 @@
 #            TOASTER
 ######################################
 
+freebsd_os_release             = 5-stable
 cvsup_server_preferred         = fastest         # fastest or a hostname
 cvsup_server_country           = US
 cvsup_supfile_ports            = /etc/cvsup-ports
 cvsup_supfile_sources          = /etc/cvsup-stable
+
 toaster_pkg_site               = ftp://ftp.freebsd.org
 toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
-toaster_os_release             = 5-stable
 toaster_dl_site                = http://www.tnpi.biz    # select a mirror
 toaster_dl_url                 = /internet/mail/toaster
 toaster_version                = 0     # 0 = latest release # v = 4.01
@@ -42,6 +42,8 @@ toaster_debug                  = 0
 toaster_hostname               = mail.example.com
 system_config_dir              = /usr/local/etc
 toaster_admin_email            = postmaster@example.com
+toaster_test_email             = test@example.com
+toaster_test_email_pass        = cHanGeMe
 mail_syslog                    = /var/log/maillog
 package_install_method         = ports  # packages | ports
                                  # if both options are supported, the setup
@@ -54,41 +56,46 @@ supervise_rebuilt_notice       = 1      # email admin when a supervise run file 
 #           Programs 
 ######################################
 
-# You can pass the major number of some programs
+# You can pass the version number of some programs
 # if you with to install a particular version
-# 0 = do not install
-# 1 = install
+#    0  = do not install
+#    1  = install
+# port  = install from FreeBSD or Darwin ports
 # other = install particular version
-# port  = install from FreeBSD ports
-# Extra options are noted after the # where available
+#
+# Extra options are noted after the # where available. Selecting 1 is the most reliable
+# and will install trying first via ports, then sources if the port install fails.
 
-install_squirrelmail           = 1
-install_squirrelmail_sql       = 0   # use MySQL for user prefs and address book?
-install_apache                 = 2   # 0, 1, 2
+install_squirrelmail           = port   # 0, ver, port (1.4.3a)
+install_squirrelmail_sql       = 0      # use MySQL for user prefs and address book?
+install_apache                 = 2      # 0, 1, 2
 install_apache_user            = www
-install_apache2_modperl        = 1
-install_apache_suexec          = 0   # 0, 1
-install_php                    = 4   # 0, 4, 5    # 5 is not supported by some toaster components
-install_phpmyadmin             = 1   # 0, 1
-install_mysql                  = 2   # 0, 1 (package), 2 (latest stable), 3, 4, 5
+install_apache2_modperl        = 1      # 0, 1, ver
+install_apache_suexec          = 0      # 0, 1
+install_apache_proxy           = 0      # 0, 1
+install_php                    = 4      # 0, 4, 5, ver
+install_phpmyadmin             = 1      # 0, 1
+install_mysql                  = 4      # 0, 1 (package), 2 (latest stable), 3, 4, 5
 install_mysql_ssl              = 1
 install_mysql_linuxthreads     = 0
 install_mysql_optimized        = 1
 install_mysql_dir              = /var/db/mysql
-install_courier_imap           = port   # 0, ver, port
-install_sqwebmail              = port   # 0, ver, port
-install_qmail                  = 1.03   # 0, ver
-install_netqmail               = 1.05   # 0, ver
-install_qmailadmin             = 1.2.0  # 0, ver, port
-install_vpopmail               = 5.4.7  # ver, port
+install_courier_imap           = port   # 0, ver, port (3.0.8)
+install_sqwebmail              = port   # 0, ver, port (4.0.7)
+install_qmail                  = 1.03   # 0, ver       (1.03)
+install_netqmail               = 1.05   # 0, ver       (1.05)
+install_qmailadmin             = 1.2.7  # 0, ver, port (1.2.7)
+install_vpopmail               = 5.4.8  # ver, port    (5.4.7)
 install_vqadmin                = 0      # 0, ver
-install_isoqlog                = 1
+install_isoqlog                = port   # 0, ver, port (2.2)
 install_portupgrade            = 1
 install_openldap_client        = 1
 install_net_snmpd              = 4      # 4, 5
 install_rrdutil                = 1
 install_ezmlm                  = 0.42   # 0, ver
+install_ezmlm_cgi              = 0      # 0, 1
 install_openssl_port           = 1
+install_qmail_notify           = 0
 
 
 ######################################
@@ -99,17 +106,21 @@ install_mail_filtering         = 1
 install_procmail               = 0
 install_maildrop               = 1
 install_spamassassin           = 1
-install_spamassassin_flags     = -d -v -x -r /var/run/spamd.pid  # Add -q for per use SQL prefs
+install_spamassassin_flags     = -d -v -x -r /var/run/spamd.pid  # Add -q for per user SQL prefs
+install_spamassassin_sql       = 0       # use AWL, bayes, and per-user prefs from MySQL
+install_spamassassin_dbuser    = spamassassin
+install_spamassassin_dbpass    = assSPAMing
 install_dspam                  = 1
-install_simscan                = 1.0.7   # 0, ver
-install_qmailscanner           = 0       # 0, ver (1.24 is latest as of 11/10/04)
-install_qmailscanner_stats     = 0       # 0, ver (2.02 is latest as of 11/10/04)
+install_simscan                = 1.1     # 0, ver
+install_qmailscanner           = 0       # 0, ver (1.25  is latest as of 04/08/05)
+install_qmailscanner_stats     = 0       # 0, ver (2.0.2 is latest as of 02/02/05)
 install_clamav                 = 1
 install_clamav_user            = clamav  # qscand | clamav
 install_pyzor                  = 0
 install_razor                  = 1
 install_bogofilter             = 0
 install_dcc                    = 1
+install_ripmime                = port    # 0, port, ver (1.4.0.5 as of 4/18/05)
 
 filtering_method                   = tcpserver  # smtp | tcpserver  # see docs for details
 filtering_spamassassin_method      = site       # site | user | domain
@@ -135,12 +146,13 @@ qmail_service_smtp             = qmail_service/smtp
 qmail_service_send             = qmail_service/send
 qmail_service_pop3             = qmail_service/pop3
 qmail_service_submit           = qmail_service/submit
-qmail_chk_usr_patch            = 1
+qmail_smtp_reject_patch        = 1
 qmail_mfcheck_enable           = 1
 qmail_tarpit_count             = 50
 qmail_tarpit_delay             = 5
 qmail_concurrencyremote        = 255
 qmail_smtpd_auth_0.31          = 0   # leave this zero unless you know better!
+qmail_queue_extra              = 0             # 0, 1
 qmail_log_base                 = /var/log/mail
 qmail_log_user                 = qmaill
 qmail_log_group                = qnofiles
@@ -152,6 +164,7 @@ qmail_user_passwd              = qmailp
 qmail_user_queue               = qmailq
 qmail_user_remote              = qmailr
 qmail_user_send                = qmails
+qmail_user_log                 = qmaill
 
 
 ######################################
@@ -227,7 +240,6 @@ smtpd_dns_paranoia              = 0
 smtpd_dns_lookup_timeout        = 26
 smtpd_run_as_user               = vpopmail
 smtpd_run_as_group              = vchkpw
-smtpd_chkusr_patch              = 1             # http://www.interazioni.it/qmail/
 smtpd_auth_enable               = 1             # enable / disable SMTP auth
 smtpd_checkpasswd_bin           = vpopmail_home_dir/bin/vchkpw
 smtpd_relay_database            = vpopmail_home_dir/etc/tcp.smtp.cdb
@@ -284,7 +296,7 @@ rbl_dynablock.sorbs.net         = 1
 rbl_zombie.dnsbl.sorbs.net      = 0
 rbl_socks.dnsbl.sorbs.net       = 0
 rbl_spews.blackhole.us          = 0
-rbl_combined_njabl.org          = 0   # untested - http://www.dnsbl.njabl.org/
+rbl_combined.njabl.org          = 0   # untested - http://www.dnsbl.njabl.org/
 rbl_dev.null.dk                 = 0   # DEAD
 rbl_relays.osirusoft.com        = 0   # DEAD
 rbl_formmail.relays.monkeys.com = 0   # monkeys.com DEAD as of 2003.09.22
@@ -311,7 +323,7 @@ pop3_daemon                    = qpop3d  #  qpop3d | courier
 ##
 
 pop3_hostname                  = system
-pop3_max_memory_per_connection = 3
+pop3_max_memory_per_connection = 4
 pop3_max_connections           = 50
 pop3_max_memory                = 256
 pop3_lookup_tcpremotehost      = 0
@@ -329,6 +341,15 @@ pop3_log_method                = multilog   # multilog required for RRDutil
 pop3_log_postprocessor         = maillogs   # maillogs | none
 pop3_log_maxsize_bytes         = 1000000    # make this > 5 minutes of logging
 
+
+#######################################
+#            POP3D-SSL                #
+#######################################
+
+pop3_ssl_daemon                = courier #  qpop3d | courier
+
+# NOTICE: if you choose qpop3d, then stunnel will be installed
+# and courier's pop3ssl will be disabled.
 
 #######################################
 #         qmail-smtpd-submit          #
@@ -355,7 +376,6 @@ submit_dns_paranoia            = 0
 submit_dns_lookup_timeout      = 26
 submit_run_as_user             = vpopmail
 submit_run_as_group            = vchkpw
-submit_chkusr_patch            = 1             # http://www.interazioni.it/qmail/
 submit_auth_enable             = 1             # enable / disable SMTP auth
 submit_checkpasswd_bin         = vpopmail_home_dir/bin/vchkpw
 submit_relay_database          = vpopmail_home_dir/etc/tcp.smtp.cdb
@@ -388,7 +408,7 @@ qmailadmin_help_links           = 1.0.8
 qmailadmin_install_as_root      = 0
 qmailadmin_modify_quotas        = 1
 qmailadmin_domain_autofill      = 1
-qmailadmin_return_to_mailhome   = 1
+qmailadmin_return_to_mailhome   = 0
 qmailadmin_spam_command         = | /usr/local/bin/maildrop /usr/local/etc/mail/mailfilter
 qmailadmin_cgi-bin_dir          = 0  # override toaster_cgi-bin
 qmailadmin_http_docroot         = 0  # override toaster_http_docs
@@ -409,12 +429,20 @@ phpMyAdmin_auth_type            = cookie  ( cookie | http )
 #######################################
 
 simscan_user                   = clamav  # needs to be clamav or root to work with clamav
+simscan_trophie                = 0       # use trophie?
+simscan_clamav                 = 1       # use clamav?
+simscan_ripmime                = 1       # 0, 1  use ripmime?
+simscan_quarantine             = 0       # 0, or a directory for spam/viral messages
 simscan_spamassassin           = 1       # 0, 1
-simscan_received               = 1       # add the Received: by simscan header
-simscan_spam_hits_reject       = 20      # reject messages with a spam score higher than
+simscan_spamc_args             = 0       # 0, list of options to pass to spamc
+simscan_spam_hits_reject       = 12      # reject messages with a spam score higher than
+simscan_spam_passthru          = 0       # allow spam messages to be delivered?
 simscan_per_domain             = 1       # use /var/qmail/control/simcontrol
-simscan_args                   = 0       # 0, list of options to pass to spamc
 simscan_block_attachments      = 1       # block attachments in /var/qmail/control/ssattach
+simscan_block_types            = exe,com,vbs,lnk,scr,wsh,hta,pif
+simscan_received               = 1       # add the Received: by simscan header
+simscan_custom_smtp_reject     = 1       # does qmail have the custom smtp reject patch?
+simscan_regex_scanner          = 0       # 
 
 
 #######################################
@@ -427,6 +455,8 @@ qmail_scanner_postmaster       = 0  # override for toaster_admin_email
 qmail_scanner_notify           = psender,nmlvadm
 qmail_scanner_localdomains     = 0  # comma separated list
 qmail_scanner_block_pass_zips  = 1
+qmail_scanner_user             = clamav
+qmail_scanner_suid_wrapper     = 1
 qmail_scanner_scanners         = clamdscan,fast_spamassassin
     #  auto,none,clamscan,clamdscan,sweep,sophie,vscan,trophie,uvscan,
     #  csav,antivir,kavscanner,AvpLinux,kavdaemon,AvpDaemonClient,fsav,
@@ -466,14 +496,18 @@ maildir_clean_Sent             = 180  # sent messages over x days are removed
 maildir_clean_Trash            = 14   # trashed messages over x days are removed
 maildir_clean_Spam             = 14   # spam messages over x days are removed
 
-maildir_clean_Spam_learn       = 1    # feed spam through sa-learn (SpamAssassin)
-maildir_clean_Read_learn       = 1    # feed ham through sa-learn (SpamAssassin)
-maildir_clean_Read_learn_days  = 0    # only learn from messages older than x days
+#######################################
+#    SpamAssassin Message Learning    #
+#######################################
 
+maildir_learn_interval         = 7    # how many days between spam learning runs
+maildir_learn_Spam             = 1    # feed spam through sa-learn (SpamAssassin)
+maildir_learn_Read             = 1    # feed ham through sa-learn (SpamAssassin)
+maildir_learn_Read_days        = 1    # only learn from messages older than x days
 
 
 #######################################
-#      Maildir Old Message Cleanup    #
+#      Apache Suexec Options          #
 #######################################
 
 apache_suexec_docroot          = /usr/local/www/data
