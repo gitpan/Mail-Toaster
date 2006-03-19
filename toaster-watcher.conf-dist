@@ -1,5 +1,5 @@
 # 
-# $Id: toaster-watcher.conf-dist,v 4.21 2005/04/17 12:52:10 matt Exp $
+# $Id: toaster-watcher.conf-dist,v 4.33 2006/03/18 22:35:36 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
@@ -29,7 +29,7 @@ cvsup_supfile_ports            = /etc/cvsup-ports
 cvsup_supfile_sources          = /etc/cvsup-stable
 
 toaster_pkg_site               = ftp://ftp.freebsd.org
-toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
+toaster_sf_mirror              = umn.dl.sourceforge.net/sourceforge
 toaster_dl_site                = http://www.tnpi.biz    # select a mirror
 toaster_dl_url                 = /internet/mail/toaster
 toaster_version                = 0     # 0 = latest release # v = 4.01
@@ -37,6 +37,7 @@ toaster_http_base              = /usr/local/www
 toaster_http_docs              = /usr/local/www/data
 toaster_cgi-bin                = /usr/local/www/cgi-bin
 toaster_tmp_dir                = /tmp
+toaster_prefix                 = /usr/local
 toaster_src_dir                = /usr/local/src
 toaster_debug                  = 0
 toaster_hostname               = mail.example.com
@@ -68,14 +69,15 @@ supervise_rebuilt_notice       = 1      # email admin when a supervise run file 
 
 install_squirrelmail           = port   # 0, ver, port (1.4.3a)
 install_squirrelmail_sql       = 0      # use MySQL for user prefs and address book?
-install_apache                 = 2      # 0, 1, 2
+install_apache                 = 2      # 0, 1, 2, 21, 22
+install_apache_etc             = 0      # defaults to /usr/local/etc/apache[2]
 install_apache_user            = www
-install_apache2_modperl        = 1      # 0, 1, ver
+install_apache2_modperl        = 0      # 0, 1, ver
 install_apache_suexec          = 0      # 0, 1
 install_apache_proxy           = 0      # 0, 1
 install_php                    = 4      # 0, 4, 5, ver
-install_phpmyadmin             = 1      # 0, 1
-install_mysql                  = 4      # 0, 1 (package), 2 (latest stable), 3, 4, 5
+install_phpmyadmin             = 0      # 0, 1
+install_mysql                  = 41     # 0, 1, 2, 3, 40, 41, 5
 install_mysql_ssl              = 1
 install_mysql_linuxthreads     = 0
 install_mysql_optimized        = 1
@@ -84,18 +86,22 @@ install_courier_imap           = port   # 0, ver, port (3.0.8)
 install_sqwebmail              = port   # 0, ver, port (4.0.7)
 install_qmail                  = 1.03   # 0, ver       (1.03)
 install_netqmail               = 1.05   # 0, ver       (1.05)
-install_qmailadmin             = 1.2.7  # 0, ver, port (1.2.7)
-install_vpopmail               = 5.4.8  # ver, port    (5.4.7)
-install_vqadmin                = 0      # 0, ver
+install_qmailadmin             = 1.2.9  # 0, ver, port (1.2.9)
+install_vpopmail               = 5.4.10 # ver, port    (5.4.7)
+install_vqadmin                = 0      # 0, ver, port
 install_isoqlog                = port   # 0, ver, port (2.2)
 install_portupgrade            = 1
-install_openldap_client        = 1
+install_portaudit              = 1
+install_openldap_client        = 0
 install_net_snmpd              = 4      # 4, 5
 install_rrdutil                = 1
 install_ezmlm                  = 0.42   # 0, ver
-install_ezmlm_cgi              = 0      # 0, 1
+install_ezmlm_cgi              = 0
 install_openssl_port           = 1
 install_qmail_notify           = 0
+install_aspell                 = 0
+install_ispell                 = 1
+install_quota_tools            = 0
 
 
 ######################################
@@ -104,23 +110,23 @@ install_qmail_notify           = 0
 
 install_mail_filtering         = 1
 install_procmail               = 0
-install_maildrop               = 1
+install_maildrop               = 1     # 0, 1, ver
 install_spamassassin           = 1
 install_spamassassin_flags     = -d -v -x -r /var/run/spamd.pid  # Add -q for per user SQL prefs
 install_spamassassin_sql       = 0       # use AWL, bayes, and per-user prefs from MySQL
 install_spamassassin_dbuser    = spamassassin
 install_spamassassin_dbpass    = assSPAMing
-install_dspam                  = 1
-install_simscan                = 1.1     # 0, ver
-install_qmailscanner           = 0       # 0, ver (1.25  is latest as of 04/08/05)
-install_qmailscanner_stats     = 0       # 0, ver (2.0.2 is latest as of 02/02/05)
-install_clamav                 = 1
+install_dspam                  = 0
+install_simscan                = 1.2     # 0, ver
+install_qmailscanner           = 0       # 0, ver       (1.25  as of 04/08/05)
+install_qmailscanner_stats     = 0       # 0, ver       (2.0.2 as of 02/02/05)
+install_clamav                 = port    # 0, port, ver (0.84  as of 05/02/05)
 install_clamav_user            = clamav  # qscand | clamav
 install_pyzor                  = 0
-install_razor                  = 1
+install_razor                  = port    # 0, port, ver (2.80  as of 03/15/06)
 install_bogofilter             = 0
-install_dcc                    = 1
-install_ripmime                = port    # 0, port, ver (1.4.0.5 as of 4/18/05)
+install_dcc                    = 0
+install_ripmime                = port    # 0, port, ver (1.4.0.6 as of 3/15/06)
 
 filtering_method                   = tcpserver  # smtp | tcpserver  # see docs for details
 filtering_spamassassin_method      = site       # site | user | domain
@@ -150,6 +156,7 @@ qmail_smtp_reject_patch        = 1
 qmail_mfcheck_enable           = 1
 qmail_tarpit_count             = 50
 qmail_tarpit_delay             = 5
+qmail_spf_behavior             = 2
 qmail_concurrencyremote        = 255
 qmail_smtpd_auth_0.31          = 0   # leave this zero unless you know better!
 qmail_queue_extra              = 0             # 0, 1
@@ -246,6 +253,8 @@ smtpd_relay_database            = vpopmail_home_dir/etc/tcp.smtp.cdb
 smtpd_qmail_queue               = /var/qmail/bin/qmail-queue
 #smtpd_qmail_queue               = /var/qmail/bin/simscan
 #smtpd_qmail_queue               = /var/qmail/bin/qmail-scanner-queue.pl
+smtpd_fixcrio                   = 0
+smtpd_recordio                  = 0
 
 ##
 # smtpd_log_method - [ syslog | multilog | debug | stats | disabled ]
@@ -261,51 +270,60 @@ smtpd_log_method                = multilog
 smtpd_log_postprocessor         = maillogs   # maillogs | none
 smtpd_log_maxsize_bytes         = 1000000    # make sure this is larger than 5 minutes of logging
 
-rbl_enable                      = 1    # master RBL switch. Disables all RBLs
-rbl_enable_fail_closed          = 1    # default is on
-rbl_enable_soft_failure         = 1    # default is on (off means bounce immediately (553)
-rbl_timeout                     = 60   # default is 60 seconds
-rbl_reverse_dns                 = 1    # block based on presence of reverse DNS
-rbl_reverse_dns_failure         = soft # soft | hard  (temporary (451) or permanent (553) error)
-                                       # currently the only way to block based on DNS is modifying
-                                       # your ~vpopmail/etc/tcp.smtp file. See the FAQ for details
-                                       # Eventually toaster-watcher will be able to set that up
-rbl_sbl.spamhaus.org            = 0    # http://www.spamhaus.org/sbl/
-rbl_xbl.spamhaus.org            = 0    # http://www.spamhaus.org/xbl/
-rbl_sbl-xbl.spamhaus.org        = 1    # http://www.spamhaus.org/
-rbl_bl.ordb.org                 = 1    # http://www.ordb.org/
-rbl_list.dsbl.org               = 1    # http://dsbl.org/
-rbl_bl.spamcop.net              = 1    # http://www.spamcop.net/
-rbl_relays.ordb.org             = 1
-rbl_rbl-plus.mail-abuse.org     = 0    # Subscription only!
-rbl_blackholes.mail-abuse.org   = 0    # Subscription only!
-rbl_relays.mail-abuse.org       = 0    # Subscription only!
-rbl_dialups.mail-abuse.org      = 0    # Subscription only!
-rbl_korea.services.net          = 1    # Block all of Korea
-rbl_cn.rbl.cluecentral.net      = 1    # Block all of China
-rbl_kr.rbl.cluecentral.net      = 1    # Block all of Korea
-rbl_dsn.rfc-ignorant.org        = 1    # http://rfc-ignorant.org/
+rbl_enable                      = 1       # master RBL switch. Disables all RBLs
+rbl_enable_fail_closed          = 1       # default is on
+rbl_enable_soft_failure         = 1       # default is on (off means bounce immediately (553)
+rbl_enable_lookup_using         = net-dns # dig, net-dns
+rbl_timeout                     = 60      # default is 60 seconds
+rbl_reverse_dns                 = 1       # block based on presence of reverse DNS
+rbl_reverse_dns_failure         = soft    # soft | hard  (temporary (451) or permanent (553) error)
+                                          # currently the only way to block based on DNS is modifying
+                                          # your ~vpopmail/etc/tcp.smtp file. See the FAQ for details
+rbl_sbl.spamhaus.org            = 0       # http://www.spamhaus.org/sbl/
+rbl_xbl.spamhaus.org            = 0       # http://www.spamhaus.org/xbl/
+rbl_sbl-xbl.spamhaus.org        = 1       # http://www.spamhaus.org/
+rbl_relays.ordb.org             = 1       # http://www.ordb.org/
+rbl_list.dsbl.org               = 1       # http://dsbl.org/
+rbl_bl.spamcop.net              = 1       # http://www.spamcop.net/
+rbl_rbl-plus.mail-abuse.org     = 0       # Subscription only!
+rbl_blackholes.mail-abuse.org   = 0       # Subscription only!
+rbl_relays.mail-abuse.org       = 0       # Subscription only!
+rbl_dialups.mail-abuse.org      = 0       # Subscription only!
+rbl_korea.services.net          = 1       # Block all of Korea
+rbl_dsn.rfc-ignorant.org        = 1       # http://rfc-ignorant.org/
 rbl_whois.rfc-ignorant.org      = 1
-rbl_abuse.rfc-ignorant.org      = 1
-rbl_postmaster.rfc-ignorant.org = 1
-rbl_relays.visi.com             = 1    # donation required
-rbl_dialups.visi.com            = 1
-rbl_opm.blitzed.org             = 1
-rbl_dnsbl.sorbs.net             = 1   # http://www.dnsbl.sorbs.net/
-rbl_dynablock.sorbs.net         = 1
-rbl_zombie.dnsbl.sorbs.net      = 0
+rbl_abuse.rfc-ignorant.org      = 1       # http://www.rfc-ignorant.org/policy-abuse.php
+rbl_postmaster.rfc-ignorant.org = 1       # http://www.rfc-ignorant.org/policy-postmaster.php
+rbl_bogusmx.rfc-ignorant.org    = 1       # http://www.rfc-ignorant.org/policy-bogusmx.php
+rbl_opm.blitzed.org             = 0       # http://opm.blitzed.org/info (part of xbl)
+rbl_dnsbl.sorbs.net             = 1       # aggregate: includes all sorbs.net lists
+rbl_dul.dnsbl.sorbs.net         = 0   
+rbl_zombie.dnsbl.sorbs.net      = 0       # http://www.dnsbl.sorbs.net/
 rbl_socks.dnsbl.sorbs.net       = 0
-rbl_spews.blackhole.us          = 0
-rbl_combined.njabl.org          = 0   # untested - http://www.dnsbl.njabl.org/
-rbl_dev.null.dk                 = 0   # DEAD
-rbl_relays.osirusoft.com        = 0   # DEAD
-rbl_formmail.relays.monkeys.com = 0   # monkeys.com DEAD as of 2003.09.22
-rbl_proxies.relays.monkeys.com  = 0   # monkeys.com DEAD as of 2003.09.22
-rbl_abuse.easynet.nl            = 0   # DEAD as of 2003.12.11
+#          new and not heavily tested as of 5/1/05
+rbl_combined.njabl.org          = 0       # aggregate: all njabl.org lists
+rbl_dnsbl.njabl.org             = 0       # http://www.dnsbl.njabl.org/
+rbl_dynablock.njabl.org         = 0       # http://www.dnsbl.njabl.org/
+rbl_dnsbl.ahbl.org              = 0       # http://www.ahbl.org/
+rbl_multi.surbl.org             = 0       # http://www.surbl.org/
+rbl_cn-kr.blackholes.us         = 0       # block china & korea
+rbl_cbl.abuseat.org             = 0       # http://cbl.abuseat.org/ (part of sbl-xbl)
+#       end of new and untested
+rbl_spews.blackhole.us          = 0       # not availble directly - part of dnsbl.sorbs.net
+rbl_bl.ordb.org                 = 0       # DEAD - use relays.ordb.org instead
+rbl_dialups.visi.com            = 0       # DEAD - no NS records as of 2004.05.02
+rbl_relays.visi.com             = 0       # DEAD - donation required
+rbl_cn.rbl.cluecentral.net      = 0       # DEAD - Block all of China  
+rbl_kr.rbl.cluecentral.net      = 0       # DEAD - Block all of Korea
+rbl_dev.null.dk                 = 0       # DEAD
+rbl_relays.osirusoft.com        = 0       # DEAD
+rbl_formmail.relays.monkeys.com = 0       # monkeys.com DEAD as of 2003.09.22
+rbl_proxies.relays.monkeys.com  = 0       # monkeys.com DEAD as of 2003.09.22
+rbl_abuse.easynet.nl            = 0       # DEAD as of 2003.12.11
 
-rwl_enable                      = 1   # master RWL switch. Disables all RWLs
-rwl_qmail.bondedsender.org      = 1   # http://www.bondedsender.org/
-rwl_list.example.com            = 0   # realtime white list example
+rwl_enable                      = 0       # master RWL switch. Disables all RWLs
+rwl_qmail.bondedsender.org      = 0       # http://www.bondedsender.org/
+rwl_list.example.com            = 0       # realtime white list example
 
 
 #######################################
@@ -500,7 +518,7 @@ maildir_clean_Spam             = 14   # spam messages over x days are removed
 #    SpamAssassin Message Learning    #
 #######################################
 
-maildir_learn_interval         = 7    # how many days between spam learning runs
+maildir_learn_interval         = 1    # how many days between spam learning runs
 maildir_learn_Spam             = 1    # feed spam through sa-learn (SpamAssassin)
 maildir_learn_Read             = 1    # feed ham through sa-learn (SpamAssassin)
 maildir_learn_Read_days        = 1    # only learn from messages older than x days
@@ -519,4 +537,16 @@ apache_suexec_gidmin           = 1000
 apache_suexec_caller           = www
 apache_suexec_umask            =
 
+
+#######################################
+#      OpenSSL config values          #
+#######################################
+
+ssl_certificate                = 0    # /path/to/certificate/file.pem
+ssl_country                    = US
+ssl_state                      = Michigan
+ssl_organization               = Example.com
+ssl_locality                   = Cadillac
+ssl_common_name                = mail.example.com
+ssl_email_address              = hostmaster@example.com
 

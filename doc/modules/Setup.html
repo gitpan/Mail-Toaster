@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Setup</title>
-<link rev="made" href="mailto:matt@g5e.simerson.net" />
+<link rev="made" href="mailto:matt@g5.simerson.net" />
 </head>
 
 <body style="background-color: white">
@@ -21,6 +21,7 @@
 		<li><a href="#apache">apache</a></li>
 		<li><a href="#autorespond">autorespond</a></li>
 		<li><a href="#clamav">clamav</a></li>
+		<li><a href="#config">config</a></li>
 		<li><a href="#courier">courier</a></li>
 		<li><a href="#courier_config">courier_config</a></li>
 		<li><a href="#daemontools">daemontools</a></li>
@@ -53,9 +54,8 @@
 		<li><a href="#squirrelmail">squirrelmail</a></li>
 		<li><a href="#sqwebmail">sqwebmail</a></li>
 		<li><a href="#supervise">supervise</a></li>
-		<li><a href="#service_dir">service_dir</a></li>
-		<li><a href="#configure_services">configure_services</a></li>
-		<li><a href="#supervise_dirs">supervise_dirs</a></li>
+		<li><a href="#service_symlinks">service_symlinks</a></li>
+		<li><a href="#startup_script">startup_script</a></li>
 		<li><a href="#test">test</a></li>
 		<li><a href="#ucspi_tcp">ucspi_tcp</a></li>
 		<li><a href="#vpopmail">vpopmail</a></li>
@@ -114,6 +114,9 @@
 <p>Install ClamAV, configure the startup and config files, download the latest virus definitions, and start up the daemons.</p>
 <pre>
   $setup-&gt;clamav($conf);</pre>
+<p>
+</p>
+<h2><a name="config">config</a></h2>
 <p>
 </p>
 <h2><a name="courier">courier</a></h2>
@@ -307,47 +310,34 @@
         $setup-&gt;supervise($conf);</pre>
 <p>One stop shopping: calls the following subs:</p>
 <pre>
-  $qmail-&gt;configure_qmail_control($conf);
-  $setup-&gt;service_dir($conf);
-  $setup-&gt;supervise_dirs($conf);
-  $qmail-&gt;install_supervise_run($conf);
-  $qmail-&gt;install_supervise_log_run($conf);
-  $setup-&gt;configure_services($conf, $supervise);</pre>
+  $qmail-&gt;control_create($conf);
+  $setup-&gt;service_dir_create($conf);
+  $toaster-&gt;supervise_dirs_create($conf);
+  $qmail-&gt;install_qmail_control_files($conf);
+  $qmail-&gt;install_qmail_control_log_files($conf);
+  $setup-&gt;service_symlinks($conf, $debug);</pre>
 <p>
 </p>
-<h2><a name="service_dir">service_dir</a></h2>
-<p>Create the supevised services directory (if it doesn't exist).</p>
-<pre>
-        $setup-&gt;service_dir($conf);</pre>
-<p>Also sets the permissions to 775.</p>
-<p>
-</p>
-<h2><a name="configure_services">configure_services</a></h2>
+<h2><a name="service_symlinks">service_symlinks</a></h2>
 <p>Sets up the supervised mail services for Mail::Toaster</p>
 <pre>
-        $setup-&gt;configure_services($conf, $supervise);</pre>
-<p>This creates (if it doesn't exist) your qmail service directory (default /var/service) and populates it with symlinks to the supervise control directories (typically /var/qmail/supervise). Creates and sets permissions on the following directories and files:</p>
+        $setup-&gt;service_symlinks($conf, $debug);</pre>
+<p>This populates the supervised service directory (default: /var/service) with symlinks to the supervise control directories (typically /var/qmail/supervise/*). Creates and sets permissions on the following directories and files:</p>
 <pre>
-  /var/service
   /var/service/pop3
   /var/service/smtp
   /var/service/send
-  /var/service/submit
-  /usr/local/etc/rc.d/services.sh
-  /usr/local/sbin/services</pre>
+  /var/service/submit</pre>
 <p>
 </p>
-<h2><a name="supervise_dirs">supervise_dirs</a></h2>
-<p>Creates the qmail supervise directories.</p>
+<h2><a name="startup_script">startup_script</a></h2>
+<p>Sets up the supervised mail services for Mail::Toaster</p>
 <pre>
-        $setup-&gt;supervise_dirs($conf, $debug);</pre>
-<p>The default directories created are:</p>
+        $setup-&gt;startup_script($conf, $debug);</pre>
+<p>This creates (if it doesn't exist) your daemontools service directory (default /var/service) and creates the symlink to the services link so you can run ``services stop'' or ``services start'' on your system. It affects the following files:</p>
 <pre>
-  $supervise/smtp
-  $supervise/submit
-  $supervise/send
-  $supervise/pop3</pre>
-<p>unless otherwise specified in $conf</p>
+  etc/rc.d/[svscan|services].sh
+  /usr/local/sbin/services</pre>
 <p>
 </p>
 <h2><a name="test">test</a></h2>
@@ -411,27 +401,11 @@
 <p>The following are all man/perldoc pages:</p>
 <pre>
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility</pre>
-<pre>
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
- <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
 <p>
 </p>
 <hr />

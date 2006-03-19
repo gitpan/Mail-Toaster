@@ -2,26 +2,26 @@
 use strict;
 
 #
-# $Id: index.cgi,v 4.2 2005/03/21 16:20:52 matt Exp $
+# $Id: admin.cgi,v 1.1 2005/11/21 01:16:58 matt Exp $
 #
 
 use vars qw/ $VERSION /;
 
-$VERSION = "4.00";
+$VERSION = "1.0";
 
 use CGI qw(:standard);
 use CGI::Carp qw( fatalsToBrowser );
 
-use Mail::Toaster::Perl;      my $perl    = Mail::Toaster::Perl->new();
-use Mail::Toaster::CGI;       my $mt_cgi  = Mail::Toaster::CGI->new();
-use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Perl;      my $perl   = Mail::Toaster::Perl->new;
+use Mail::Toaster::CGI;       my $mt_cgi = Mail::Toaster::CGI->new;
+use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new;
 
 $perl->module_load( {module=>"HTML::Template", ports_name=>"p5-HTML-Template", ports_group=>"www"} );
 
 $mt_cgi->process_shell() unless $ENV{'GATEWAY_INTERFACE'};
 
 my $cgi      = new CGI;
-my $template = HTML::Template->new(filename => 'index.tmpl');
+my $template = HTML::Template->new(filename => 'admin.tmpl');
 my $editable = 1;
 my $email    = $cgi->param('email'); 
 my $c_email  = $cgi->cookie('email');
@@ -75,11 +75,6 @@ if ( $conf->{'web_v-webmail'} ) {
 }
 else { $template->param(vwebmail => ""); };
 
-if ( $conf->{'web_imp'} ) {
-	$template->param(imp => $mt_cgi->imp_submit($conf, $ssl, $host) );
-}
-else { $template->param(imp => ""); };
-
 if ( $conf->{'web_qmailadmin'} ) {
 	$template->param(qmailadmin => $mt_cgi->qmailadmin_submit($conf, $ssl, $host) );
 }
@@ -100,12 +95,12 @@ if ( $conf->{'web_qs_stat'} ) { $stats++;
 }
 else { $template->param(qs_stat => ""); };
 
-$template->param(head     => $mt_cgi->heading      ($conf            ) );
-$template->param(instruct => $mt_cgi->instructions ($conf            ) );
-$template->param(logo     => $mt_cgi->logo         ($conf            ) );
-$template->param(email    => $mt_cgi->email_line   ($email, $editable) );
-$template->param(save     => $mt_cgi->cookie_line  ($editable        ) );
-$template->param(ssl      => $mt_cgi->ssl_line     ($ssl, $editable  ) );
+$template->param(head     => $mt_cgi->heading       ($conf            ) );
+$template->param(instruct => $mt_cgi->instructions  ($conf            ) );
+$template->param(logo     => $mt_cgi->logo          ($conf            ) );
+$template->param(email    => $mt_cgi->email_line    ($email, $editable) );
+$template->param(save     => $mt_cgi->cookie_line   ($editable        ) );
+$template->param(ssl      => $mt_cgi->ssl_line      ($ssl, $editable  ) );
 $template->param(host     => $host);
 $template->param(version  => $VERSION);
 $template->param(stats    => $stats);
@@ -113,7 +108,6 @@ $template->param(stats    => $stats);
 print $template->output;
 
 exit 1;
-__END__
 
 
 =head1 LICENSE

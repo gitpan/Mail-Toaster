@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Logs</title>
-<link rev="made" href="mailto:matt@g5e.simerson.net" />
+<link rev="made" href="mailto:matt@g5.simerson.net" />
 </head>
 
 <body style="background-color: white">
@@ -22,7 +22,7 @@
 		<li><a href="#checksetup">CheckSetup</a></li>
 		<li><a href="#checkforflags">CheckForFlags</a></li>
 		<li><a href="#rbl_count">rbl_count</a></li>
-		<li><a href="#smtp_count">smtp_count</a></li>
+		<li><a href="#smtp_auth_count">smtp_auth_count</a></li>
 		<li><a href="#send_count">send_count</a></li>
 		<li><a href="#imap_count">imap_count</a></li>
 		<li><a href="#pop3_count">pop3_count</a></li>
@@ -109,9 +109,9 @@
         $logs-&gt;rbl_count($conf, $debug);</pre>
 <p>
 </p>
-<h2><a name="smtp_count">smtp_count</a></h2>
+<h2><a name="smtp_auth_count">smtp_auth_count</a></h2>
 <pre>
-        $logs-&gt;smtp_count($conf, $syslog);</pre>
+        $logs-&gt;smtp_auth_count($conf, $syslog);</pre>
 <p>Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd daemon.</p>
 <p>
 </p>
@@ -269,27 +269,11 @@
 <p>The following are all man/perldoc pages:</p>
 <pre>
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility</pre>
-<pre>
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
- <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
 <p>
 </p>
 <hr />

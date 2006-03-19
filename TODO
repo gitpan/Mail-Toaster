@@ -1,13 +1,17 @@
  
 #
-# $Id: TODO,v 4.2 2004/12/10 03:18:18 matt Exp $
+# $Id: TODO,v 4.4 2006/03/18 15:00:44 matt Exp $
 #
 
  - qmail-verh patch
  - dovecot IMAP/POP3 server
  - qscanq support
  - make sure [service]_debug works
- - update UpdateVirusBlocks so IP's don't get listed twice
+
+- DONE - 03/07/2006
+ - launchd startup script for Darwin implemented
+ - qqtool needs work!
+ - update UpdateVirusBlocks so IP's don't get listed twice (deprecated function)
 
 - DONE - 12/08/2004 
     (requested by Donavan, financed by Stella)

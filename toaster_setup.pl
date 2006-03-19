@@ -4,10 +4,10 @@ use strict;
 use vars qw( $VERSION );
 
 #
-# $Id: toaster_setup.pl,v 4.20 2005/04/17 12:52:10 matt Exp $
+# $Id: toaster_setup.pl,v 4.25 2005/11/21 01:16:58 matt Exp $
 #
 
-$VERSION = "4.04";
+$VERSION = "4.09";
 
 =head1 NAME
 
@@ -30,6 +30,8 @@ A complete set of instructions for building a mail toaster are on the toaster in
 =cut
 
 use Getopt::Long;
+use lib "lib";
+use Mail::Toaster;            my $toaster = new Mail::Toaster;
 use Mail::Toaster::FreeBSD 4; my $freebsd = new Mail::Toaster::FreeBSD;
 use Mail::Toaster::Perl    4; my $perl    = new Mail::Toaster::Perl;
 use Mail::Toaster::Qmail   4; my $qmail   = new Mail::Toaster::Qmail;
@@ -37,14 +39,15 @@ use Mail::Toaster::Setup   4; my $setup   = new Mail::Toaster::Setup;
 use Mail::Toaster::Utility 4; my $utility = new Mail::Toaster::Utility;
 use Mail::Toaster::Apache  4; my $apache  = new Mail::Toaster::Apache;
 
-use vars qw/ $conf /;
+use vars qw/ $conf $debug/;
 
 $| = 1;
 
 my %options = (
-	'action=s'    => \my $action,
-	'secti=s'     => \my $section,
-	'debug=s'     => \my $debug
+	'action=s'   => \my $action,
+	'secti=s'    => \my $section,
+	'debug=s'    => \$debug,
+	'verbose=s'  => \$debug,
 );
 GetOptions (%options);
 
@@ -65,7 +68,7 @@ An -a upgrade option is planned.
 $action ||= "install";
 unless ( $section ) { usage(); die "You must choose a section!\n"; };
 
-unless ( -e "/usr/local/etc/toaster-watcher.conf") 
+unless ( -e "/usr/local/etc/toaster-watcher.conf" || -e "/opt/local/etc/toaster-watcher.conf" ) 
 {
 	print "\n\nWARNING: You haven't installed toaster-watcher.conf!\n\n\n";
 };
@@ -87,6 +90,7 @@ unless ( $section eq "ports" or $section eq "sources" ) {
 
 if    ( $section eq "pre"         ) { $setup->dependencies($conf)          }
 elsif ( $section eq "perl"        ) { $perl->check($conf, $debug)          }
+elsif ( $section eq "config"      ) { $setup->config($conf, $debug)        }
 
 #  FreeBSD specific
 elsif ( $section eq "ports"       ) { $setup->ports($conf)                 }
@@ -113,7 +117,7 @@ elsif ( $section eq "vpeconfig"   ) { $setup->vpopmail_etc($conf)          }
 elsif ( $section eq "vpopmysql"   ) { $setup->vpopmail_mysql_privs($conf)  }
 elsif ( $section eq "vqadmin"     ) { $setup->vqadmin($conf)               }
 elsif ( $section eq "qmail"       ) { $qmail->install_qmail($conf)         } 
-elsif ( $section eq "qmailconf"   ) { $qmail->config($conf)                } 
+elsif ( $section eq "qmailconf"   ) { $qmail->config($conf, 1)             } 
 elsif ( $section eq "netqmail"    ) { $qmail->netqmail($conf)              } 
 elsif ( $section eq "netqmailmac" ) { $qmail->netqmail_virgin($conf)       } 
 elsif ( $section eq "djbdns"      ) { $setup->djbdns()                     }
@@ -149,9 +153,11 @@ elsif ( $section eq "supervise"   ) { $setup->supervise($conf)             }
 elsif ( $section eq "test"        ) { $setup->test($conf)                  }
 elsif ( $section eq "filtertest"  ) { $setup->filtering_test($conf)        }
 elsif ( $section eq "authtest"    ) { $setup->test_auth($conf)             }
+elsif ( $section eq "proctest"    ) { $toaster->test_processes($conf)      }
 elsif ( $section eq "imap"        ) { $setup->imap_test_auth($conf)        }
 elsif ( $section eq "pop3"        ) { $setup->pop3_test_auth($conf)        }
 elsif ( $section eq "smtp"        ) { $setup->smtp_test_auth($conf)        }
+elsif ( $section eq "rbltest"     ) { $setup->test_rbls($conf)             }
 elsif ( $section eq "test2"       ) { print "ok\n"                         }
 
 #  misc 
@@ -164,6 +170,7 @@ elsif ( $section eq "all"         )
 {
 	$setup->dependencies($conf);
 	$setup->ports($conf);
+	$setup->config($conf);
 	$setup->mysqld($conf); 
 	$setup->apache($conf,2);
 	$setup->phpmyadmin($conf);
@@ -197,6 +204,7 @@ sub usage
 
            pre - installs a list of programs and libraries other toaster components need
           perl - installs or upgrades perl
+        config - walks through configuring toaster*.conf files
 
                      FreeBSD Specific
          ports - updates your ports tree, installs the pkg_* tools
@@ -256,6 +264,8 @@ sub usage
           test - runs a complete test suite against your server
     filtertest - runs the simscan and qmail-scanner email scanner tests
       authtest - authenticates against pop, imap, and smtp servers
+      proctest - check for processes that *should* be running
+imap|pop3|smtp - do authentication test for imap, pop3, or smtp-auth
 
        toaster - install Mail::Toaster
     mattbundle - install MATT::Bundle
@@ -276,6 +286,7 @@ __END__
 
            pre - installs a list of programs and libraries other toaster components need
           perl - installs or upgrades perl
+        config - walks through configuring toaster*.conf files
 
                      FreeBSD Specific
          ports - updates your ports tree, installs the pkg_* tools

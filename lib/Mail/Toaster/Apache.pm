@@ -3,14 +3,14 @@ use strict;
 #use warnings;
 
 #
-# $Id: Apache.pm,v 4.10 2005/04/14 21:07:37 matt Exp $
+# $Id: Apache.pm,v 4.21 2006/03/19 18:43:13 matt Exp $
 #
 
 package Mail::Toaster::Apache;
 
 use Carp;
 use vars qw($VERSION); 
-$VERSION  = '4.07';
+$VERSION  = '4.12';
 
 my $os = $^O;
 
@@ -26,9 +26,10 @@ sub restart($);
 sub vhost_exists;
 sub install_apache2;
 sub install_apache1($;$);
+sub conf_get_dir($);
 sub conf_patch(;$);
 sub RemoveOldApacheSources;
-sub install_ssl_certs(;$);
+sub install_ssl_certs($;$);
 sub OpenSSLConfigNote;
 sub InstallDSACert;
 sub InstallRSACert;
@@ -38,6 +39,7 @@ use lib "../..";
 
 use Mail::Toaster::Perl 1;    my $perl    = Mail::Toaster::Perl->new;
 use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new;
+
 
 =head1 NAME
 
@@ -257,10 +259,24 @@ sub install_apache2
 {
 	my ($self, $conf) = @_;
 
+	my $ver     = $conf->{'install_apache'} || 2;
+	my $prefix  = $conf->{'toaster_prefix'} || "/usr/local";
+
 	if ( $os eq "freebsd" ) 
 	{
 		use Mail::Toaster::FreeBSD 1;
 		my $freebsd = Mail::Toaster::FreeBSD->new();
+
+		print "install_apache2: building on FreeBSD\n";
+		my $ports_dir = "apache20";
+
+		if ( $ver eq "2" ) {
+			if    ( -d "/usr/ports/www/apache20"  ) { $ports_dir = "apache20"; } 
+			elsif ( -d "/usr/ports/www/apache2"   ) { $ports_dir = "apache2";  }  # old ports location
+			else                                    { $ports_dir = "apache22"; };
+		}
+		elsif ( $ver eq "21" ) { $ports_dir = "apache21"; } 
+		elsif ( $ver eq "22" ) { $ports_dir = "apache22"; };
 
 		print "\n";
 		if ( $] < 5.006 ) 
@@ -271,7 +287,8 @@ sub install_apache2
 
 		if ( $conf->{'package_install_method'} eq "packages" ) 
 		{
-			$freebsd->package_install("apache2", "apache-2");
+			print "install_apache2: attempting package install.\n";
+			$freebsd->package_install($ports_dir, "apache-2");
 			$freebsd->package_install("p5-libwww");
 		};
 
@@ -279,17 +296,42 @@ sub install_apache2
 		$options .= ",WITH_PROXY_MODULES=yes" if $conf->{'install_apache_proxy'};
 		if ( $conf->{'install_apache_suexec'} ) {
 			$options .= ",WITH_SUEXEC=yes";
-			$options .= ",SUEXEC_DOCROOT=$conf->{'apache_suexec_docroot'}" if $conf->{'apache_suexec_docroot'};
-			$options .= ",SUEXEC_USERDIR=$conf->{'apache_suexec_userdir'}" if $conf->{'apache_suexec_userdir'};
+			$options .= ",SUEXEC_DOCROOT=$conf->{'apache_suexec_docroot'}"   if $conf->{'apache_suexec_docroot'};
+			$options .= ",SUEXEC_USERDIR=$conf->{'apache_suexec_userdir'}"   if $conf->{'apache_suexec_userdir'};
 			$options .= ",SUEXEC_SAFEPATH=$conf->{'apache_suexec_safepath'}" if $conf->{'apache_suexec_safepath'};
-			$options .= ",SUEXEC_LOGFILE=$conf->{'apache_suexec_logfile'}" if $conf->{'apache_suexec_logfile'};
-			$options .= ",SUEXEC_UIDMIN=$conf->{'apache_suexec_uidmin'}" if $conf->{'apache_suexec_uidmin'};
-			$options .= ",SUEXEC_GIDMIN=$conf->{'apache_suexec_gidmin'}" if $conf->{'apache_suexec_gidmin'};
-			$options .= ",SUEXEC_CALLER=$conf->{'apache_suexec_caller'}" if $conf->{'apache_suexec_caller'};
-			$options .= ",SUEXEC_UMASK=$conf->{'apache_suexec_umask'}" if $conf->{'apache_suexec_umask'};
+			$options .= ",SUEXEC_LOGFILE=$conf->{'apache_suexec_logfile'}"   if $conf->{'apache_suexec_logfile'};
+			$options .= ",SUEXEC_UIDMIN=$conf->{'apache_suexec_uidmin'}"     if $conf->{'apache_suexec_uidmin'};
+			$options .= ",SUEXEC_GIDMIN=$conf->{'apache_suexec_gidmin'}"     if $conf->{'apache_suexec_gidmin'};
+			$options .= ",SUEXEC_CALLER=$conf->{'apache_suexec_caller'}"     if $conf->{'apache_suexec_caller'};
+			$options .= ",SUEXEC_UMASK=$conf->{'apache_suexec_umask'}"       if $conf->{'apache_suexec_umask'};
 		};
 
-		$freebsd->port_install ("apache2", "www", undef, "apache", $options);
+		print "install_apache2: trying port install from /usr/ports/www/$ports_dir\n";
+		$freebsd->port_install ($ports_dir, "www", undef, "apache", $options);
+
+		if ( $ports_dir eq "apache22" )    # fixup Apache 2.2 installs
+		{
+			chdir("$prefix/www");
+			unless ( -d "data" ) {        # should be there
+				print "woah there Bessy!  What happened to your /usr/local/www/data directory? This should have been created in step two of the installation!\n";
+				return 0;
+			};
+			unless ( -d $ports_dir ) {   # should be there
+				print "Why doesn't /usr/local/www/$ports_dir exist?  Did Apache install correctly?\n";
+				return 0;
+			}
+			my $baddata = "$ports_dir/data";
+			my $badcgi  = "$ports_dir/cgi-bin";
+			unless ( -l $ports_dir ) {   # check if we've already fixed it
+				print "install_apache2: making apache22 compatible with Mail::Toaster.\n";
+				use File::Copy;    # this only works if we're root
+				move ($baddata, "$baddata-dist") or croak "couldn't move $baddata out of the way: $!\n";    
+				move ($badcgi,  "$badcgi-dist") or croak "couldn't move $baddata out of the way: $!\n";    
+				symlink("data", $baddata) or croak "couldn't symlink: $!";
+				symlink("cgi-bin", $badcgi) or croak "couldn't symlink: $!";
+			};
+		}
+
 		$freebsd->port_install ("p5-libwww", "www");
 		$freebsd->port_install ("cronolog", "sysutils");
 
@@ -302,9 +344,9 @@ sub install_apache2
 		};
 
 		if ( $conf->{'install_php'} == "5" ) {
-			$freebsd->port_install ("php5", "lang", undef, undef, "WITH_APACHE2");
+			$freebsd->port_install ("php5", "lang", undef, undef, "WITH_APACHE2=yes BATCH=yes");
 		} else {
-			$freebsd->port_install ("php4", "lang", undef, undef, "WITH_APACHE2");
+			$freebsd->port_install ("php4", "lang", undef, undef, "WITH_APACHE2=yes BATCH=yes");
 		};
 
 		if ( $conf->{'install_apache2_modperl'} ) {
@@ -314,7 +356,7 @@ sub install_apache2
 		$freebsd->rc_dot_conf_check("apache2_enable", "apache2_enable=\"YES\"");
 		$freebsd->rc_dot_conf_check("apache2ssl_enable", "apache2ssl_enable=\"YES\"");
 
-		$self->install_ssl_certs();
+		$self->install_ssl_certs($conf);
 		$self->conf_patch($conf);
 	}
 	elsif ( $os eq "darwin" )
@@ -408,24 +450,35 @@ Builds and installs SSL certificates in the locations that Apache expects to fin
 
 =cut
 
-sub install_ssl_certs(;$)
+sub install_ssl_certs($;$)
 {
-	my ($self, $type) = @_;
+	my ($self, $conf, $type) = @_;
 
-	my $crtdir = "/usr/local/etc/apache2/ssl.crt";
+	print "install_ssl_certs: preparing to set up SSL certs for Apache.\n";
+
+	my $prefix    = $conf->{'toaster_prefix'}    || "/usr/local";
+	my $etcdir    = $conf->{'system_config_dir'} || "/usr/local/etc";
+
+	my $apacheconf = $self->conf_get_dir($conf);
+
+	print "install_ssl_certs: detected apache config dir $apacheconf.\n";
+
+	my $crtdir = "$etcdir/$apacheconf/ssl.crt";
+	print "install_ssl_certs: installing certificates into $crtdir.\n";
 	unless (-d $crtdir) { $utility->syscmd("mkdir -p $crtdir"); };
 
-	my $keydir = "/usr/local/etc/apache2/ssl.key";
+	my $keydir = "$etcdir/$apacheconf/ssl.key";
+	print "install_ssl_certs: installing keys into $keydir.\n";
 	unless (-d $keydir) { $utility->syscmd("mkdir -p $keydir"); };
 
 	if ($type eq "rsa") 
 	{
-		unless ( -e "$crtdir/server.crt" ) 
+		if ( -e "$crtdir/server.crt" ) 
 		{
+			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
+		} else {
 			OpenSSLConfigNote();
 			InstallRSACert($crtdir, $keydir);
-		} else {
-			print "install_ssl_certs: $crtdir/server.crt is already installed!\n";
 		};
 	} 
 	elsif ( $type eq "dsa" ) 
@@ -464,6 +517,7 @@ On FreeBSD, we use the rc.d script if it's available because it's smarter than a
 
 =cut
 
+
 sub restart($)
 {
 	my ($self, $vals) = @_;
@@ -491,6 +545,7 @@ sub restart($)
 		}
 	};
 };
+
 
 =head2 vhost_create
 
@@ -522,8 +577,11 @@ Create an Apache vhost container like this:
  customerror - obvious
       sslkey - SSL certificate key
      sslcert - SSL certificate
- 
+
+This sub works great. :-)
+
 =cut
+
 
 sub vhost_create($$)
 {
@@ -597,6 +655,7 @@ sub vhost_create($$)
 	return { error_code=>200, error_desc=>"vhost creation successful"};
 };
 
+
 =head2 vhost_enable
 
 Enable a (previously) disabled virtual host. 
@@ -604,6 +663,7 @@ Enable a (previously) disabled virtual host.
     $apache->vhost_enable($vals, $conf);
 
 =cut
+
 
 sub vhost_enable($$)
 {
@@ -1005,6 +1065,26 @@ sub vhosts_get_match
 };
 
 
+
+sub conf_get_dir($)
+{
+	my ($self, $conf) = @_;
+
+	my $prefix    = $conf->{'toaster_prefix'} || "/usr/local";
+	my $apachectl = "$prefix/sbin/apachectl";
+	unless ( -x $apachectl ) {
+		$apachectl = $utility->find_the_bin("apachectl");
+	}
+	unless ( -x $apachectl ) {
+		croak "apache->conf_get_dir: failed to find apachectl!  Is Apache installed correctly?\n";
+	}
+
+	my @foo = split(/=/, `$apachectl -V | grep SERVER_CONFIG_FILE`);
+	@foo = split(/\//, $foo[1]);
+	return $foo[1];
+};
+
+
 =head2 conf_patch
 
 	use Mail::Toaster::Apache;
@@ -1020,29 +1100,39 @@ sub conf_patch(;$)
 {
 	my ($self, $conf) = @_;
 
-	my $prefix = "/usr/local/etc/apache2";
+	my $prefix     = $conf->{'toaster_prefix'}    || "/usr/local";
+	my $etcdir     = $conf->{'system_config_dir'} || "/usr/local/etc";
+	my $patchdir   = "$etcdir/apache2";
+	my $apacheconf = "$etcdir/apache";
 
-	if ($conf->{'install_apache'} == 1 && $os eq "freebsd" ) { $prefix = "/usr/local/etc/apache" };
-	if ($conf->{'install_apache'} == 2 && $os eq "darwin"  ) { $prefix = "/etc/httpd"; };
+	print "apache_conf_patch: applying toaster patches to httpd.conf\n";
 
-	(-d $prefix) ? chdir($prefix) : croak "$prefix doesn't exist!\n";
+	if ( $os eq "freebsd" ) {
+		$apacheconf = $self->conf_get_dir($conf) unless (-d $apacheconf);
+	};
 
-	unless ( -e "$prefix/httpd.conf-2.0.patch")
+	print "apache_conf_patch: httpd.conf is at $apacheconf\n";
+
+	if ($conf->{'install_apache'} == 2 && $os eq "darwin"  ) { $apacheconf = "/etc/httpd"; };
+
+	(-d $apacheconf) ? chdir($apacheconf) : croak "$apacheconf doesn't exist!\n";
+
+	unless ( -e "$patchdir/httpd.conf-2.0.patch")
 	{
 		print "conf_patch FAILURE: patch not found!\n";
 		return 1;
 	};
 
-	my $httpd = "$prefix/httpd.conf";
+	my $httpd = "$apacheconf/httpd.conf";
 
-	if ( -e "$prefix/httpd.conf.orig" ) {
+	if ( -e "$apacheconf/httpd.conf.orig" ) {
 		print "NOTICE: skipping. It appears the patch is already applied!\n";
 		return 0;
 	};
 
 	if ( -e $httpd )
 	{
-		if ( $utility->syscmd("patch $httpd $prefix/httpd.conf-2.0.patch") )
+		if ( $utility->syscmd("patch $httpd $patchdir/httpd.conf-2.0.patch") )
 		{
 			print "NOTICE: patch apply failed!\n";
 			return 1;
@@ -1109,7 +1199,6 @@ sub InstallDSACert
 	#$utility->syscmd("openssl req -new -key $keydir/$key -out $crtdir/$csr");
 	#$utility->syscmd("openssl req -x509 -days 999 -key $keydir/$key -in $crtdir/$csr -out $crtdir/$crt");
 
-#	use Mail::Toaster::Perl;
 #	$perl->module_load( {module=>"Crypt::OpenSSL::DSA", ports_name=>"p5-Crypt-OpenSSL-DSA", ports_group=>"security"} );
 #	require Crypt::OpenSSL::DSA;
 #	my $dsa = Crypt::OpenSSL::DSA->generate_parameters( 1024 );
@@ -1132,8 +1221,6 @@ sub InstallRSACert
 {
 	my ($crtdir, $keydir) = @_;
 
-	chdir("/usr/local/etc/apache2");
-
 	my $csr    = "server.csr";
 	my $crt    = "server.crt";
 	my $key    = "server.key";
@@ -1141,6 +1228,13 @@ sub InstallRSACert
 	$utility->syscmd("openssl genrsa 1024 > $keydir/$key");
 	$utility->syscmd("openssl req -new -key $keydir/$key -out $crtdir/$csr");
 	$utility->syscmd("openssl req -x509 -days 999 -key $keydir/$key -in $crtdir/$csr -out $crtdir/$crt");
+
+#	if ($os eq "freebsd") {
+#		require Mail::Toaster::FreeBSD; my $freebsd = new Mail::Toaster::FreeBSD;
+#		$freebsd->port_install("p5-Crypt-OpenSSL-RSA", "security",undef, undef, undef, 1);
+#	};
+#
+#	$perl->module_load( {module=>"Crypt::OpenSSL::RSA"} );
 };
 
 1;
@@ -1163,35 +1257,17 @@ None known. Report any to author.
 
 =head1 TODO
 
-Don't export any of the symbols by default. Move all symbols to EXPORT_OK and explicitely pull in the required ones in programs that need them.
-
 
 =head1 SEE ALSO
 
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 

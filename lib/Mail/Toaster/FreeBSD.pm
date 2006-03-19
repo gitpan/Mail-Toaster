@@ -2,14 +2,14 @@
 use strict;
 
 #
-# $Id: FreeBSD.pm,v 4.11 2005/04/14 21:07:37 matt Exp $
+# $Id: FreeBSD.pm,v 4.17 2006/03/18 22:35:36 matt Exp $
 #
 
 package Mail::Toaster::FreeBSD;
 
 use Carp;
 use vars qw($VERSION $utility $perl);
-$VERSION = '4.08';
+$VERSION = '4.13';
 
 use lib "lib";
 use lib "../..";
@@ -180,12 +180,10 @@ sub jail_create($;$$)
 {
 	my ($self, $vals) = @_;
 
-	my $ip       = $vals->{'ip'};
-	   $ip     ||= $utility->answer("IP address", "10.0.1.160");
+	my $ip       = $vals->{'ip'}         || $utility->answer("IP address", "10.0.1.160");
 	my $hostname = $vals->{'hostname'};
 	my $debug    = $vals->{'debug'};
-	my $dir      = $vals->{'jail_home'};
-	   $dir    ||= $utility->answer("jail root directory", "/mnt/usr/jails");
+	my $dir      = $vals->{'jail_home'}  || $utility->answer("jail root directory", "/mnt/usr/jails");
 
 	unless ( $hostname )
 	{
@@ -261,6 +259,7 @@ sub jail_create($;$$)
 	$utility->file_append("$dir/$ip/etc/hosts", ["$ip $hostname"]);
 	$utility->syscmd("cp /root/.cshrc $dir/$ip/root/.cshrc");
 	$utility->syscmd("cp /etc/ssl/openssl.cnf $dir/$ip/etc/ssl/openssl.cnf");
+	$utility->syscmd("cp /etc/my.cnf $dir/$ip/etc/my.cnf");
 
 	@lines = $utility->file_read("$dir/$ip/etc/ssh/sshd_config");
 	foreach my $line (@lines) {
@@ -334,6 +333,18 @@ sub jail_create($;$$)
 		}
 	};
 
+	if ( $utility->yes_or_no("Install Matt tweaks", 300) ) 
+	{
+		my $home = "/home/matt";
+		if ( -d $home) { 
+			$utility->syscmd("rsync -aW --exclude html $home $dir/$ip/usr/home"); 
+		};
+		if ( -f "/usr/local/etc/sudoers" ) { 	
+			$utility->syscmd("mkdir -p $dir/$ip/usr/local/etc");
+			$utility->syscmd("rsync -aW /usr/local/etc/sudoers $dir/$ip/usr/local/etc/sudoers"); 
+		};
+	};
+	
 	print "You now need to set up the jail. At the very least, you need to:
 
 	1. set root password
@@ -342,15 +353,14 @@ sub jail_create($;$$)
 		a) use sudo (pkg_add -r sudo; visudo)
 		b) add user to wheel group (vi /etc/group)
 		c) modify /etc/ssh/sshd_config to permit root login
-	4. install perl (pkg_add -r perl5.8)
+	4. install perl (pkg_add -r perl/perl5.8)
 
 Here's how I set up my jail:
 
-    pw useradd -n matt -d /home/matt -s /bin/tcsh -m -h 0
+    pw useradd -n matt -d /home/matt -s /bin/tcsh -u 1000 -m -h 0
     passwd root
-    pkg_add -r sudo rsync
+    pkg_add -r sudo rsync perl
     rehash; visudo
-    pkg_add -r perl5.8
     sh /etc/rc
 
 Ssh into the jail from another terminal. Once successfully logged in with root privs, you can drop the initial shell and manage the jail remotely.
@@ -361,6 +371,7 @@ Read the jail man pages for more details.\n\n";
 	{
 		print "starting: jail $dir/$ip $hostname $ip /bin/tcsh\n";
 		$utility->syscmd("jail $dir/$ip $hostname $ip /bin/tcsh");
+		$utility->syscmd("pkg_add -r sudo rsync perl");
 	} 
 	else 
 	{
@@ -639,7 +650,7 @@ And the seventh is debugging. Setting will increase the amount of logging.
 So, a full complement of settings could look like:
 
   
-    $fbsd->port_install("openldap2", "net", "openldap22", "openldap-2.2", "NOPORTDOCS", 0, 1);
+    $fbsd->port_install("openldap2", "net", "openldap22", "openldap-2.2", "NOPORTDOCS=true", 0, 1);
 
 =cut
 
@@ -682,7 +693,8 @@ So, a full complement of settings could look like:
 		chdir($dir) or croak "couldn't cd to $dir: $!\n";
 		if ( $name eq "qmail" ) 
 		{
-			$utility->syscmd( "make enable-qmail clean");
+			$utility->syscmd( "make install; make clean");
+			#$utility->syscmd( "make install; make enable-qmail; make clean");
 			if ( -e "/usr/local/etc/rc.d/qmail.sh" ) 
 			{
 				use File::Copy;
@@ -845,7 +857,9 @@ See the docs for toaster-watcher.conf for complete details.
    considering that the INDEX file often gets outdated because it is updated only 
    once a week or so in the official ports tree, it is recommended that you run
    ``portsdb -Uu'' after every CVSup of the ports tree in order to keep them
-   always up-to-date and in sync with the ports tree.\n";
+   always up-to-date and in sync with the ports tree.
+
+   I never bother to do this, your mileage may vary.\n";
 
 	sleep 2;
 
@@ -857,17 +871,23 @@ See the docs for toaster-watcher.conf for complete details.
 
 	if ( $conf->{'install_portupgrade'} )
 	{
-		my $package = $conf->{'package_install_method'}; $package ||= "packages";
+		my $package = $conf->{'package_install_method'} || "packages";
 
 		if ( $package eq "ports" )
 		{
-			$self->port_install("ruby18", "lang", undef, "ruby-1.8");
-			$self->port_install("ruby-gdbm", "databases", undef, "ruby18-gdbm");
+			$self->port_install("gettext", "devel", undef, undef, "BATCH=yes WITHOUT_GETTEXT_OPTIONS=1", 1 ) 
+				unless $self->is_port_installed("gettext");
+			$self->port_install("ruby18", "lang", undef, "ruby-1.8")
+				unless $self->is_port_installed("ruby18");
+			$self->port_install("ruby-gdbm", "databases", undef, "ruby18-gdbm")
+				unless $self->is_port_installed("ruby-gdbm");
 		}
 		else
 		{
 			unless ( $self->package_install("ruby18_static", "ruby-1.8") )
 			{
+				$self->port_install("gettext", "devel", undef, undef, "BATCH=yes WITHOUT_GETTEXT_OPTIONS=1", 1 ) 
+					unless $self->is_port_installed("gettext");
 				$self->port_install("ruby18", "lang", undef, "ruby-1.8");
 				$self->port_install("ruby-gdbm", "databases", undef, "ruby18-gdbm");
 			};
@@ -877,11 +897,13 @@ See the docs for toaster-watcher.conf for complete details.
 		print "\n\n
 \tAt this point I recommend that you run pkgdb -F, and then 
 \tportupgrade -ai, upgrading everything except XFree86 and 
-\tother non-mail related items.\n\n
+\tother non-mail related items.\n
+
 \tIf you have problems upgrading a particular port, then I recommend
 \tremoving it (pkg_delete port_name-1.2) and then proceeding.\n\n
 \tIf you upgrade perl (yikes), make sure to also rebuild all the perl
-\tmodules you have installed. See the FAQ for details.\n\n";
+\tmodules you have installed. See the toaster FAQ or /usr/ports/UPDATING
+\tfor more details.\n\n";
 	};
 };
 
@@ -936,10 +958,10 @@ sub source_update($)
 {
 	my ($self, $conf) = @_;
 
-	my $cvshost = $conf->{'cvsup_server_preferred'};   $cvshost ||= "fastest";
+	my $cvshost = $conf->{'cvsup_server_preferred'} || "fastest";
 	my $cc      = $conf->{'cvsup_server_country'};
-	my $toaster = $conf->{'toaster_dl_site'} . $conf->{'toaster_dl_url'};
-	$toaster  ||= "http://www.tnpi.biz/internet/mail/toaster";
+	my $toaster = $conf->{'toaster_dl_site'} . $conf->{'toaster_dl_url'}
+		|| "http://www.tnpi.biz/internet/mail/toaster";
 
 	print "\n\nsource_update: Getting ready to update your sources!\n\n";
 
@@ -1067,33 +1089,14 @@ Needs more documentation.
 
 =head1 SEE ALSO
 
-Mail::Toaster, Mail::Toaster::FreeBSD
-
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
-
  http://www.tnpi.biz/computing/freebsd/
 
 

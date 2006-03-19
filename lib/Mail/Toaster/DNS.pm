@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: DNS.pm,v 4.5 2005/03/21 16:20:52 matt Exp $
+# $Id: DNS.pm,v 4.10 2006/03/18 20:13:21 matt Exp $
 #
 
 package Mail::Toaster::DNS;
@@ -10,11 +10,13 @@ package Mail::Toaster::DNS;
 use Carp;
 use vars qw($VERSION);
 
-$VERSION = '4.03';
+$VERSION = '4.07';
 
 use lib "lib";
 use lib "../..";
 
+use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
+my $dig = $utility->find_the_bin("dig");
 
 =head1 NAME
 
@@ -50,7 +52,7 @@ sub new
 
 After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.
 
-	my $r = $dns->rbl_test("bl.example.com");
+	my $r = $dns->rbl_test($conf, "bl.example.com");
 	if ($r) { print "bl tests good!" };
 
 The routine expects to receive the zone of a blacklist to test as it's first argument and a possible debug value (set to a non-zero value) as it's second. 
@@ -63,169 +65,202 @@ If the blacklist fails any test, the sub willl return zero and you should not us
 
 sub rbl_test
 {
-	my ($self, $zone, $debug) = @_;
-	use Mail::Toaster::Perl; my $perl = Mail::Toaster::Perl->new;
-	$perl->module_load( {module=>"Net::DNS", ports_name=>"p5-Net-DNS", ports_group=>"dns"} );
+	my ($self, $conf, $zone, $debug) = @_;
 
-	my $res  = Net::DNS::Resolver->new;
-
-	$res->tcp_timeout(5);   # really shouldn't matter
-	$res->udp_timeout(5);
+#	$net_dns->tcp_timeout(5);   # really shouldn't matter
+#	$net_dns->udp_timeout(5);
 
 	# First we make sure their zone has active name servers
-
-	my $ns    = 0;
-	my $query = $res->query( $self->rbl_test_ns($zone), "NS");
-
-	if ( $query )
-	{
-		foreach my $rr ( $query->answer ) 
-		{
-			next unless ($rr->type eq "NS");
-			$ns++;
-#			print "$zone ns: ", $rr->nsdname, "\n" if $debug;
-		};
-	} 
-	else 
-	{ 
-		carp "ns query failed for $zone: ", $res->errorstring if $debug;
-		return 0; 
-	};
-
-	return 0 unless ($ns > 0);
-	print "good, we have $ns NS servers, we can go on.\n" if $debug;
+	return 0 unless $self->rbl_test_ns($conf, $zone, $debug);
 
 	# then we test an IP that should always return an A record
 	# for most RBL's this is 127.0.0.2, (2.0.0.127.bl.example.com)
+	return 0 unless $self->rbl_test_positive_ip($conf, $zone, $debug);
+
+	# Now we test an IP that should always yield a negative response
+	return 0 unless $self->rbl_test_negative_ip($conf, $zone, $debug);
+
+	return 1;
+};
+
+
+=head2 rbl_test_ns
+
+	my $count = $t_dns->rbl_test_ns($conf, $rbl, $debug);
+
+$rbl is the reverse zone we use to test this rbl.
+
+This script requires a zone name. It will then return a count of how many NS records exist for that zone. This sub is used by the rbl tests. Before we bother to look up addresses, we make sure valid nameservers are defined.
+
+=cut
+
+sub rbl_test_ns
+{
+	my ($self, $conf, $rbl, $debug) = @_;
+
+	my $ns = 0;
+	my $testns = $rbl;
+
+	if    ( $rbl =~ /rbl\.cluecentral\.net$/ ) { $testns = "rbl.cluecentral.net" }
+	elsif ( $rbl eq "spews.blackhole.us"     ) { $testns = "ls.spews.dnsbl.sorbs.net" }
+	elsif ( $rbl =~ /\.dnsbl\.sorbs\.net$/   ) { $testns = "dnsbl.sorbs.net"     }
+
+	if ( $conf && $conf->{'rbl_enable_lookup_using'} && $conf->{'rbl_enable_lookup_using'} eq "dig" && -x $dig )    # dig is installed
+	{
+		foreach (`$dig ns $testns +short`) { $ns++; print "rbl_test_ns: found $_\n" if $debug; };
+	} 
+	else 
+	{
+		require Mail::Toaster::Perl; my $perl = Mail::Toaster::Perl->new;
+		$perl->module_load( {module=>"Net::DNS", ports_name=>"p5-Net-DNS", ports_group=>"dns"} );
+		my $net_dns  = Net::DNS::Resolver->new;
+
+		my $query = $net_dns->query( $testns, "NS");
+		unless ( $query ) {
+			carp "ns query failed for $rbl: ", $net_dns->errorstring if $debug;
+			return 0;
+		};
+
+		foreach ( $query->answer )
+		{
+			next unless ($_->type eq "NS");
+			$ns++;
+			print "$rbl ns: ", $_->nsdname, "\n" if $debug;
+		}
+	}
+
+	print "rbl_test_ns: found $ns NS servers.\n" if $debug;
+	$ns > 0 ? return 1 : return 0;
+};
+
+
+=head2 rbl_test_positive_ip
+
+	$t_dns->rbl_test_positive_ip($conf, $rbl);
+
+$rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.
+
+Some RBLs have test IP's to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.
+
+In the case of rfc-ignorant.org, they have no known test IPs and thus we have to skip testing them.
+
+=cut
+
+sub rbl_test_positive_ip
+{
+	my ($self, $conf, $rbl, $debug) = @_;
 
 	my $ip      = 0;
-	my $test_ip = $self->rbl_test_positive_ip($zone);
+	my $test_ip = $rbl;
 
-	if ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
+	if    ( $rbl eq "korea.services.net"     ) { $test_ip = "61.96.1.1"    } 
+	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { $test_ip = "61.96.1.1"    }
+	elsif ( $rbl eq "cn-kr.blackholes.us"    ) { $test_ip = "61.96.1.1"    }
+	elsif ( $rbl eq "cn.rbl.cluecentral.net" ) { $test_ip = "210.52.214.8" }
+	elsif ( $rbl =~ /rfc-ignorant\.org$/     ) { return 1;                 } # no test ips!
+	else                                       { $test_ip = "127.0.0.2"    };
+
+	unless ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
 	{
-		my $test = "$4.$3.$2.$1.$zone";
+		print "hrmmm, $test_ip didn't match an IP address format" if $debug;
+		return 0;
+	};
 
-		print "querying $test..." if $debug;
+	my $test = "$4.$3.$2.$1.$rbl";
 
-		my $query = $res->query($test, "A" );
+	print "querying $test..." if $debug;
+
+	if ( $conf && $conf->{'rbl_enable_lookup_using'} && $conf->{'rbl_enable_lookup_using'} eq "dig" && -x $dig )    # dig is installed
+	{
+		foreach (`$dig a $test +short`) { $ip++; print "rbl_test_pos: found $_\n" if $debug; };
+	} 
+	else 
+	{
+		require Mail::Toaster::Perl; my $perl = Mail::Toaster::Perl->new;
+		$perl->module_load( {module=>"Net::DNS", ports_name=>"p5-Net-DNS", ports_group=>"dns"} );
+		my $net_dns  = Net::DNS::Resolver->new;
+		my $query = $net_dns->query($test, "A" );
 		if ( $query )
 		{
 			foreach my $rr ( $query->answer )
 			{
 				print "found: ", $rr->type, " = ", $rr->address if $debug;
 				next unless $rr->type eq "A";
-				next unless $rr->address =~ /127\.0\.0/;
+				next unless $rr->address =~ /127\.[0-1]\.0/;
 				$ip++;
-				# print " from ", $query->answerfrom if $debug;
+				print " from ", $query->answerfrom if $debug;
 				print " matched.\n" if $debug;
 			};
 		} 
 		else 
 		{ 
-			carp "query failed for $zone: ", $res->errorstring if $debug;
+			carp "query failed for $rbl: ", $net_dns->errorstring if $debug;
 			return 0;
 		};
-	} 
-	else 
-	{ 
-		print "hrmmm, $test_ip didn't match an IP address format" if $debug;
-		return 0;
-	};
+	}
 
-	return 0 unless ($ip > 0);
-	print "good, we have $ip addresses, we can go on.\n" if $debug;
-
-
-	# Now we test an IP that should always yield a negative response
-
-	my $fip    = 0;
-	$test_ip   = $self->rbl_test_negative_ip($zone);
-
-	if ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
-	{
-		my $test = "$4.$3.$2.$1.$zone";
-
-		print "querying $test..." if $debug;
-
-		my $query = $res->query($test, "A" );
-		return 1 unless $query;  # it's OK if this fails
-
-		foreach my $rr ( $query->answer )
-		{
-			print "found: ", $rr->type, " = ", $rr->address if $debug;
-			next unless $rr->type eq "A";
-			next unless $rr->address =~ /127\.0\.0/;
-			$ip++;
-			# print " from ", $query->answerfrom if $debug;
-			print " matched.\n" if $debug;
-		};
-	} 
-	else 
-	{ 
-		carp "hrmmm, $test_ip didn't match an IP address format" if $debug;
-		return 0;
-	};
-
-	if ( $fip > 0 ) { return 0 } else { return 1 };
+	print "rbl_test_positive_ip: we have $ip addresses.\n" if $debug;
+	$ip > 0 ? return $ip : return 0;
 };
 
-
-=head2 rbl_test_ns
-
-	$t_dns->rbl_test_ns($rbl);
-
-$rbl is the reverse zone we use to test this rbl.
-
-=cut
-
-sub rbl_test_ns
-{
-	my ($self, $rbl) = @_;
-
-	if    ( $rbl eq "korea.services.net"     ) { return "69.$rbl" } 
-	elsif ( $rbl =~ /rbl\.cluecentral\.net$/ ) { return "rbl.cluecentral.net" } 
-	else                                       { return $rbl };
-};
-
-
-=head2 rbl_test_positive_ip
-
-	$t_dns->rbl_test_positive_ip($rbl);
-
-$rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.
-
-Some RBLs have test IP's to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.
-
-=cut
-
-sub rbl_test_positive_ip
-{
-	my ($self, $rbl) = @_;
-
-	if    ( $rbl eq "korea.services.net"     ) { return "61.96.1.1"    } 
-	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { return "61.96.1.1"    }
-	elsif ( $rbl eq "cn.rbl.cluecentral.net" ) { return "210.52.214.8" }
-	else                                       { return "127.0.0.2"    };
-};
-
-sub rbl_test_negative_ip
-{
 
 =head2 rbl_test_negative_ip
 
-	$t_dns->rbl_test_negative_ip($rbl);
+	$t_dns->rbl_test_negative_ip($conf, $rbl);
 
 This test is a little more difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.
 
 =cut
 
-	my ($self, $rbl) = @_;
+sub rbl_test_negative_ip
+{
+	my ($self, $conf, $rbl, $debug) = @_;
 
-	if    ( $rbl eq "korea.services.net"     ) { return "207.89.154.94"  } 
-	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { return "207.89.154.94"  }
-	elsif ( $rbl eq "cn.rbl.cluecentral.net" ) { return "207.89.154.94"  }
-	elsif ( $rbl eq "us.rbl.cluecentral.net" ) { return "210.52.214.8"   }
-	else                                       { return "207.89.154.94"  };
+	my $test_ip = $rbl;
+
+	if    ( $rbl eq "korea.services.net"     ) { $test_ip = "69.39.74.33"  } 
+	elsif ( $rbl eq "kr.rbl.cluecentral.net" ) { $test_ip = "69.39.74.33"  }
+	elsif ( $rbl eq "cn.rbl.cluecentral.net" ) { $test_ip = "69.39.74.33"  }
+	elsif ( $rbl eq "us.rbl.cluecentral.net" ) { $test_ip = "210.52.214.8" }
+	else                                       { $test_ip = "69.39.74.33"  };
+
+	my $fip    = 0;
+
+	unless ( $test_ip =~ /([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)/ )
+	{
+		carp "hrmmm, $test_ip didn't match an IP address format" if $debug;
+		return 0;
+	};
+
+	my $test = "$4.$3.$2.$1.$rbl";
+
+	print "querying $test..." if $debug;
+
+	if ( $conf && $conf->{'rbl_enable_lookup_using'} && $conf->{'rbl_enable_lookup_using'} eq "dig" && -x $dig )    # dig is installed
+	{
+		foreach (`dig a $test +short`) { $fip++; };
+	} 
+	else 
+	{
+		require Mail::Toaster::Perl; my $perl = Mail::Toaster::Perl->new;
+		$perl->module_load( {module=>"Net::DNS", ports_name=>"p5-Net-DNS", ports_group=>"dns"} );
+		my $net_dns  = Net::DNS::Resolver->new;
+
+		my $query = $net_dns->query($test, "A" );
+		return 1 unless $query;  # it's OK if this fails
+	
+		foreach my $rr ( $query->answer )
+		{
+			print "found: ", $rr->type, " = ", $rr->address if $debug;
+			next unless $rr->type eq "A";
+			next unless $rr->address =~ /127\.0\.0/;
+			$fip++;
+			# print " from ", $query->answerfrom if $debug;
+			print " matched.\n" if $debug;
+		};
+	};
+
+	$fip > 0 ? return 0 : return 1;
 };
 
 
@@ -247,30 +282,14 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-The following are all man/perldoc pages: 
+The following man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 

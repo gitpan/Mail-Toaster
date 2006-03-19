@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Ezmlm.pm,v 4.9 2005/03/24 03:38:35 matt Exp $
+# $Id: Ezmlm.pm,v 4.12 2005/09/27 00:06:30 matt Exp $
 #
 
 package Mail::Toaster::Ezmlm;
@@ -88,16 +88,18 @@ sub authenticate($$;$)
 		print "AUTHENTICATION FAILED! (dom: $domain, pass: $password)<br>";
 		print "if you are certain the authentication information is correct, then
 it's quite likely you can't authenticate because your web server is not running as
-a user that has permission to run this script. You can:
+a user that has permission to run this script. You can:<br>
+<br>
+  <blockquote>
+    a: run this script suid vpopmail<br>
+    b: run the web server as user vpopmail<br>
+  </blockquote>
 
-  a: run this script suid vpopmail
-  b: run the web server as user vpopmail
-
-The easiest and most common methods is:
-
-  chown vpopmail /path/to/ezmlm.cgi
-  chmod 4755 /path/to/ezmlm.cgi
-
+The easiest and most common methods is:<br>
+<br>
+  chown vpopmail /path/to/ezmlm.cgi<br>
+  chmod 4755 /path/to/ezmlm.cgi<br>
+<br>
 \n\n";
 
 		return 0; 
@@ -438,7 +440,7 @@ sub subs_add($$$$)
 
 		printf "adding %25s...", $addy;
 
-		use Email::Valid;
+		require Email::Valid;
 		unless ( Email::Valid->address($addy) )
 		{
 			print "FAILED! (address fails $Email::Valid::Details check). $br";
@@ -533,30 +535,11 @@ None known. Report any to author.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
-
-
-Mail::Toaster
 
 =head1 COPYRIGHT
 

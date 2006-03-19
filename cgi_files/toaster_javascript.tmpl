@@ -1,0 +1,36 @@
+<!-- Do not modify this file; it may be replaced in toaster upgrades -->
+<script language="JavaScript" type="text/javascript"><!--
+
+var dest;
+function copydata(dest)
+{
+        if ( dest == "squirrel" ) {
+                document.squirrel.login_username.value = document.auth.email.value;
+                document.squirrel.secretkey.value = document.auth.password.value;
+        }
+
+        if ( dest == "sqweb" ) {
+                document.sqweb.username.value = document.auth.email.value;
+                document.sqweb.password.value = document.auth.password.value;
+        }
+
+        if ( dest == "vweb" ) {
+                document.vweb.username.value = document.auth.email.value;
+                document.vweb.password.value = document.auth.password.value;
+        }
+
+        if ( dest == "imp" ) {
+                document.implogin.imapuser.value = document.auth.email.value;
+                document.implogin.pass.value = document.auth.password.value;
+        }
+
+        if ( dest == "admin" )
+        {
+                var parts  = document.auth.email.value.split("@");
+        document.admin.username.value = parts[0];
+                document.admin.domain.value   = parts[1];
+                document.admin.password.value = document.auth.password.value;
+        }
+}
+//--></script>
+ 

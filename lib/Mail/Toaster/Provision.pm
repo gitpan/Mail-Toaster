@@ -3,15 +3,13 @@ use strict;
 use warnings;
 
 #
-# $Id: Provision.pm,v 4.5 2005/03/21 16:20:52 matt Exp $
+# $Id: Provision.pm,v 4.7 2005/05/10 02:28:43 matt Exp $
 #
 
 package Mail::Toaster::Provision;
 
 use Carp;
 use Getopt::Long;
-
-use Quota;
 
 use lib "lib";
 use lib "../../";
@@ -132,6 +130,8 @@ sub quota_set($$)
     # $isgrp   - 1 means that uid = gid, group limits set
 
 	my ($self, $vals, $conf) = @_;
+
+	require Quota;
 
 	my $dev   = $conf->{'quota_filesystem'}; $dev ||= "/home";
 	my $uid   = $vals->{'uid'};    $uid ||= getpwnam($vals->{'user'});
@@ -676,28 +676,13 @@ None known. Report any to author.
 =head1 SEE ALSO
 
 The following are all man/perldoc pages: 
- Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
 
+ Mail::Toaster 
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Utility.t,v 4.1 2004/11/22 19:24:42 matt Exp $
+# $Id: Utility.t,v 4.2 2005/05/10 02:28:44 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -103,6 +103,7 @@ $r ? print "ok 26 - is_arrayref\n" : print "not ok 26 (is_arrayref)\n";
 $r = $utility->is_arrayref( );             # should fail
 $r ? print "not ok 27 - is_arrayref\n" : print "ok 27 (is_arrayref)\n";
 
+#$utility->install_if_changed("foo", "bar", undef, 1) ? print "ok 28 install_if_newer\n" : print "not ok 28\n";
 
 
 __END__

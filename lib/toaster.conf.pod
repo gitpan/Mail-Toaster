@@ -155,6 +155,8 @@ Will you process your logs with isoqlog? Make sure you heed the warning in the c
 
 Today's logfiles will be in filenames timestamped in the tai64n format. For example, a file called @400000004030ff6b05921044.s was created at 2004-02-16 12:35:29.093458500. To view these filenames in a human readable format, go to your log directory and enter ls | tai64nlocal.
 
+Be warned, if you disable this option, then qmailanalog processing will fail and your nightly qmail activity log will not work as you would hope and expect.
+
  logs_archive      = 1  
 
 For example, the SMTP log file for February 14, 2004, is called 2004/02/14/smtplog.gz, unless you are looking at todays logs. Prior days log files are automatically compressed. This directory tree lives inside your logs_base directory. If you set this option to 0, old logs are not archived-- they are deleted. 

@@ -4,18 +4,20 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 
 #
-# $Id: Makefile.PL,v 4.7 2005/04/17 12:52:10 matt Exp $
+# $Id: Makefile.PL,v 4.13 2006/03/17 00:29:48 matt Exp $
 #
 
 $|++;
 
 my $htdocs = SetHtdocs();
+my $confdir = SetConfDir();
 
 sub MY::postamble { 
 
 'HTMLDIR	=	' . $htdocs . '
-TNPITOASTER	=	/Users/matt/Sites/www.tnpi.biz/internet/mail/toaster
-TNPIMAILLOG =   /Users/matt/Sites/www.tnpi.biz/internet/mail/maillogs
+CONFDIR    =   ' . $confdir . '
+TNPITOASTER	=	/Volumes/Shared/Sites/www.tnpi.biz/internet/mail/toaster
+TNPIMAILLOG =   /Volumes/Shared/Sites/www.tnpi.biz/internet/mail/maillogs
 MAILLOG		=	/var/log/mail
 MODULES		=	doc/modules
 MT		=	Mail::Toaster
@@ -25,6 +27,9 @@ docs:
 
 	pod2text lib/toaster.conf.pod           > doc/toaster.conf
 	pod2text lib/toaster-watcher.conf.pod   > doc/toaster-watcher.conf
+
+	pod2html --title="$(MT) toaster.conf" lib/toaster.conf.pod           > doc/toaster.conf.html
+	pod2html --title="$(MT) watcher.conf" lib/toaster-watcher.conf.pod   > doc/toaster-watcher.conf.html
 
 	pod2html --title="$(MT)"          lib/Mail/Toaster.pm          > $(MODULES)/Toaster.html
 	pod2html --title="$(MT)::Apache"  lib/Mail/Toaster/Apache.pm   > $(MODULES)/Apache.html
@@ -42,33 +47,48 @@ docs:
 	pod2html --title="$(MT)::Setup"   lib/Mail/Toaster/Setup.pm    > $(MODULES)/Setup.html
 	pod2html --title="$(MT)::Utility" lib/Mail/Toaster/Utility.pm  > $(MODULES)/Utility.html
 
+	pod2html --title="$(MT) mailadmin"      mailadmin                     > doc/mailadmin.html
+	rm pod2htm*
+	
 conf:
 	install -d /usr/local
-	install -d /usr/local/etc
-	install -m 0644 toaster.conf-dist /usr/local/etc
-	install -m 0640 toaster-watcher.conf-dist /usr/local/etc
-	install -d /usr/local/etc/apache2
-	install -b -m 0640 contrib/httpd.conf-2.0.patch /usr/local/etc/apache2
-	install -b -m 0640 contrib/pkgtools.conf /usr/local/etc/pkgtools.conf-dist
+	install -d /opt
+	install -d /opt/local
+	install -d $(CONFDIR)
+	install -m 0644 toaster.conf-dist $(CONFDIR)
+	install -m 0640 toaster-watcher.conf-dist $(CONFDIR)
+	install -d $(CONFDIR)/apache2
+	install -b -m 0640 contrib/httpd.conf-2.0.patch $(CONFDIR)/apache2
+	install -b -m 0640 contrib/pkgtools.conf $(CONFDIR)/pkgtools.conf-dist
 
 newconf:
-	install -d /usr/local/etc
-	install -d /usr/local/etc/apache2
-	install -m 0644 toaster.conf-dist /usr/local/etc
-	install -m 0640 toaster-watcher.conf-dist /usr/local/etc
-	install -b -m 0644 toaster.conf-dist /usr/local/etc/toaster.conf
-	install -b -m 0640 toaster-watcher.conf-dist /usr/local/etc/toaster-watcher.conf
-	install -b -m 0640 contrib/httpd.conf-2.0.patch /usr/local/etc/apache2
-	install -b -m 0640 contrib/pkgtools.conf /usr/local/etc/pkgtools.conf
+	install -d $(CONFDIR)
+	install -d $(CONFDIR)/apache2
+	install -m 0644 toaster.conf-dist $(CONFDIR)
+	install -m 0640 toaster-watcher.conf-dist $(CONFDIR)
+	install -b -m 0644 toaster.conf-dist $(CONFDIR)/toaster.conf
+	install -b -m 0640 toaster-watcher.conf-dist $(CONFDIR)/toaster-watcher.conf
+	install -b -m 0640 contrib/httpd.conf-2.0.patch $(CONFDIR)/apache2
+	install -b -m 0640 contrib/pkgtools.conf $(CONFDIR)/pkgtools.conf
 
 cgi:
 	install -d $(HTMLDIR)
-	install -b index.cgi  $(HTMLDIR)/index.cgi
-	install -b admin.cgi  $(HTMLDIR)/admin.cgi
-	install -b -m 0644 index.tmpl $(HTMLDIR)/index.tmpl
-	install -b -m 0644 admin.tmpl $(HTMLDIR)/admin.tmpl
-	install -d /usr/local/etc/apache2
-	install -b -m 0640 contrib/httpd.conf-2.0.patch /usr/local/etc/apache2
+	install -d $(HTMLDIR)/toaster_templates
+	install -b cgi_files/index.cgi  $(HTMLDIR)/index.cgi
+	install -b cgi_files/admin.cgi  $(HTMLDIR)/admin.cgi
+	install -b -m 0644 cgi_files/index.tmpl $(HTMLDIR)/index.tmpl
+	install -b -m 0644 cgi_files/admin.tmpl $(HTMLDIR)/admin.tmpl
+	install -b -m 0644 cgi_files/user_body.tmpl   $(HTMLDIR)/toaster_templates/user_body.tmpl
+	install -b -m 0644 cgi_files/user_header.tmpl $(HTMLDIR)/toaster_templates/user_header.tmpl
+	install -b -m 0644 cgi_files/user_footer.tmpl $(HTMLDIR)/toaster_templates/user_footer.tmpl
+	install -b -m 0644 cgi_files/user_styles.tmpl $(HTMLDIR)/toaster_templates/user_styles.tmpl
+	install -b -m 0644 cgi_files/toaster_javascript.tmpl $(HTMLDIR)/toaster_templates/toaster_javascript.tmpl
+	install -b -m 0644 cgi_files/toaster_login.tmpl      $(HTMLDIR)/toaster_templates/toaster_login.tmpl
+	install -b -m 0644 cgi_files/toaster_stats.tmpl      $(HTMLDIR)/toaster_templates/toaster_stats.tmpl
+	install -b -m 0644 cgi_files/toaster_viewers.tmpl    $(HTMLDIR)/toaster_templates/toaster_viewers.tmpl
+
+	install -d $(CONFDIR)/apache2
+	install -b -m 0640 contrib/httpd.conf-2.0.patch $(CONFDIR)/apache2
 	install -d $(HTMLDIR)/support
 	install -d $(HTMLDIR)/support/mac
 	install -d $(HTMLDIR)/support/unix
@@ -92,12 +112,21 @@ ezcgi:
 cgi-mail:
 	echo "deprecated! Use [make cgi] instead!"
 	install -d $(HTMLDIR)
-	install -b -m 0755 index.cgi  $(HTMLDIR)/index.cgi
-	install -b -m 0644 index.tmpl $(HTMLDIR)/index.tmpl
+	install -d $(HTMLDIR)/toaster_templates
+	install -b -m 0755 cgi_files/index.cgi  $(HTMLDIR)/index.cgi
+	install -b -m 0644 cgi_files/index.tmpl $(HTMLDIR)/index.tmpl
+	install -b -m 0644 cgi_files/user_body.tmpl   $(HTMLDIR)/toaster_templates/user_body.tmpl
+	install -b -m 0644 cgi_files/user_header.tmpl $(HTMLDIR)/toaster_templates/user_header.tmpl
+	install -b -m 0644 cgi_files/user_footer.tmpl $(HTMLDIR)/toaster_templates/user_footer.tmpl
+	install -b -m 0644 cgi_files/user_styles.tmpl $(HTMLDIR)/toaster_templates/user_styles.tmpl
+	install -b -m 0644 cgi_files/toaster_javascript.tmpl $(HTMLDIR)/toaster_templates/toaster_javascript.tmpl
+	install -b -m 0644 cgi_files/toaster_login.tmpl      $(HTMLDIR)/toaster_templates/toaster_login.tmpl
+	install -b -m 0644 cgi_files/toaster_stats.tmpl      $(HTMLDIR)/toaster_templates/toaster_stats.tmpl
+	install -b -m 0644 cgi_files/toaster_viewers.tmpl    $(HTMLDIR)/toaster_templates/toaster_viewers.tmpl
 	install -b -m 4755 -o 89 contrib/ezmlm.cgi $(HTMLDIR)/ezmlm.cgi
 	install -b -m 0644 contrib/ezmlm.tmpl $(HTMLDIR)/ezmlm.tmpl
-	install -d /usr/local/etc/apache2
-	install -b -m 0640 contrib/httpd.conf-2.0.patch /usr/local/etc/apache2
+	install -d $(CONFDIR)/apache2
+	install -b -m 0640 contrib/httpd.conf-2.0.patch $(CONFDIR)/apache2
 	install -d $(HTMLDIR)/support
 	install -d $(HTMLDIR)/support/mac
 	install -d $(HTMLDIR)/support/unix
@@ -118,11 +147,14 @@ logs:
 
 web:
 	install toaster_setup.pl           $(TNPITOASTER)/
-	install index.cgi                  $(TNPITOASTER)/index.cgi.txt
+	install cgi_files/index.cgi              $(TNPITOASTER)/index.cgi.txt
 	install mailadmin                  $(TNPITOASTER)/maildomain/mailadmin
 	install toaster-watcher.pl         $(TNPITOASTER)/watcher/
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/watcher/toaster-watcher.conf
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/etc/toaster-watcher.conf
+
+	install -m 0644 doc/toaster.conf.html         $(TNPITOASTER)/config/
+	install -m 0644 doc/toaster-watcher.conf.html $(TNPITOASTER)/config/
 
 	install -m 0644 $(MODULES)/Toaster.html   $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Apache.html    $(TNPITOASTER)/modules/
@@ -149,7 +181,7 @@ web:
 WriteMakefile(
 	'NAME'           => 'Mail::Toaster',
 	'VERSION_FROM'   => 'lib/Mail/Toaster.pm', # finds $VERSION
-	'EXE_FILES'      => [ 'index.cgi', 'toaster_setup.pl', 'toaster-watcher.pl',
+	'EXE_FILES'      => [ 'cgi_files/index.cgi', 'toaster_setup.pl', 'toaster-watcher.pl',
 					 'mailadmin', 'maillogs', 'qqtool.pl' ],
 #	'MAN1PODS'       => [],
 	'INSTALLSCRIPT'  => '/usr/local/sbin',
@@ -168,6 +200,13 @@ WriteMakefile(
 #	($] >= 5.005 ?     ## Add these new keywords supported since 5.005
 #	  ( ABSTRACT_FROM  => 'maillogs',   # retrieve abstract from module
 );
+
+sub SetConfDir
+{
+	my $dir = "/usr/local/etc";
+	if    ( $^O eq "darwin"  ) { $dir = "/opt/local/etc"      };  # Mac OS X
+	return $dir;
+}
 
 sub SetHtdocs
 {

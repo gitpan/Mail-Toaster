@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: qqtool.pl,v 4.4 2005/04/14 21:07:37 matt Exp $
+# $Id: qqtool.pl,v 4.8 2006/03/18 03:32:53 matt Exp $
 #
 
 =head1 NAME
@@ -67,8 +67,6 @@ If you aren't using the default (/var/qmail/queue), edit qqtool.pl and adjust it
 
 =cut
 
-my $qdir     = "/var/qmail/queue";
-
 
 #######################################################################
 #      System Settings! Don't muck with anything below this line      #
@@ -76,7 +74,7 @@ my $qdir     = "/var/qmail/queue";
 
 my $author = "Matt Simerson";
 my $email  = "matt\@tnpi.biz";
-my $version = "1.6";
+my $version = "1.8";
 
 use Getopt::Std;
 use vars qw/ $opt_a $opt_h $opt_q $opt_s $opt_v $remotes $locals/;
@@ -84,10 +82,18 @@ getopts('a:h:q:s:v');
 
 use Mail::Toaster::Utility 4; my $utility = Mail::Toaster::Utility->new();
 use Mail::Toaster::Qmail   4; my $qmail   = Mail::Toaster::Qmail->new();
+my $conf = $utility->parse_config( {file=>"toaster-watcher.conf", debug=>0} );
 
 print "           Qmail Queue Tool   v $version\n\n";
 
-my $qcontrol = $qmail->find_qmail_send_control_dir();
+my $qdir;
+my $q_base  = $conf->{'qmail_dir'};
+$qdir = "$q_base/queue" if ( -d "$q_base/queue" );
+$qdir ||= "/var/qmail/queue";
+
+print "my queue dir: $qdir\n";
+
+my $qcontrol = $qmail->service_dir_get($conf, "send");
 
 # Make sure the qmail queue directory is set correctly
 $qmail->queue_check($qdir, $opt_v);
@@ -204,12 +210,12 @@ sub messages_delete
 					if ( $header->{$key} =~ /$opt_s/ ) 
 					{
 						message_delete($hash->{'tree'}, $hash->{'num'});
-					};
-				};
-			};
-		};
-	};
-	
+					}
+				}
+			}
+		}
+	}
+
 	$qmail->send_start();
 };
 
@@ -283,10 +289,13 @@ sub messages_list
 {
 	foreach my $q (@_)
 	{
+		#print "message $q starting\n";
 		foreach my $hash (@$q)
-		{			
+		{
+			#use Data::Dumper; print Dumper($hash);
 			my $header = headers_get($hash->{'tree'}, $hash->{'num'});
 			my $id = "$hash->{'tree'}/$hash->{'num'}";
+			print "id: $id\n";
 			
 			unless ( $opt_s) {
 				PrintMessage($id, $header);
@@ -339,8 +348,11 @@ sub headers_get
 	my ($tree, $id) = @_;
 	my %hash;
 
-	foreach my $line ( $utility->file_read("$qdir/mess/$tree/$id") )
+	#foreach my $line ( substr($utility->file_read("$qdir/mess/$tree/$id"), 1, 256) )
+	foreach my $line ( $utility->file_read("$qdir/mess/$tree/$id", 40) )
 	{
+		$line = substr($line, 0, 256);
+		#print "$line\n"; sleep 1;
 		if ( $line =~ /^([a-zA-Z\-]*):\s(.*)$/ ) {
 			print "header: $line\n" if $opt_v;
 			$hash{$1} = $2;

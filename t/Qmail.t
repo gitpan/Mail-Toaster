@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Qmail.t,v 4.0 2004/11/16 20:57:31 matt Exp $
+# $Id: Qmail.t,v 4.2 2005/05/18 14:46:38 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -29,12 +29,12 @@ $qmail ? print "ok 2 - new\n" : print "not ok 2 - new\n";
 my $r = $qmail->get_list_of_rwls( { 'rwl_qmail.bondedsender.org'=> 1} );
 @$r[0] ? print "ok 3 - get_list_of_rwls\n" : print "not ok 3 - get_list_of_rwls\n";
 
-$r = $qmail->test_each_rbl($r);
+$r = $qmail->test_each_rbl(undef, $r);
 @$r[0] ? print "ok 4 - test_each_rbl\n" : print "not ok 4 - test_each_rbl\n";
 
 $r = $qmail->get_list_of_rbls( { 'rbl_sbl-xbl.spamhaus.org'=> 1} );
 @$r[0] ? print "ok 5 - get_list_of_rbls\n" : print "not ok 5 - get_list_of_rbls\n";
 
-$r = $qmail->set_service_dir( {qmail_service_smtp=>'/var/service/smtp'}, "smtp");
-$r ? print "ok 6 - set_service_dir\n" : print "not ok 6 - set_service_dir\n";
+$r = $qmail->service_dir_get( {qmail_service_smtp=>'/var/service/smtp'}, "smtp");
+$r ? print "ok 6 - service_dir_get\n" : print "not ok 6 - service_dir_get\n";
 

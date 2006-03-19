@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Mysql.pm,v 4.13 2005/03/21 16:20:52 matt Exp $
+# $Id: Mysql.pm,v 4.17 2006/03/18 15:00:44 matt Exp $
 #
 
 package Mail::Toaster::Mysql;
@@ -22,7 +22,7 @@ use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
 
 if    ( $os eq "freebsd" ) { require Mail::Toaster::FreeBSD; $freebsd = Mail::Toaster::FreeBSD->new; } 
 elsif ( $os eq "darwin"  ) { require Mail::Toaster::Darwin;  $darwin  = Mail::Toaster::Darwin->new;  }
-else  { print "$os is not formally supported, but may work\n" };
+else  { }; #print "$os is not formally supported, but may work\n" };
 
 
 =head1 NAME
@@ -312,8 +312,6 @@ sub get_hashes($$)
 };
 
 
-sub install($$$$)
-{
 
 =head2 install
 
@@ -321,7 +319,18 @@ Installs MySQL
 
 =cut
 
+sub install($$$$)
+{
 	my ($self, $mysql, $site, $ver, $conf) = @_;
+
+	if ( $utility->is_hashref($conf) ) {
+		$ver = $conf->{'install_mysql'};
+	};
+
+	unless ( $ver ) {
+		print "skipping MySQL, it's not selected!\n";
+		return 0;
+	};
 
 	if ( $os eq "freebsd" ) 
 	{
@@ -331,32 +340,27 @@ Installs MySQL
 			$freebsd->rc_dot_conf_check("mysql_enable", "mysql_enable=\"YES\"");
 		};
 
-		unless ($ver) 
-		{
-			$ver= $utility->answer("You have several choices for installing Mysql:
-
-     1. Install latest version from FreeBSD packages.
-
-        This will (very quickly) install whichever version of MySQL was released
-        with the version of FreeBSD you are running. Unless your version of FreeBSD
-        is recent, this is likely not what you want.
-
-     2. Install the latest \"stable\" release - currently 4.1
-
-     3. Install Mysql 3.23, which is the latest in the 3.x branch.
-
-     4. Install Mysql 4.0.x, which is the latest in the 4.0 branch.
-
-     5. Install Mysql 5.0  (not recommended).\n\n");
-
-		};
-
 		my $copts = "SKIP_DNS_CHECK";
 
 		if ( $conf ) {
 			$copts .= ",WITH_OPENSSL"      if $conf->{'install_mysql_ssl'};
 			$copts .= ",BUILD_OPTIMIZED"   if $conf->{'install_mysql_optimized'};
-			$copts .= ",WITH_LINUXTHREADS" if $conf->{'install_mysql_linuxthreads'};
+
+			if ( $conf->{'install_mysql_linuxthreads'} ) {
+				$copts .= ",WITH_LINUXTHREADS" 
+			} 
+			else {
+				if ( $ver =~ /^4/ && `uname -r` =~ /^4/ ) # FreeBSD 4 & MySQL 4
+				{
+					if ( $utility->yes_or_no("\n\nHEY!!  You are installing MySQL v4.x on FreeBSD 4. In this configuration, it is recommended that you compile MySQL with linuxthreads. Please see: http://www.tnpi.biz/internet/mail/toaster/faq/programs/mysql.shtml for more detailed information. Trust us, you really should. Shall I enable linuxthreads for you?") ) 
+					{
+
+						$copts .= ",WITH_LINUXTHREADS";
+						print " Excellent choice!\n. Now, don't forget to update toaster-watcher.conf and set install_mysql_linuxthreads.\n";
+					};
+			
+				};
+			};
 
 			if ( $conf->{'install_mysql_dir'} and $conf->{'install_mysql_dir'} ne "/var/db/mysql" ) 
 			{
@@ -523,7 +527,7 @@ sub parse_dot_file($$;$)
 		push @lines, "user=root";
 		push @lines, "pass=";
 		$utility->file_write($dotfile, @lines);
-		chmod(0700, $dotfile);
+		chmod 00700, $dotfile;
 	};
 
 	if (-r $dotfile) 
@@ -586,6 +590,11 @@ sub phpmyadmin_install
 {
 	my ($self, $conf) = @_;
 
+	unless ( $conf->{'install_phpmyadmin'} ) {
+		print "phpmyadmin: install is disabled. Enable install_phpmyadmin in toaster-watcher.conf and try again.\n";
+		return 0;
+	}
+
 	my $dir;
 
 	if ( $os eq "freebsd" )
@@ -597,6 +606,7 @@ sub phpmyadmin_install
 	} 
 	elsif ( $os eq "darwin") 
 	{
+		print "NOTICE: the port install of phpmyadmin requires that Apache be installed in ports!\n";
 		$darwin->port_install("phpmyadmin");
 		$dir = "/Library/Webserver/Documents/phpmyadmin";
 	};
@@ -906,7 +916,7 @@ sub InstallMysqlTool($;$$)
 	{
 		$freebsd->port_install("p5-Crypt-Blowfish", "security");
 		$freebsd->port_install("p5-DBI",            "databases");
-		$freebsd->port_install("p5-Apache-DBI",     "www", undef, undef, "WITH_MODPERL2");
+		$freebsd->port_install("p5-Apache-DBI",     "www", undef, undef, "WITH_MODPERL2=yes");
 		$freebsd->port_install("p5-DBD-mysql",      "databases");
 		$freebsd->port_install("p5-SOAP-Lite",      "net");
 	} 
@@ -1002,27 +1012,11 @@ None known. Report any to author.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

@@ -1,5 +1,5 @@
 # 
-# $Id: toaster.conf-dist,v 4.1 2005/02/10 01:59:29 matt Exp $
+# $Id: toaster.conf-dist,v 4.4 2006/03/10 14:35:21 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
@@ -28,7 +28,7 @@ system_config_dir              = /usr/local/etc
 web_logo_url                    = /images/tnpi_logo.jpg
 web_logo_alt_text               = example.com logo
 web_heading_text                = Mail Center
-web_instructions                = To check your mail, fill in the account info and select a destination.
+web_instructions                = To check your mail, fill in the account info and select a viewer.
 
 web_sqwebmail                   = 1
 web_sqwebmail_host              = 0       # 0 or a valid full qualified host name
@@ -97,11 +97,12 @@ logs_supervise     = /var/qmail/supervise
 logs_user          = qmaill
 logs_group         = qnofiles
 logs_pop3d         = qpop3d                # choices are courier or qpop3d
-logs_isoqlog       = 1                     # configure isoqlog first!
+logs_isoqlog       = 0                     # configure isoqlog first!
 logs_taifiles      = 1                     # output to multilogs @NNNNNNN files
 logs_archive       = 1                     # output to YYYY/MM/DD/xxxxlog files
 logs_archive_untai = 0                     # convert tai to human readable dates
-qmailanalog_bin    = /usr/local/qmailanalog/bin
+logs_archive_purge = 1                     # purge logs older than 1 month
+qmailanalog_bin    = /var/qmail/qmailanalog/bin
 
 logs_counters      = counters              # dir for storing counters
 logs_rbl_count     = smtp_rbl.txt

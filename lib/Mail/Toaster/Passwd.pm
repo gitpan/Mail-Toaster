@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Passwd.pm,v 4.7 2005/03/21 16:20:52 matt Exp $
+# $Id: Passwd.pm,v 4.9 2005/05/10 02:28:43 matt Exp $
 #
 
 package Mail::Toaster::Passwd;
@@ -494,22 +494,18 @@ sub creategroup($;$)
 
 	if ( $r )
 	{
-		print "creategroup: group $group (gid: $r) installed\n";
+		$self->_formatted("creategroup: $group installed (gid: $r)", "ok (exists)");
+		return 2;
 	}
 	else
 	{
 		if ( $os eq "freebsd" )
 		{
-			print "creategroup: installing $group on FreeBSD OS\n";
 
 			my $pw = $utility->find_the_bin("pw");
 
-			if ( $gid )
-			{
-				$utility->syscmd( "$pw groupadd -n $group -g $gid");
-			} else {
-				$utility->syscmd( "$pw groupadd -n $group");
-			};
+			if ( $gid ) { $utility->syscmd( "$pw groupadd -n $group -g $gid"); } 
+			else        { $utility->syscmd( "$pw groupadd -n $group"        ); };
 		} 
 		elsif ( $os eq "darwin")
 		{
@@ -520,10 +516,12 @@ sub creategroup($;$)
 			$utility->syscmd("$niutil -createprop . /groups/$group gid $gid") if $gid;
 			$utility->syscmd("$niutil -createprop . /groups/$group passwd *");
 		} else {
-			print "creategroup: installing $group on unknown OS\n\n";
-			print "FAILURE: no support for " . $os . " yet\n";
+			$self->_formatted("creategroup: adding groups on $os OS: no support!", "FAILED");
+			return 0;
 		};
 	};
+
+	$self->_formatted("creategroup: installing $group on $os OS", "ok");
 };
 
 =head2 user_add
@@ -645,6 +643,7 @@ sub user_add($)
 		$utility->syscmd("$niutil -createprop . /users/$user gid $vals->{'gid'}") if $vals->{'gid'};
 		$utility->syscmd("$niutil -createprop . /users/$user shell $shell");
 		$utility->syscmd("$niutil -createprop . /users/$user home $homedir") if $homedir;
+		$utility->syscmd("$niutil -createprop . /users/$user passwd \"*\"");
 		$utility->syscmd("chown -R $user $homedir") if $homedir;
 	}
 	else
@@ -801,6 +800,16 @@ sub user_sanity($;$)
 	return { 'rc' => 1, error_code => 200, error_desc => 'no error'};
 };
 
+sub _formatted
+{
+    my ($self, $mess, $result) = @_;
+
+    my $dots;
+    my $len = length($mess);
+    if ($len < 65) { until ( $len == 65 ) { $dots .= "."; $len++ }; };
+    print "$mess $dots $result\n";
+}
+
 
 1;
 __END__
@@ -823,27 +832,11 @@ Don't export any of the symbols by default. Move all symbols to EXPORT_OK and ex
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 

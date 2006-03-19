@@ -2,12 +2,12 @@
 use strict;
 
 #
-# $Id: maillogs,v 4.3 2005/03/21 16:20:52 matt Exp $
+# $Id: maillogs,v 4.5 2005/06/10 22:54:12 matt Exp $
 #
 
 use vars qw( $VERSION );
 
-$VERSION = "4.01";
+$VERSION = "4.08";
 
 =head1 NAME
 

@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Perl.pm,v 4.10 2005/03/24 03:38:35 matt Exp $
+# $Id: Perl.pm,v 4.13 2006/03/17 00:29:48 matt Exp $
 #
 
 package Mail::Toaster::Perl;
@@ -133,7 +133,7 @@ $vals is a hashref with the following values:
     
 The values get concatenated to a url like this: $site/$url/$module.tar.gz
 
-$conf is toaster-watcher.conf settings and is optional.
+$conf is toaster-watcher.conf settings and is (barely) optional.
 
 Once downloaded, we expand the archive and attempt to build it. You can optionally pass build targets but if you don't, the default targets are: make, make test, and make install. After install, we clean up the sources and exit. 
 
@@ -159,42 +159,15 @@ sub module_install($;$)
 {
 	my ($self, $vals, $conf) = @_;
 
-	my $module = $vals->{'module'};
+	my $module  = $vals->{'module'};
+	my $archive = $vals->{'archive'};
+	my $site    = $vals->{'site'};
+	my $url     = $vals->{'url'};
+	my $src     = $conf->{'toaster_src_dir'} || "/usr/local/src";
 
-	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
 	$utility->chdir_source_dir($src);
 
 	#$utility->syscmd("rm -rf $module-*");   # nuke any old versions
-
-	my $site = $vals->{'site'};
-	$site ||= $conf->{'toaster_dl_site'};
-	$site ||= "http://www.tnpi.biz";
-
-	my $url = $vals->{'url'};
-	$url ||= $conf->{'toaster_dl_url'}; 
-	$url ||= "/internet/mail/toaster";
-
-	my $archive = $vals->{'archive'};
-	if ( $archive ) { 
-		if ( -e $archive && $utility->yes_or_no("\n\nYou have a (possibly older) version already downloaded at $src/$archive. Shall I use the existing archive: ") ) 
-		{
-			print "using existing archive: $archive\n";
-		} 
-		else {
-			print "trying to fetch $site/$url/$archive\n";
-			$utility->get_file("$site/$url/$archive");
-			unless ( -e $archive ) { $utility->get_file("$site/$url/$archive.tar.gz"); };
-			unless ( -e $archive ) { $utility->get_file("$site/$url/$module.tar.gz");  };
-		};
-	} 
-	else {
-		print "trying to fetch $site/$url/$module.tar.gz\n";
-		$utility->get_file("$site/$url/$module.tar.gz");
-		unless ( -e "$module.tar.gz" ) {
-			print "FAILED: I don't know how to fetch $module\n";
-			return 0;
-		};
-	}
 
 	print "checking for previous build sources.\n";
 	if ( -d $module ) {
@@ -208,16 +181,9 @@ sub module_install($;$)
 		};
 	};
 
-	if ( -e $archive ) {
-		print "decompressing $archive\n";
-		$utility->archive_expand($archive);
-	} else {
-		if ( -e "$module.tar.gz" ) {
-			$utility->archive_expand("$module.tar.gz");
-		} else {
-			print "FAILED: couldn't find $module sources.\n";
-		}
-	}
+	$utility->sources_get($conf, {site=>$site,url=>$url, package=>$module});
+
+	$utility->archive_expand($module, 1) or croak "Couldn't expand $module: $!\n";
 
 	my $found;
 	print "looking for $module in $src...";
@@ -370,7 +336,7 @@ sub perl_install
 	my ($self, $vals) = @_;
 
 	my $version = $vals->{'version'};
-	my $options = $vals->{'options'}; $options ||= "ENABLE_SUIDPERL";
+	my $options = $vals->{'options'};
 
 	if ( $os eq "freebsd" ) 
 	{
@@ -491,27 +457,11 @@ None known. Report any to author.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 =head1 COPYRIGHT
 

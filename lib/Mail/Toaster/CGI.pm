@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: CGI.pm,v 4.6 2005/03/21 16:20:52 matt Exp $
+# $Id: CGI.pm,v 4.9 2005/06/10 22:54:12 matt Exp $
 #
 
 package Mail::Toaster::CGI;
@@ -40,6 +40,12 @@ sub new {
 	bless ($self, $class);
 	return $self;
 }
+
+sub only {
+    $_ = shift;
+    /([A-Za-z0-9-_]+)/;
+    return $1;
+    }
 
 =head2 instructions
 
@@ -123,7 +129,9 @@ sub imp_submit($$$)
 
 	return '
 		<tr>
-			<form method="post" name="implogin" action="' .  $http .'://'. $imphost . $path .'">
+			<td width="20" valign="middle" align="center"> </td>
+			<td width="25">
+			  <form method="post" name="implogin" action="' .  $http .'://'. $imphost . $path .'">
 				<input type="hidden" name="imapuser" value="">
 				<input type="hidden" name="pass" value="">
 				<input type="hidden" name="actionID" value="105" />
@@ -137,10 +145,10 @@ sub imp_submit($$$)
                 <input type="hidden" name="realm" value="" />
                  <input type="hidden" name="folders" value="Mail/" />
                  <input type="hidden" name="new_lang" value="en_US/" />
-			<td width="20" valign="middle" align="center"> </td>
-			<td width="25"><input type="submit" value="Go" onclick="copydata(\'imp\')"></td>
+                            <input type="submit" value="'.only($name).'" onclick="copydata(\'imp\')">
+			  </form>
+                        </td>
 			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
-			</form>
 		</tr>
 		<tr>
 			<td colspan="3" height="3" width="3"></td> 
@@ -178,7 +186,9 @@ sub vwebmail_submit($$$)
 
 	return '
 		<tr>
-			<form method="post" name="vweb" action="' .  $http .'://'. $vwebhost . $path .'">
+			<td width="20" valign="middle" align="center"> </td>
+			<td width="25">
+ 			   <form method="post" name="vweb" action="' .  $http .'://'. $vwebhost . $path .'">
 				<input type="hidden" name="username" value="">
 				<input type="hidden" name="password" value="">
 				<input type="hidden" name="mail_server" value="localhost">
@@ -187,11 +197,10 @@ sub vwebmail_submit($$$)
 				<input type="hidden" name="mail_server_fold" value="INBOX.">
 				<input type="hidden" name="language" value="en">
 				<input type="hidden" name="template" value="v-webmail">
-			<td width="20" valign="middle" align="center"> </td>
-			<td width="25"><p>
-				<input type="submit" class="submit" name="submit" value="Go" onclick="copydata(\'vweb\')"></p></td>
+				<input type="submit" class="submit" name="submit" value="'.only($name).'" onclick="copydata(\'vweb\')">
+			   </form>
+                        </td>
 			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
-			</form>
 		</tr> ';
 
 };
@@ -230,11 +239,15 @@ sub qss_stats_submit($$$)
 
 	return '
 		<tr>
-			<form method="post" name="qss" action="' .  $http .'://'. $qshost . $path .'">
 			<td width="20" height="3"></td>
-			<td width="25"><input type="submit" value="Go"></td>
-			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
-			</form>
+			<td width="25">
+			   <form method="post" name="qss" action="' .  $http .'://'. $qshost . $path .'">
+                              <input type="submit" value="'.only($name).'">
+		           </form>
+                        </td>
+			<td>
+                              <strong>' . $name . '</strong> ' . $descrip . '
+                       </td>
 		</tr>';
 };
 
@@ -274,11 +287,15 @@ sub isoqlog_submit($$$)
 
 	return '
 		<tr>
-			<form name="isoqlog" action="' .  $http .'://'. $isohost . $path .'">
 			<td width="20" height="3"></td>
-			<td width="25"><input type="submit" value="Go"></td>
-			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
+			<td width="25">
+			<form name="isoqlog" action="' .  $http .'://'. $isohost . $path .'">
+                             <input type="submit" value="'.only($name).'">
 			</form>
+                        </td>
+			<td>
+                           <strong>' . $name . '</strong> ' . $descrip . '
+                        </td>
 		</tr>';
 };
 
@@ -312,14 +329,17 @@ sub rrdutil_submit($$$)
 
 	return '
 	<tr>
+		<td width="20" height="3"></td>
+		<td width="25">
 		<form method="post" name="rrdutil" action="'.$http.'://'. $rrdhost . $path.'">
 			<input type="hidden" name="mail" value="on">
 			<input type="hidden" name="days" value="1">
 			<input type="hidden" name="hostname" value="localhost">
-		<td width="20" height="3"></td>
-		<td width="25"><input type="submit" value="Go"></td>
-		<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
+                   <input type="submit" value="'.only($name).'"></td>
 		</form>
+		<td>
+                    <strong>' . $name . '</strong> ' . $descrip . '
+                </td>
 	</tr>';
 };
 
@@ -388,18 +408,18 @@ sub qmailadmin_submit($$$)
 
 	my $line = '
 		<tr>
+			<td width="20" valign="middle" align="center"></td>
+			<td width="25">
 			<form method="post" name="admin" action="' .  $http .'://'. $qmahost . $path .'">
 				<input type="hidden" name="username" value="">
 				<input type="hidden" name="domain" value="">
 				<input type="hidden" name="password" value="">
-			<td width="20" valign="middle" align="center"></td>
-			<td width="25">
-				<input type="submit" value="Go" onclick="copydata(\'admin\')">
+				<input type="submit" value="'.only($name).'" onclick="copydata(\'admin\')">
+			</form>
 			</td>
 			<td><p><strong>' . $name;
 	if ( $conf->{'web_qmailadmin_help_url'} ) { $line .= ' [ <a href="' . $conf->{'web_qmailadmin_help_url'} . '">?</a> ] '; };
 	$line .= '</strong> ' . $descrip . '</p></td>
-			</form>
 		</tr> ';
 
 	return $line;
@@ -436,15 +456,16 @@ sub sqwebmail_submit($$$)
 
 	return '
 		<tr>
+			<td width="20" valign="middle" align="center"> </td>
+			<td width="25">
 			<form method="post" name="sqweb" action="' .  $http .'://'. $sqwhost . $path .'">
 				<input type="hidden" name="username" value="">
 				<input type="hidden" name="password" value="">
 				<input type="hidden" name="sameip" value="1">
-			<td width="20" valign="middle" align="center"> </td>
-			<td width="25"><p>
-				<input type="submit" value="Go" onclick="copydata(\'sqweb\')"></p></td>
-			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
+				<input type="submit" value="'.only($name).'" onclick="copydata(\'sqweb\')">
 			</form>
+                        </td>
+			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
 		</tr>   
 		<!--<tr>
 				<td width="20" valign="middle" align="center">
@@ -494,14 +515,18 @@ sub squirrelmail_submit($$$)
 
 	return '
 		<tr>
+			<td width="20" valign="middle" align="center">
+				<p class="hilite16"> 3 </p></td>
+			<td width="25">
 			<form method="post" name="squirrel" action="' .  $http .'://'. $squhost . $path .'">
 				<input type="hidden" name="login_username" value="">
 				<input type="hidden" name="secretkey" value="">
-			<td width="20" valign="middle" align="center">
-				<p class="hilite16"> 3 </p></td>
-			<td width="25"><input type="submit" value="Go" onclick="copydata(\'squirrel\')"></td>
-			<td><p><strong>' . $name . '</strong> ' . $descrip . '</p></td>
+                           <input type="submit" value="'.only($name).'" onclick="copydata(\'squirrel\')">
 			</form>
+                        </td>
+			<td>
+                              <strong>' . $name . '</strong> ' . $descrip . '
+                        </td>
 		</tr>
 		<tr>
 			<td colspan="3" height="3" width="3"></td>
@@ -657,27 +682,11 @@ TODO is caught up. Yay!
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

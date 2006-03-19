@@ -17,7 +17,7 @@ $loaded = 1;
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-system "./index.cgi";
+system "./cgi_files/index.cgi";
 print "ok 1 - index.cgi\n";
 
 use Mail::Toaster::CGI;

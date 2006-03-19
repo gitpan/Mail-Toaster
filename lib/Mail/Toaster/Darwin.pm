@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Darwin.pm,v 4.8 2005/03/21 16:20:52 matt Exp $
+# $Id: Darwin.pm,v 4.10 2005/05/10 02:28:43 matt Exp $
 #
 
 package Mail::Toaster::Darwin;
@@ -118,22 +118,27 @@ sub ports_update
 			print "ok then, skipping update.\n";
 			return 0;
 		};
-		chdir($portsdir);
 
-		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+	# the new way
+		$utility->syscmd( $utility->find_the_bin("port") . " -d sync");
 
-		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-		$utility->syscmd($cmd);
-		$utility->syscmd('cvs -q -z3 update -dP');
+	# the old way
+#		chdir($portsdir);
 
-		if ( -x "/opt/local/bin/portindex") 
-		{
-			$utility->syscmd("/opt/local/bin/portindex");
-		} 
-		elsif ( -x "/usr/local/bin/portindex" ) 
-		{
-			$utility->syscmd("/usr/local/bin/portindex");
-		};
+#		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+
+#		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
+#		$utility->syscmd($cmd);
+#		$utility->syscmd('cvs -q -z3 update -dP');
+
+#		if ( -x "/opt/local/bin/portindex") 
+#		{
+#			$utility->syscmd("/opt/local/bin/portindex");
+#		} 
+#		elsif ( -x "/usr/local/bin/portindex" ) 
+#		{
+#			$utility->syscmd("/usr/local/bin/portindex");
+#		};
 	} 
 	else {
 		print "WARNING! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n If you need to install DarwinPorts, please visit this URL for details: http://darwinports.opendarwin.org/getdp/ or the DarwinPorts guide: http://darwinports.opendarwin.org/docs/ch01s03.html.\n\n";
@@ -188,27 +193,11 @@ Needs more documentation.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

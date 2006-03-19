@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Utility.pm,v 4.21 2005/03/21 16:20:52 matt Exp $
+# $Id: Utility.pm,v 4.28 2006/03/18 03:32:54 matt Exp $
 #
 
 package Mail::Toaster::Utility;
@@ -18,13 +18,12 @@ use lib "lib";
 use lib "../..";
 
 sub answer;
-sub archive_expand;
-sub chdir_source_dir;
-sub check_homedir_ownership;
-sub clean_tmp_dir;
-sub drives_get_mounted;
-sub graceful_exit;
-sub install_from_sources_php;
+sub archive_expand($;$);
+sub chdir_source_dir($;$);
+sub check_homedir_ownership(;$);
+sub clean_tmp_dir($);
+sub drives_get_mounted(;$);
+sub graceful_exit(;$$);
 sub file_append;
 sub file_archive;
 sub file_check_readable;
@@ -39,7 +38,9 @@ sub fstab_list;
 sub get_dir_files;
 sub get_file;
 sub get_the_date;
+sub install_if_changed;
 sub install_from_source;
+sub install_from_sources_php;
 sub is_arrayref;
 sub is_hashref;
 sub is_process_running;
@@ -48,6 +49,7 @@ sub mailtoaster;
 sub path_parse;
 sub parse_config;
 sub pidfile_check;
+sub sources_get;
 sub source_warning;
 sub sudo;
 sub syscmd;
@@ -147,6 +149,13 @@ sub archive_expand($;$)
 	my $tar  = $self->find_the_bin("tar");
 	my $file = $self->find_the_bin("file");
 	my $grep = $self->find_the_bin("grep");
+
+	unless ( -e $archive ) {
+		if    ( -e "$archive.tar.gz"  ) { $archive = "$archive.tar.gz"  }
+		elsif ( -e "$archive.tgz"     ) { $archive = "$archive.tgz" }
+		elsif ( -e "$archive.tar.bz2" ) { $archive = "$archive.tar.bz2" }
+		else  { print "archive_expand: file $archive is missing!\n"; };
+	};
 
 	if ( $archive =~ /bz2$/ ) 
 	{
@@ -397,6 +406,169 @@ sub graceful_exit(;$$)
 };
 
 
+=head2 install_if_changed
+
+
+ $attrs = {
+	uid    => ,
+	gid    => ,
+	mode   => ,
+	clean  => ,
+	notify => ,
+	email  => ,
+ };
+
+
+ return values:
+  0 = error (failure)
+  1 = normal success
+  2 = success, no update required
+
+=cut
+
+sub install_if_changed
+{
+	my ($self, $new, $existing, $attrs, $debug) = @_;
+
+	my $uid = $attrs->{'uid'}   if ( $self->is_hashref($attrs) );
+	my $gid = $attrs->{'gid'}   if ( $self->is_hashref($attrs) );
+	my $mode = $attrs->{'mode'} if ( $self->is_hashref($attrs) );
+	my $sudo = "";
+
+	unless ( -e $new ) {
+		print "FATAL: the file to install ($new) does not exist!\n";
+		return 0;
+	};
+
+	unless ( $self->file_check_writable($existing) && $self->file_check_writable($new) )
+	{
+		$sudo = $self->find_the_bin("sudo");
+		unless ( -x $sudo )
+		{
+			carp "FAILED: you are not root, sudo is not installed, and you don't have permission to write to either $new or $existing. Sorry, I can't go on!\n";
+			return 0;
+		}
+	} else {
+		use File::Copy;
+	};
+
+	unless ( $self->files_diff($new, $existing, "text", $debug) ) 
+	{
+		print "install_if_changed: $existing is already up-to-date.\n" if $debug;
+		unlink $new if ($attrs->{'clean'} );
+		return 2;
+	}
+
+	print "install_if_changed: updating $existing..." if $debug;
+
+	if ( $uid && $gid ) {                         # set file ownership
+		if ( $sudo ) {
+			unless ( $self->syscmd("$sudo chown $uid:$gid $new") ) {
+				carp "couldn't chown $new: $!\n";
+				return 0;
+			};
+		} else {
+			unless ( chown($uid, $gid, $new) )
+			{
+				carp "couldn't chown $new: $!\n";
+				return 0;
+			}
+		}
+	};
+
+	if ($mode) {                                  # set file permissions
+		if ( $sudo ) {
+			unless ( $self->syscmd("$sudo chmod $mode $new") ) {
+				carp "couldn't chmod $new: $!\n";
+				return 0;
+			};
+		} else {
+			unless ( chmod $mode, $new ) {
+				carp "couldn't chmod $new: $!\n";
+				return 0;
+			};
+		}
+	}
+
+	if ($attrs->{'notify'} )                      # email diffs to admin
+	{
+		my $email = $attrs->{'email'} || "root";
+		my $diff  = $self->find_the_bin("diff");
+
+		use Mail::Toaster::Perl; my $perl = new Mail::Toaster::Perl;
+		$perl->module_load( {module=>"Mail::Send", ports_name=>"p5-Mail-Tools", ports_group=>"mail"} );
+		require Mail::Send;
+		my $msg = new Mail::Send;
+		$msg->subject("$existing updated");
+		$msg->to($email);
+		my $fh = $msg->open;
+
+		print $fh "This message is to notify you that $existing has been altered. The difference between the new file and the old one is:\n\n";
+
+		my $diffie = `$diff $new $existing`;
+		print $fh $diffie;
+		$fh->close;
+	};
+
+	if ( $sudo ) {                              # install the new file
+		$self->syscmd("$sudo cp $existing $existing.bak") if (-e $existing);
+		if ( $attrs->{'clean'} ) {
+			$self->syscmd("$sudo mv $new $existing");
+		} else {
+			$self->syscmd("$sudo cp $new $existing");
+		}
+	}
+	else
+	{
+		copy($existing, "$existing.bak") if (-e $existing);
+
+		if ( $attrs->{'clean'} ) {
+			unless ( move ($new, $existing) ) {
+				carp "couldn't copy $new to $existing: $!\n";
+				return 0;
+			}
+		} else {
+			unless ( copy ($new, $existing) ) {
+				carp "couldn't copy $new to $existing: $!\n";
+				return 0;
+			}
+		}
+	};
+
+	if ( $uid && $gid ) {                         # set file ownership
+		if ( $sudo ) {
+			unless ( $self->syscmd("$sudo chown $uid:$gid $existing") ) {
+				carp "couldn't chown $existing: $!\n";
+				return 0;
+			};
+		} else {
+			unless ( chown($uid, $gid, $existing) )
+			{
+				carp "couldn't chown $existing: $!\n";
+				return 0;
+			}
+		}
+	};
+
+	if ($mode) {                                  # set file permissions
+		if ( $sudo ) {
+			unless ( $self->syscmd("$sudo chmod $mode $existing") ) {
+				carp "couldn't chmod $existing: $!\n";
+				return 0;
+			};
+		} else {
+			unless ( chmod $mode, $existing ) {
+				carp "couldn't chmod $existing: $!\n";
+				return 0;
+			};
+		}
+	}
+
+	print "done.\n" if $debug;
+	return 1;
+};
+
+
 =head2 install_from_sources_php
 
   $utility->install_from_sources_php();
@@ -412,7 +584,7 @@ sub install_from_sources_php($$$$;$$$)
 	my ($conf, $package, $site, $url, $targets, $patches, $debug) = @_;
 	my $patch;
 
-	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
+	my $src = $conf->{'toaster_src_dir'} || "/usr/local/src";
 	$self->chdir_source_dir($src);
 
 	if ( -d $package ) 
@@ -435,26 +607,7 @@ sub install_from_sources_php($$$$;$$$)
 	elsif ( -e "$package.tar.bz2") { print "found.\n"; $tarball = "$package.tar.bz2"; } 
 	else                           { print "not found.\n" };
 
-	unless ( -e $tarball )
-	{
-		$site ||= $conf->{'toaster_dl_site'}; $site ||= "http://www.tnpi.biz";
-		$url  ||= $conf->{'toaster_dl_url'};  $url ||= "/internet/mail/toaster";
-
-		unless ( $self->file_get("$site$url/$tarball", $debug) )
-		{
-			croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
-		};
-
-		if ( `file $tarball | grep ASCII` ) {
-			print "install_from_sources_php: oops, file is not binary, we'll try again as .bz2\n";
-			unlink $tarball;
-			$tarball = "$package.tar.bz2";
-			unless ( $self->file_get("$site$url/$tarball", $debug) )
-			{
-				croak "install_from_sources_php: couldn't fetch $site$url/$tarball\n";
-			};
-		};
-	} 
+	unless ( -e $tarball ) { $self->sources_get($conf, {package=>$package, site=>$site, url=>$url}) }
 	else 
 	{
 		print "install_from_sources_php: using existing $tarball sources.\n";
@@ -726,7 +879,17 @@ sub file_get($;$)
 		return 0;
 	};
 
-	$fetchcmd   = "$fetchbin -O $url" if ($os eq "darwin");
+	if ( $os eq "freebsd" )
+	{
+		$fetchcmd  = "$fetchbin ";
+		$fetchcmd .= "-q " unless $debug;
+		$fetchcmd .= "$url";
+	}
+	elsif ( $os eq "darwin" ) {
+		$fetchcmd  = "$fetchbin -O ";
+		$fetchcmd .= "-s " unless $debug;
+		$fetchcmd .= "$url";
+	};
 	$fetchcmd ||= "$fetchbin $url";
 
 	my $r = $self->syscmd($fetchcmd);
@@ -745,13 +908,13 @@ sub file_get($;$)
 
    my @lines = $utility->file_read($file)
 
-Reads in a file, and returns an array with the files contents, one line per array element. All lines in array are chomped.
+Reads in a file, and returns an array with the files contents, one line per array element. All lines in array are chomped. Accepts an optional maximum number of lines, passed as a numeric value.
 
 =cut
 
-sub file_read($)
+sub file_read($;$)
 {
-	my ($self, $file) = @_;
+	my ($self, $file, $max) = @_;
 
 	unless ( -e $file ) {
 		carp "file_read: $file does not exist!\n";
@@ -766,7 +929,15 @@ sub file_read($)
 	};
 
 	open(FILE, $file) or carp "file_read: couldn't open $file: $!";
-	my @lines = <FILE>;
+	my @lines;
+	if ($max) {
+		for ( my $i = 0; $i < $max; $i++ ) {
+			my $line = <FILE>;
+			push @lines, $line;
+		};
+	} else {
+		@lines = <FILE>;
+	};
 	close FILE;
 
 	chomp @lines;
@@ -1063,7 +1234,7 @@ sub install_from_source($$;$)
 
 	return 1 if ( $conf->{'int_test'} or $conf->{'int_test'} );
 
-	my $src = $conf->{'toaster_src_dir'}; $src ||= "/usr/local/src";
+	my $src = $conf->{'toaster_src_dir'} || "/usr/local/src";
 	if ( $vals->{'source_sub_dir'} ) { $src .= "/" . $vals->{'source_sub_dir'}; };
 	$self->chdir_source_dir($src);
 
@@ -1088,51 +1259,8 @@ sub install_from_source($$;$)
 		};
 	};
 
-	print "install_from_source: looking for existing sources...";
-
-	my $tarball = "$package.tar.gz";
-	if    ( -e $tarball )           { print "found.\n"; }
-	elsif ( -e "$package.tgz"    )  { print "found.\n"; $tarball = "$package.tgz";     } 
-	elsif ( -e "$package.tar.bz2" ) { print "found.\n"; $tarball = "$package.tar.bz2"; } 
-	else                            { print "not found.\n" };
-
-	if ( -e $tarball ) { print "install_from_source: using existing $tarball sources.\n"; } 
-	else 
-	{
-		my $site = $vals->{'site'};
-		$site ||= $conf->{'toaster_dl_site'};  
-		$site ||= "http://www.tnpi.biz";      # if all else fails
-
-		my $url = $vals->{'url'};             # get from passed value
-		$url ||= $conf->{'toaster_dl_url'};   # get from toaster-watcher.conf
-		$url ||= "/internet/mail/toaster";    # finally, a default
-
-		unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
-		{
-			carp "install_from_source: couldn't fetch $site$url/$tarball\n";
-		};
-
-		if ( -e $tarball ) 
-		{
-			if ( `file $tarball | grep ASCII` ) {
-				print "install_from_source: oops, file is not binary, we'll try again as bz2.\n";
-				unlink $tarball;
-				$tarball = "$package.tar.bz2";
-				unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
-				{
-					croak "install_from_source: couldn't fetch $site$url/$tarball\n";
-				};
-			};
-		}
-		else
-		{
-			$tarball = "$package.tar.bz2";
-			unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
-			{
-				croak "install_from_source: couldn't fetch $site$url/$tarball\n";
-			};
-		};
-	};
+	#print "install_from_source: looking for existing sources...";
+	$self->sources_get($conf, $vals);
 
 	my $patches = $vals->{'patches'};
 	if ( $patches && @$patches[0] ) 
@@ -1159,14 +1287,14 @@ sub install_from_source($$;$)
 		print "install_from_source: no patches to fetch.\n";
 	};
 
-	$self->archive_expand($tarball, 1) or croak "Couldn't expand $tarball: $!\n";
+	$self->archive_expand($package, 1) or croak "Couldn't expand $package: $!\n";
 
 	if ( -d $package )
 	{
 		chdir $package or carp "FAILED to chdir $package!\n";
 	}
 	else {
-		# some packages unpack within an enclosing directory, grrr
+		# some packages (like daemontools) unpack within an enclosing directory, grrr
 		my $sub_path = `find ./ -name $package`; chomp $sub_path;
 		print "found sources in $sub_path\n" if $sub_path;
 		unless ( -d $sub_path && chdir($sub_path) ) {
@@ -1471,7 +1599,14 @@ sub parse_config($)
 	my $file  = $vals->{'file'};
 	my $debug = $vals->{'debug'};
 
-	my $etcdir = $vals->{'etcdir'};  $etcdir ||= "/usr/local/etc";
+	my $etcdir = $vals->{'etcdir'};
+
+	unless ( $etcdir && -d $etcdir ) {
+		if    ( -e "/usr/local/etc/$file" ) { $etcdir = "/usr/local/etc"; }
+		elsif ( -e "/opt/local/etc/$file" ) { $etcdir = "/opt/local/etc"; }
+		elsif ( -e "/etc/$file"           ) { $etcdir = "/etc";           }
+		else                                { $etcdir = "/usr/local/etc"; };
+	};
 
 	if ( -r "$etcdir/$file" )              { $file = "$etcdir/$file" };
 	if ( ! -r $file && -r "./$file"      ) { $file = "./$file"      };
@@ -1574,6 +1709,133 @@ sub pidfile_check($;$)
 
 	return $pidfile;
 };
+
+
+=head1 sources_get
+
+	unless ( -e $tarball ) { 
+		$self->sources_get($conf, {package=>$package, site=>$site, url=>$url}) 
+	}
+
+Tries to download a set of sources files from the site and url provided. It will try first fetching a gzipped tarball and if that files, a bzipped tarball. As new formats are introduced, I'll expand the support for them here.
+
+=cut
+
+sub sources_get($$;$)
+{
+	my ($self, $conf, $vals, $debug) = @_;
+
+	unless ( $self->is_hashref($vals) ) {
+		my ($package, $filename, $line) = caller;
+		carp "WARNING: $filename passed install_from_source an invalid argument...exiting \n" if $debug;
+		return 0;
+	}
+
+	if ( $conf && ! $self->is_hashref($conf) ) {
+		my ($package, $filename, $line) = caller;
+		carp "WARNING: $filename passed install_from_source an invalid argument...exiting \n" if $debug;
+		return 0;
+	}
+
+	#print "sources_get: site from vals: " . $vals->{'site'} . "\n";
+	#print "sources_get: site from conf: " . $conf->{'toaster_dl_site'} . "\n";
+
+	my $site = $vals->{'site'};           # take a value if given
+	$site ||= $conf->{'toaster_dl_site'}; # get from toaster-watcher.conf
+	$site ||= "http://www.tnpi.biz";      # if all else fails
+
+	my $url = $vals->{'url'};             # get from passed value
+	$url ||= $conf->{'toaster_dl_url'};   # get from toaster-watcher.conf
+	$url ||= "/internet/mail/toaster";    # finally, a default
+
+	my $package = $vals->{'package'};
+	my $tarball = "$package.tar.gz";     # try gzip first
+
+	unless ( -e $tarball ) {             # check for all the usual suspects
+		if ( -e "$package.tgz"     ) { $tarball = "$package.tgz"; };
+		if ( -e "$package.tar.bz2" ) { $tarball = "$package.tar.bz2"; };
+	};
+
+	if ( -e $tarball && `file $tarball | grep compressed` ) {
+		if ( $self->yes_or_no("\n\nYou have a (possibly older) version already downloaded as $tarball. Shall I use it?: ") )
+		{
+			print "\nok, using existing archive: $tarball\n";
+			return 1;
+		} else {
+			$self->file_delete($tarball);
+		};
+	};
+
+	$tarball = "$package.tar.gz";     # reset to gzip
+
+	print "sources_get: fetching as gzip $site$url/$tarball...";
+
+	unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+	{
+		carp "install_from_source: couldn't fetch $site$url/$tarball\n";
+	} else {
+		print "done.\n";
+	};
+
+	if ( -e $tarball ) 
+	{
+		print "sources_get: testing $tarball ...";
+
+		if ( `file $tarball | grep gzip` ) {
+			print "sources_get: looks good!\n";
+			return 1;
+		} else {
+			print "YUCK, is not gzipped data!\n";
+			$self->file_delete($tarball);
+		};
+	};
+
+	$tarball = "$package.tar.bz2";
+
+	print "sources_get: fetching as bz2: $site$url/$tarball...";
+
+	unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+	{
+		print "FAILED.\n";
+		carp "install_from_source: couldn't fetch $site$url/$tarball\n";
+	} else {
+		print "done.\n";
+	};
+
+	print "sources_get: testing $tarball ...";
+	if ( `file $tarball | grep bzip` ) {
+		print "ok\n";
+		return 1;
+	} else {
+		print "YUCK, is not bzipped data!!\n";
+		$self->file_delete($tarball);
+	}
+
+	$tarball = "$package.tgz";
+
+	print "sources_get: fetching as tgz: $site$url/$tarball...";
+
+	unless ( $self->file_get("$site$url/$tarball", $vals->{'debug'}) )
+	{
+		print "FAILED.\n";
+		carp "install_from_source: couldn't fetch $site$url/$tarball\n";
+	} else {
+		print "done.\n";
+	};
+
+	print "sources_get: testing $tarball ...";
+	if ( `file $tarball | grep gzip` ) {
+		print "ok\n";
+		return 1;
+	} else {
+		print "YUCK, is not bzipped data!!\n";
+		$self->file_delete($tarball);
+	}
+
+	print "sources_get: FAILED, I am giving up!\n";
+	return 0;
+}
+
 
 
 =head2 source_warning
@@ -1710,15 +1972,14 @@ return is the exit status of the program you called.
 
 =cut
 
-sub syscmd($;$)
+sub syscmd($;$$)
 {
-	my ($self, $cmd, $fatal) = @_;
+	my ($self, $cmd, $fatal, $quiet) = @_;
 
 	my $r = system $cmd;
 
 	if ($? == -1) {
-		print "syscmd: $cmd\n";
-		print "failed to execute: $!\n";
+		print "syscmd: $cmd\nfailed to execute: $!\n";
 	}
 	elsif ($? & 127) {
 		print "syscmd: $cmd\n";
@@ -1732,11 +1993,11 @@ sub syscmd($;$)
 
 	if ($r != 0)
 	{
-		print "syscmd: $cmd\n";
+		print "syscmd: $cmd\n" unless $quiet;
 
 		if ( defined $fatal && $fatal ) { croak "syscmd: result: $r\n"; } 
-		else                            { print "syscmd: result: $r\n"; };
-	};    
+		else                            { print "syscmd: result: $r\n" unless $quiet; };
+	};
 
 	return $r;
 };
@@ -1814,27 +2075,11 @@ None known. Report any to author.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

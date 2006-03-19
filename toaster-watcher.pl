@@ -2,12 +2,12 @@
 use strict;
 
 #
-# $Id: toaster-watcher.pl,v 4.7 2005/04/14 21:07:37 matt Exp $
+# $Id: toaster-watcher.pl,v 4.11 2006/03/17 00:29:48 matt Exp $
 # 
 
 use vars qw/$VERSION/;
 
-$VERSION = "4.06";
+$VERSION = "4.09";
 
 =head1 NAME
 
@@ -26,10 +26,11 @@ The really cool part about toaster-watcher.pl is that it dynamically builds the 
 
 =cut
 
-use Mail::Toaster 4;             my $toaster = Mail::Toaster->new();
+use lib "lib";
 use Mail::Toaster::Utility 4;    my $utility = Mail::Toaster::Utility->new();
 use Mail::Toaster::DNS 4;
 use Mail::Toaster::Qmail 4;      my $qmail   = Mail::Toaster::Qmail->new();
+use Mail::Toaster 4;             my $toaster = Mail::Toaster->new();
 
 use vars qw/ $opt_d $opt_v $file $verbose /;
 use Getopt::Std;
@@ -50,41 +51,15 @@ if ($logfile ) {
 	$utility->logfile_append($logfile, ["watcher", "Running toaster_check"]);
 }
 
-$toaster->toaster_check($conf, $verbose);
 
-
-=item build_smtp_run
-
-We first build a new $service/smtp/run file based on your settings in 
-toaster-watcher.conf. There are a ton of configuration options, be sure
-to check out the docs for toaster-watcher.conf. 
-
-If the new generated file is different than the installed version, we 
-install the updated run file and restart the daemon.
-
-=cut
-
-print "generating smtp/run..." if $verbose;
-$utility->logfile_append($logfile, ["watcher", "Building smtp/run"]) if $logfile;
-
-$file = "/tmp/toaster-watcher-smtpd-runfile";
+$qmail->config($conf, $verbose);
 
 my $vals = {
 	file    => $file,
     debug   => $debug,
     verbose => $verbose,
-    service => "smtp",
 };
 
-if ( $qmail->build_smtp_run($conf, $file, $debug ) )
-{
-	print "success.\n" if $verbose;
-	if ( $qmail->install_qmail_service_run( $vals, $conf) ) 
-	{
-		$qmail->smtpd_restart($conf, "smtp", $debug);
-	};
-} 
-else { print "FAILED.\n" if $verbose; };	
 
 =item build_send_run
 
@@ -107,7 +82,7 @@ if ( $qmail->build_send_run($conf, $file, $debug ) )
 	print "success.\n" if $verbose;
 	$vals->{'service'} = "send";
 	$vals->{'file'} = $file;
-	if ( $qmail->install_qmail_service_run($vals, $conf) ) 
+	if ( $qmail->install_supervise_run($vals, $conf) == 1) 
 	{
 		$qmail->restart($conf, $debug);
 	};
@@ -137,10 +112,40 @@ if ( $conf->{'pop3_daemon'} eq "qpop3d" )
 		print "success.\n" if $verbose;
 		$vals->{'service'} = "pop3";
 		$vals->{'file'} = $file;
-		$qmail->install_qmail_service_run($vals, $conf);
+		$qmail->install_supervise_run($vals, $conf);
 	}
 	else { print "FAILED.\n" if $verbose; };	
 };
+
+
+=item build_smtp_run
+
+We first build a new $service/smtp/run file based on your settings in 
+toaster-watcher.conf. There are a ton of configuration options, be sure
+to check out the docs for toaster-watcher.conf. 
+
+If the new generated file is different than the installed version, we 
+install the updated run file and restart the daemon.
+
+=cut
+
+print "generating smtp/run..." if $verbose;
+$utility->logfile_append($logfile, ["watcher", "Building smtp/run"]) if $logfile;
+
+$file = "/tmp/toaster-watcher-smtpd-runfile";
+
+
+if ( $qmail->build_smtp_run($conf, $file, $debug ) )
+{
+	print "success.\n" if $verbose;
+	$vals->{'service'} = "smtp";
+	$vals->{'file'} = $file;
+	if ( $qmail->install_supervise_run( $vals, $conf) ) 
+	{
+		$qmail->smtpd_restart($conf, "smtp", $debug);
+	};
+} 
+else { print "FAILED.\n" if $verbose; };	
 
 
 =item build_submit_run
@@ -158,19 +163,62 @@ if ( $conf->{'submit_enable'} )
 {
 	$utility->logfile_append($logfile, ["watcher", "Building submit/run"]) if $logfile;
 	print "generating submit/run..." if $verbose;
+	$vals->{'service'} = "smtp";
 
 	$file = "/tmp/toaster-watcher-submit-runfile";
 	if ( $qmail->build_submit_run($conf, $file, $debug ) )
 	{
 		print "success.\n" if $verbose;
-		$vals->{'file'} = $file; $vals->{'service'} = "submit";
-		if ( $qmail->install_qmail_service_run($vals, $conf) )
+		$vals->{'service'} = "submit";
+		$vals->{'file'} = $file; 
+		if ( $qmail->install_supervise_run($vals, $conf) )
 		{
 			$qmail->smtpd_restart($conf, "submit", $debug);
 		};
 	}
 	else { print "FAILED.\n" if $verbose; };	
 };
+
+$toaster->toaster_check($conf, $verbose);
+
+=item Clear Open SMTP
+
+This script runs the clearopensmtp program which expires old ip addresses from the vpopmail smtp relay table. It will only run if you have vpopmail_roaming_users enabled in toaster-watcher.conf.
+
+=cut
+
+if ( $conf->{'vpopmail_roaming_users'} ) {
+	my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
+	if ( -x "$vpopdir/bin/clearopensmtp" )
+	{
+		print "running clearopensmtp..." if $verbose;
+		$utility->syscmd("$vpopdir/bin/clearopensmtp");
+		print "done.\n " if $verbose;
+	} 
+	else {
+		print "ERROR: I cannot find your clearopensmtp program!\n";
+	}
+}
+
+
+=item Isoqlog
+
+If you have isoqlog installed, you'll want to have it running frequently. I suggest running it from here, or from crondirectly.
+
+=cut
+
+if ( $conf->{'install_isoqlog'} ) {
+	my $isoqlog = $utility->find_the_bin("isoqlog");
+	if ( -x $isoqlog ) {
+		$utility->syscmd("$isoqlog >/dev/null");
+	};
+}
+
+
+if ( $conf->{'install_rrdutil'} ) {
+	print "trigger rrdutil from here, maybe...\n" if $verbose;
+	# must test this a bit first
+}
 
 
 =item Qmail-Scanner Quarantine Processing

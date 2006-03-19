@@ -130,9 +130,9 @@ Set install_apache_user to the username that apache will run under. The "www" is
 
 If this is set to 1, and install_apache is set to 2, then mod_perl 2 will be built and installed.
 
-  install_mysql                  = 4   # 0, 1, 2, 3, 4, 5
+  install_mysql                  = 4   # 0, 1, 2, 3, 40, 41, 5
 
-You can choose from a variety of version of MySQL to install. The code meanings are as follows:
+You can choose from a variety of MySQL version to install. The code meanings are as follows:
 
   0       - none
   1       - install latest package
@@ -142,16 +142,16 @@ You can choose from a variety of version of MySQL to install. The code meanings 
   41, 4.1 - 4.1.x  from ports
   5, 50   - 5.0.x  from ports
 
-You have a variety of choices for installing MySQL:
+There is more information about using MySQL with the mail toaster here: 
+
+http://www.tnpi.biz/internet/mail/toaster/faq/programs/mysql.shtml
 
   install_mysql_ssl              = 1
   install_mysql_linuxthreads     = 0
   install_mysql_optimized        = 1
   install_mysql_dir              = /var/db/mysql
 
-Set install_mysql to the major version of MySQL server that you have or desire to have installed.
-
-mysql_linuxthreads is considered experimental on FreeBSD although some folks reccomend it.
+If you are using MySQL replicaton over a WAN, then ssl is a good option to use.
 
 /var/db/mysql is the default location of MySQL on FreeBSD. If you're expecting to have anything other than the toaster use this MySQL database server, there might be arguments for putting MySQL somewhere other than /var, especially if you haven't sized /var appropriately to begin with.
 
@@ -254,11 +254,7 @@ A good example of this is that many toaster run courier-imap's pop3 daemon inste
  rm /usr/local/etc/rc.d/pop3.sh
  ln -s /var/qmail/supervise/pop3 /var/service
 
-
-  qmail_chk_usr_patch = 1
-
-
-This decides whether to install the chkusr patch as described at http://www.interazioni.it/qmail/ . Please note that this patch has various implications for how mail is handled on your system-- make sure you really want the functionality it offers.
+After this change, you must manage pop3 with daemontools (svc). 
 
   qmail_mfcheck_enable = 1
 
@@ -271,6 +267,10 @@ The qmail toaster patches support checking for a valid hostname in the envelope 
 This is the total number of outgoing connections your server will make at a time.  To change this after building qmail, edit /var/qmail/control/concurrencyremote
 
   qmail_smtpd_auth_0.31 = 0
+
+  qmail_queue_extra = 0
+
+Queue extra is a qmail feature for keeping a duplicate copy of messages coming into and out of the server. You can find more info about it on Dan's site: http://cr.yp.to/qmail/faq/admin.html
  
 
 Leave this zero unless you know better!
@@ -354,8 +354,10 @@ This enables local logins-- accounts which are listed in /etc/passwd-- to receiv
 
 If you enable this feature, you'll need to add a few lines to /etc/pam.conf to allow courier-imap to work with /etc/passwd accounts. See http://www.inter7.com/courierimap/INSTALL.html for details.
 
-  vpopmail_domain_quotas         = 1
+  vpopmail_domain_quotas         = 0
   vpopmail_default_quota         = 100000000S,10000C
+
+The domain quota feature has been broken on vpopmail almost forever. Even when it worked, it introduced extremely high CPU loads on busy mail systems. It is to be avoided.
 
 The default quota option is deprecated in vpopmail 5.4.0 and higher. See ~vpopmail/etc/vlimits.default to control default limits.
 

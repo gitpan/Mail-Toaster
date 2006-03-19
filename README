@@ -22,15 +22,13 @@ DESCRIPTION
 
     A complete set of instructions for building a mail toaster are on the
     toaster install page. There is a substantial amount of documenation
-    available for the "Mail::Toaster" toaster. Much of it is readable via
-    "perldoc Mail::Toaster", and all the subsequent pages. Don't forget to
+    available for the "Mail::Toaster" toaster. Much of it is also readable
+    via "perldoc Mail::Toaster", and the subsequent pages. Don't forget to
     read the Install, Configure, and FAQ pages on the web site. If you still
     have questions, there is a Web Forum and mailing list. Both are
     browseable and searchable for your convenience.
 
       http://www.tnpi.biz/internet/mail/toaster/
-
-      http://www.tnpi.biz/internet/mail/toaster/docs/
 
   command line flags
     toaster_setup.pl can be passed several flags. -s [ section ] - run
@@ -45,6 +43,7 @@ USAGE
 
                pre - installs a list of programs and libraries other toaster components need
               perl - installs or upgrades perl
+            config - walks through configuring toaster*.conf files
 
                          FreeBSD Specific
              ports - updates your ports tree, installs the pkg_* tools

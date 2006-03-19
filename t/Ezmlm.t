@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl test.pl'
 
 #
-# $Id: Ezmlm.t,v 4.1 2005/03/24 03:38:35 matt Exp $
+# $Id: Ezmlm.t,v 4.2 2005/05/10 02:28:44 matt Exp $
 #
 
 ######################### We start with some black magic to print on failure.
@@ -18,6 +18,8 @@ use Mail::Toaster::Ezmlm;
 $loaded = 1;
 print "ok 1 - Mail::Toaster::Ezmlm\n";
 
+use Mail::Toaster::Utility 4;    my $utility = Mail::Toaster::Utility->new();
+my $conf = $utility->parse_config( {file=>"toaster-watcher.conf", debug=>0} );
 
 ######################### End of black magic.
 
@@ -28,8 +30,12 @@ print "ok 1 - Mail::Toaster::Ezmlm\n";
 my $ezmlm = new Mail::Toaster::Ezmlm;
 $ezmlm ? print "ok 2 - new\n" : print "not ok 2 - new\n";
 
-$r = $ezmlm->process_shell();
-! $r ? print "ok 3 - process_shell\n" : print "not ok 3 - process_shell\n";
+if ( $conf->{'install_ezmlm_cgi'} ) {
+	$r = $ezmlm->process_shell();
+	! $r ? print "ok 3 - process_shell\n" : print "not ok 3 - process_shell\n";
+} else {
+	print "ok 3 - process_shell skipped\n";
+}
 
 $r = $ezmlm->logo();
 $r ? print "ok 4 - logo\n" : print "not ok 4 - logo\n";

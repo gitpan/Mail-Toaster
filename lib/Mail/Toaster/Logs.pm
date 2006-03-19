@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Logs.pm,v 4.7 2005/03/21 16:20:52 matt Exp $
+# $Id: Logs.pm,v 4.13 2006/03/10 14:35:21 matt Exp $
 #
 
 package Mail::Toaster::Logs;
@@ -12,7 +12,7 @@ use Getopt::Std;
 use POSIX;   # needed for floor()
 
 use vars qw( $VERSION);
-$VERSION = "4.5";
+$VERSION = "4.9";
 
 use lib "lib";
 use lib "../..";
@@ -64,38 +64,61 @@ sub ReportYesterday($)
 	my ($conf) = @_;
 
 	my $debug   = $conf->{'debug'};
-	my $qmadir  = $conf->{'qmailanalog_bin'};     $qmadir  ||= "/usr/local/qmailanalog/bin";
-	my $email   = $conf->{'toaster_admin_email'}; $email   ||= "postmaster";
-	my $logbase = $conf->{'logs_base'};           $logbase ||= $conf->{'qmail_log_base'};
-	$logbase ||= "/var/log/mail";
+	my $qmadir  = $conf->{'qmailanalog_bin'}     || "/usr/local/qmailanalog/bin";
+	my $email   = $conf->{'toaster_admin_email'} || "postmaster";
+	my $file    = "sendlog";
+	my $log;
+
+	unless ( -x "$qmadir/matchup" ) {
+		print "ReportYesterday: Oopsie!  The 'maillogs yesterday' feature only works if qmailanalog is installed. I am  unable to find the binaries for it. Please make sure it is installed and configure toaster-watcher.conf and set qmailanalog_bin appropriately.\n";
+	};
 
 	my ($dd, $mm, $yy) = SetupDateVariables();
-	my $file = "sendlog";
-	my $log  = "$logbase/$yy/$mm/$dd/$file";
-	print "ReportYesterday: updating todays symlink for sendlogs\n" if $debug;
-	unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
-	symlink($log, "$logbase/sendlog");
 
-	($dd, $mm, $yy) = SetupDateVariables(-86400);
+	if ( $conf->{'send_log_method'} eq "syslog" ) 
+	{
+		if ( $os eq "freebsd" ) {
+			$file = "/var/log/maillog.0";
+		} else {
+			$file = "/var/log/mail.log.0";
+		}
+		$log = "$file.gz" if ( -e "$file.gz" );
+		$log = "$file.bz2" if ( -e "$file.bz2" );
+	} 
+	else 
+	{
+		# some form of multilog logging
+		my $logbase = $conf->{'logs_base'} || $conf->{'qmail_log_base'} || "/var/log/mail";
+		$log  = "$logbase/$yy/$mm/$dd/$file";
 
-	$file = "sendlog.gz";
-	$log  = "$logbase/$yy/$mm/$dd/$file";
-	print "ReportYesterday: updating yesterdays symlink for sendlogs\n" if $debug;
-	unlink ("$logbase/sendlog.0.gz") if ( -l "$logbase/sendlog.0.gz");
-	symlink($log, "$logbase/sendlog.0.gz");
+		print "ReportYesterday: updating todays symlink for sendlogs\n" if $debug;
+		unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
+		symlink($log, "$logbase/sendlog");
+
+		($dd, $mm, $yy) = SetupDateVariables(-86400);
+		$file = "sendlog.gz";
+		$log  = "$logbase/$yy/$mm/$dd/$file";
+
+		print "ReportYesterday: updating yesterdays symlink for sendlogs\n" if $debug;
+		unlink ("$logbase/sendlog.0.gz") if ( -l "$logbase/sendlog.0.gz");
+		symlink($log, "$logbase/sendlog.0.gz");
+	};
 
 	print "processing log: $log\n" if $debug;
-	my $gzcat = $utility->find_the_bin("gzcat");
+
+	my $cat = "cat";
+	if    ( $log =~ /\.bz2/ ) { $cat = $utility->find_the_bin("bzcat") }
+	elsif ( $log =~ /\.gz/  ) { $cat = $utility->find_the_bin("gzcat") }; 
 
 	print "calculating overall stats with:\n" if $debug;
-	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`\n" if $debug;
-	my $overall   = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`;
+	print "`$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`\n" if $debug;
+	my $overall   = `$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zoverall`;
 	print "calculating failure stats with:\n" if $debug;
-	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`\n" if $debug;
-	my $failures  = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`;
+	print "`$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`\n" if $debug;
+	my $failures  = `$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zfailures`;
 	print "calculating deferral stats\n" if $debug;
-	print "`$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`\n" if $debug;
-	my $deferrals = `$gzcat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`;
+	print "`$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`\n" if $debug;
+	my $deferrals = `$cat $log | $qmadir/matchup 5>/dev/null | $qmadir/zdeferrals`;
 
 	my $date = "$yy.$mm.$dd";
 	print "date: $yy.$mm.$dd\n" if $debug;
@@ -135,12 +158,11 @@ sub CheckSetup($)
 {
 	my ($self, $conf) = @_;
 
-	my $logbase  = $conf->{'logs_base'};     $logbase  ||= $conf->{'qmail_log_base'};
-	my $counters = $conf->{'logs_counters'}; $counters ||= "counters";
-	$logbase  ||= "/var/log/mail";
+	my $logbase  = $conf->{'logs_base'}     || $conf->{'qmail_log_base'};
+	my $counters = $conf->{'logs_counters'} || "counters" || "/var/log/mail";
 
-	my $user  = $conf->{'logs_user'};     $user  ||= "qmaill"  ;
-	my $group = $conf->{'logs_group'};    $group ||= "qnofiles";
+	my $user  = $conf->{'logs_user'}  || "qmaill"  ;
+	my $group = $conf->{'logs_group'} || "qnofiles";
 	my $uid   = getpwnam($user);
 	my $gid   = getgrnam($group);
 
@@ -173,11 +195,8 @@ sub CheckSetup($)
 
 	my $script = "/usr/local/sbin/maillogs";
 
-	unless ( -e $script ) { print "WARNING: $script must be installed!\n"; } 
-	else 
-	{
-		print "WARNING: $script must be executable!\n" unless (-x $script);
-	};
+	print "WARNING: $script must be installed!\n"  unless (-e $script);
+	print "WARNING: $script must be executable!\n" unless (-x $script);
 };
 
 =head2 CheckForFlags
@@ -205,7 +224,7 @@ sub CheckForFlags($$;$)
 	if ($prot) 
 	{
 		print "working on protocol: $prot\n" if $debug;
-		if    ( $prot eq "smtp"         ) { $self->smtp_count  ( $conf, $syslog ) }
+		if    ( $prot eq "smtp"         ) { $self->smtp_auth_count  ( $conf, $syslog ) }
 		elsif ( $prot eq "rbl"          ) { $self->rbl_count   ( $conf          ) }
 		elsif ( $prot eq "send"         ) { $self->send_count  ( $conf          ) }
 		elsif ( $prot eq "pop3"         ) { $self->pop3_count  ( $conf, $syslog ) } 
@@ -250,10 +269,10 @@ Count the number of connections we've blocked (via rblsmtpd) for each RBL that w
 	my ($self, $conf) = @_;
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};      $logbase   ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};  $counters  ||= "counters";
-	my $rbl_log   = $conf->{'logs_rbl_count'}; $rbl_log   ||= "smtp_rbl.txt";
-	my $supervise = $conf->{'logs_supervise'}; $supervise ||= "/var/qmail/supervise";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $rbl_log   = $conf->{'logs_rbl_count'}  || "smtp_rbl.txt";
+	my $supervise = $conf->{'logs_supervise'}  || "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$rbl_log";
 	   %spam      = $self->counter_read($countfile, $debug);
@@ -274,15 +293,16 @@ Count the number of connections we've blocked (via rblsmtpd) for each RBL that w
 	RotateMailLogs( "$supervise/smtp/log" );
 	CompressYesterdaysLogfile( $conf, "smtplog" );
 
-	$self->counter_write($countfile, %spam);
+#   do not write out the counters, they'll get updated when we rotate the logs
+#	$self->counter_write($countfile, %spam);
 };
 
-sub smtp_count($$)
+sub smtp_auth_count($$)
 {
 
-=head2 smtp_count
+=head2 smtp_auth_count
 
-	$logs->smtp_count($conf, $syslog);
+	$logs->smtp_auth_count($conf, $syslog);
 
 Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd daemon.
 
@@ -291,45 +311,51 @@ Count the number of times users authenticate via SMTP-AUTH to our qmail-smtpd da
 	my ($self, $conf, $syslog) = @_;
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
-	my $smtp_log  = $conf->{'logs_smtp_count'}; $smtp_log  ||= "smtp_rbl.txt";
-	my $supervise = $conf->{'logs_supervise'};  $supervise ||= "/var/qmail/supervise";
+	my $logbase   = $conf->{'logs_base'}        || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}    || "counters";
+	my $smtp_log  = $conf->{'logs_smtp_count'}  || "smtp_rbl.txt";
+	my $supervise = $conf->{'logs_supervise'}   || "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$smtp_log";
 	my %count     = $self->counter_read($countfile, $debug);
 
-	print "      SMTP Counts\n\n" if ($debug);
+	print "      SMTP Counts\n\n" if $debug;
 
 	my @logfiles = CheckLogFiles( $syslog );
 
 	if ( $logfiles[0] eq "" ) 
 	{
-		carp "\nsmtp_count: Ack, no logfiles!\n\n";
+		carp "\nsmtp_auth_count: Ack, no logfiles!\n\n";
+		return 0;
 	} 
-	else 
+
+	my %temp;
+	foreach (@logfiles) 
 	{
-		my $success   = `grep "vchkpw-smtp:" @logfiles | grep success | wc -l`;
-		my $connect   = `grep "vchkpw-smtp:" @logfiles | wc -l`;
+		open(LOGF, $_);
 
-		$success   = $success * 1;
-		$connect   = $connect * 1;
-
-		if ( $success >= $count{'success_last'} ) 
+		while (my $line = <LOGF>)
 		{
-		 	$count{'success'} = $count{'success'} + ( $success - $count{'success_last'} ) 
+			next unless ( $line =~ /vchkpw-smtp/ || $line =~ /vchkpw-submission/ );
+			$temp{'connect'}++; 
+			$temp{'success'}++ if ( $line =~ /success/ );
 		}
-		else  { $count{'success'} = $count{'success'} + $success };
+	}
 
-		if ( $connect >= $count{'connect_last'} )
-		{
-			$count{'connect'} = $count{'connect'} + ( $connect - $count{'connect_last'} ) 
-		}
-		else  { $count{'connect'} = $count{'connect'} + $connect };
+	if ( $temp{'success'} >= $count{'success_last'} ) 
+	{
+	 	$count{'success'} = $count{'success'} + ( $temp{'success'} - $count{'success_last'} ) 
+	}
+	else  { $count{'success'} = $count{'success'} + $temp{'success'} };
 
-		$count{'success_last'} = $success;
-		$count{'connect_last'} = $connect;
-	};
+	if ( $temp{'connect'} >= $count{'connect_last'} )
+	{
+		$count{'connect'} = $count{'connect'} + ( $temp{'connect'} - $count{'connect_last'} ) 
+	}
+	else  { $count{'connect'} = $count{'connect'} + $temp{'connect'} };
+
+	$count{'success_last'} = $temp{'success'};
+	$count{'connect_last'} = $temp{'connect'};
 
 	print "smtp_auth_connect:$count{'connect'}:smtp_auth_success:$count{'success'}\n";
 
@@ -350,11 +376,11 @@ Count the number of messages we deliver, and a whole mess of stats from qmail-se
 	my ($self, $conf) = @_;
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
-	my $send_log  = $conf->{'logs_send_count'}; $send_log ||= "send.txt";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $send_log  = $conf->{'logs_send_count'} || "send.txt";
 	my $isoqlog   = $conf->{'logs_isoqlog'};
-	my $supervise = $conf->{'logs_supervise'};  $supervise = "/var/qmail/supervise";
+	my $supervise = $conf->{'logs_supervise'}  || "/var/qmail/supervise";
 
 	my $countfile = "$logbase/$counters/$send_log";
 	my %count     = $self->counter_read($countfile, $debug);
@@ -384,7 +410,7 @@ Count the number of messages we deliver, and a whole mess of stats from qmail-se
 	};
 
 	CompressYesterdaysLogfile( $conf, "sendlog" );
-	PurgeLastMonthLogs();
+	PurgeLastMonthLogs() if ($conf->{'logs_archive_purge'});
 };
 
 sub imap_count($$)
@@ -404,9 +430,9 @@ Count the number of connections and successful authentications via IMAP and IMAP
 	my @logfiles = CheckLogFiles( $syslog );
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
-	my $imap_log  = $conf->{'logs_imap_count'}; $imap_log ||= "imap.txt";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $imap_log  = $conf->{'logs_imap_count'} || "imap.txt";
 
 	my $countfile = "$logbase/$counters/$imap_log";
 	my %count     = $self->counter_read($countfile, $debug);
@@ -414,43 +440,50 @@ Count the number of connections and successful authentications via IMAP and IMAP
 	if ( $logfiles[0] eq "" ) 
 	{
 		carp "\n   imap_count ERROR: no logfiles!\n\n";
+		return;
 	} 
-	else 
+
+	foreach (@logfiles) 
 	{
-		$imap_success      = `grep "imapd: LOGIN" @logfiles | wc -l`;
-		$imap_connect      = `grep "imapd: Connection" @logfiles | wc -l`;
-		$imap_ssl_success  = `grep "imapd-ssl: LOGIN" @logfiles | wc -l`;
-		$imap_ssl_connect  = `grep "imapd-ssl: Connection" @logfiles | wc -l`;
-		chomp ($imap_success, $imap_connect, $imap_ssl_success, $imap_ssl_connect);
+		open(LOGF, $_);
 
-		if ( $imap_success >= $count{'imap_success_last'} ) { 
-			$count{'imap_success'} = $count{'imap_success'} + 
-			( $imap_success - $count{'imap_success_last'} ) }
-		else  { $count{'imap_success'} = $count{'imap_success'} + $imap_success };
+		while (my $line = <LOGF>)
+		{
+			if    ( $line !~ /imapd/               ) { next; }
+			elsif ( $line =~ /ssl: LOGIN/          ) { $imap_ssl_success++; }
+			elsif ( $line =~ /LOGIN/               ) { $imap_success++; } 
+#			elsif ( $line =~ /ssl: Connection/     ) { $imap_ssl_connect++; }
+#			elsif ( $line =~ /Connection/          ) { $imap_connect++; }
+		}
+	}
 
-		if ( $imap_ssl_success >= $count{'imap_ssl_success_last'} ) { 
-			$count{'imap_ssl_success'} = $count{'imap_ssl_success'} + 
-			( $imap_ssl_success - $count{'imap_ssl_success_last'} ) }
-		else  { $count{'imap_ssl_success'} = $count{'imap_ssl_success'} + $imap_ssl_success };
+	if ( $imap_success >= $count{'imap_success_last'} ) { 
+		$count{'imap_success'} = $count{'imap_success'} + 
+		( $imap_success - $count{'imap_success_last'} ) }
+	else  { $count{'imap_success'} = $count{'imap_success'} + $imap_success };
 
-		if ( $imap_connect >= $count{'imap_connect_last'} ) { 
-			$count{'imap_connect'} = $count{'imap_connect'} + 
-			( $imap_connect - $count{'imap_connect_last'} ) }
-		else  { $count{'imap_connect'} = $count{'imap_connect'} + $imap_connect };
+	if ( $imap_ssl_success >= $count{'imap_ssl_success_last'} ) { 
+		$count{'imap_ssl_success'} = $count{'imap_ssl_success'} + 
+		( $imap_ssl_success - $count{'imap_ssl_success_last'} ) }
+	else  { $count{'imap_ssl_success'} = $count{'imap_ssl_success'} + $imap_ssl_success };
 
-		if ( $imap_ssl_connect >= $count{'imap_ssl_connect_last'} ) { 
-			$count{'imap_ssl_connect'} = $count{'imap_ssl_connect'} + 
-			( $imap_ssl_connect - $count{'imap_ssl_connect_last'} ) }
-		else  { $count{'imap_ssl_connect'} = $count{'imap_ssl_connect'} + $imap_ssl_connect };
+	if ( $imap_connect >= $count{'imap_connect_last'} ) { 
+		$count{'imap_connect'} = $count{'imap_connect'} + 
+		( $imap_connect - $count{'imap_connect_last'} ) }
+	else  { $count{'imap_connect'} = $count{'imap_connect'} + $imap_connect };
 
-		$count{'imap_success_last'}     = $imap_success;
-		$count{'imap_connect_last'}     = $imap_connect;
-		$count{'imap_ssl_success_last'} = $imap_ssl_success;
-		$count{'imap_ssl_connect_last'} = $imap_ssl_connect;
-	};
+	if ( $imap_ssl_connect >= $count{'imap_ssl_connect_last'} ) { 
+		$count{'imap_ssl_connect'} = $count{'imap_ssl_connect'} + 
+		( $imap_ssl_connect - $count{'imap_ssl_connect_last'} ) }
+	else  { $count{'imap_ssl_connect'} = $count{'imap_ssl_connect'} + $imap_ssl_connect };
+
+	$count{'imap_success_last'}     = $imap_success;
+	$count{'imap_connect_last'}     = $imap_connect;
+	$count{'imap_ssl_success_last'} = $imap_ssl_success;
+	$count{'imap_ssl_connect_last'} = $imap_ssl_connect;
 
 	print "connect_imap:$count{'imap_connect'}:connect_imap_ssl:$count{'imap_ssl_connect'}:" .
-		"imap_connect_success:$count{'imap_success'}:imap_ssl_success:$count{'imap_ssl_success'}\n";
+		"imap_success:$count{'imap_success'}:imap_ssl_success:$count{'imap_ssl_success'}\n";
 
 	$self->counter_write($countfile, %count);
 };
@@ -469,14 +502,13 @@ Count the number of connections and successful authentications via POP3 and POP3
 	my ($self, $conf, $syslog) = @_;
 
 	my @logfiles = CheckLogFiles( $syslog );
-	my ($pop3_success, $pop3_connect, $pop3_ssl_success, $pop3_ssl_connect);
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
-	my $qpop_log  = $conf->{'logs_pop3_count'}; $qpop_log  ||= "pop3.txt";
-	my $supervise = $conf->{'logs_supervise'};  $supervise ||= "/var/qmail/supervise";
-	my $pop3_logs = $conf->{'logs_pop3d'};      $pop3_logs ||= "courier";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $qpop_log  = $conf->{'logs_pop3_count'} || "pop3.txt";
+	my $supervise = $conf->{'logs_supervise'}  || "/var/qmail/supervise";
+	my $pop3_logs = $conf->{'logs_pop3d'}      || "courier";
 
 	my $countfile = "$logbase/$counters/$qpop_log";
 	my %count     = $self->counter_read($countfile, $debug);
@@ -484,51 +516,59 @@ Count the number of connections and successful authentications via POP3 and POP3
 	if ( $logfiles[0] eq "" ) 
 	{
 		carp "    ERROR: no logfiles!\n\n";
+		return 0;
 	} 
-	else 
+
+	print "checking files @logfiles.\n" if $debug;
+
+	my %temp;
+	foreach (@logfiles) 
 	{
-		print "checking files @logfiles.\n" if $debug;
+		open(LOGF, $_);
 
-		if ( $pop3_logs eq "qpop3d" ) 
+		while (my $line = <LOGF>)
 		{
-			$pop3_success = `grep vchkpw-pop3 @logfiles | grep success | wc -l`;
-			$pop3_connect = `grep vchkpw-pop3 @logfiles | wc -l`;       
-		} 
-		elsif ( $pop3_logs eq "courier" ) 
-		{
-			$pop3_success = `grep "pop3d: LOGIN" @logfiles | wc -l`;
-			$pop3_connect = `grep "pop3d: Connection" @logfiles | wc -l`;
-		};
+			next unless ($line =~ /pop3/);
 
-		$pop3_ssl_success  = `grep "pop3d-ssl: LOGIN" @logfiles | wc -l`;
-		$pop3_ssl_connect  = `grep "pop3d-ssl: Connection" @logfiles | wc -l`;
-		chomp( $pop3_success, $pop3_connect, $pop3_ssl_success, $pop3_ssl_connect);
+			if ( $line =~ /vchkpw-pop3:/ ) { # qmail-pop3d
+				$temp{'connect'}++;	
+				$temp{'success'}++ if ( $line =~ /success/ );
+			}
+			elsif ( $line =~ /pop3d: / ) {   # courier pop3d
+				$temp{'connect'}++ if ( $line =~ /Connection/);	
+				$temp{'success'}++ if ( $line =~ /LOGIN/ );
+			}
+			elsif ( $line =~ /pop3d-ssl: / ) { # courier pop3d-ssl
+				$temp{'ssl_connect'}++ if ( $line =~ /Connection/);
+				$temp{'ssl_success'}++ if ( $line =~ /LOGIN/ );
+			}
+		}
+	}
+			
+	if ( $temp{'success'} >= $count{'pop3_success_last'} ) { 
+		$count{'pop3_success'} = $count{'pop3_success'} + 
+		( $temp{'success'} - $count{'pop3_success_last'} ) }
+	else  { $count{'pop3_success'} = $count{'pop3_success'} + $temp{'success'} };
 
-		if ( $pop3_success >= $count{'pop3_success_last'} ) { 
-			$count{'pop3_success'} = $count{'pop3_success'} + 
-			( $pop3_success - $count{'pop3_success_last'} ) }
-		else  { $count{'pop3_success'} = $count{'pop3_success'} + $pop3_success };
+	if ( $temp{'connect'} >= $count{'pop3_connect_last'} ) { 
+		$count{'pop3_connect'} = $count{'pop3_connect'} + 
+		( $temp{'connect'} - $count{'pop3_connect_last'} ) }
+	else  { $count{'pop3_connect'} = $count{'pop3_connect'} + $temp{'connect'} };
 
-		if ( $pop3_connect >= $count{'pop3_connect_last'} ) { 
-			$count{'pop3_connect'} = $count{'pop3_connect'} + 
-			( $pop3_connect - $count{'pop3_connect_last'} ) }
-		else  { $count{'pop3_connect'} = $count{'pop3_connect'} + $pop3_connect };
+	if ( $temp{'ssl_success'} >= $count{'pop3_ssl_success_last'} ) { 
+		$count{'pop3_ssl_success'} = $count{'pop3_ssl_success'} + 
+		( $temp{'ssl_success'} - $count{'pop3_ssl_success_last'} ) }
+	else  { $count{'pop3_ssl_success'} = $count{'pop3_ssl_success'} + $temp{'ssl_success'} };
 
-		if ( $pop3_ssl_success >= $count{'pop3_ssl_success_last'} ) { 
-			$count{'pop3_ssl_success'} = $count{'pop3_ssl_success'} + 
-			( $pop3_ssl_success - $count{'pop3_ssl_success_last'} ) }
-		else  { $count{'pop3_ssl_success'} = $count{'pop3_ssl_success'} + $pop3_ssl_success };
+	if ( $temp{'ssl_connect'} >= $count{'pop3_ssl_connect_last'} ) { 
+		$count{'pop3_ssl_connect'} = $count{'pop3_ssl_connect'} + 
+		( $temp{'ssl_connect'} - $count{'pop3_ssl_connect_last'} ) }
+	else  { $count{'pop3_ssl_connect'} = $count{'pop3_ssl_connect'} + $temp{'ssl_connect'} };
 
-		if ( $pop3_ssl_connect >= $count{'pop3_ssl_connect_last'} ) { 
-			$count{'pop3_ssl_connect'} = $count{'pop3_ssl_connect'} + 
-			( $pop3_ssl_connect - $count{'pop3_ssl_connect_last'} ) }
-		else  { $count{'pop3_ssl_connect'} = $count{'pop3_ssl_connect'} + $pop3_ssl_connect };
-
-		$count{'pop3_success_last'}     = $pop3_success;
-		$count{'pop3_connect_last'}     = $pop3_connect;
-		$count{'pop3_ssl_success_last'} = $pop3_ssl_success;
-		$count{'pop3_ssl_connect_last'} = $pop3_ssl_connect;
-	};
+	$count{'pop3_success_last'}     = $temp{'success'};
+	$count{'pop3_connect_last'}     = $temp{'connect'};
+	$count{'pop3_ssl_success_last'} = $temp{'ssl_success'};
+	$count{'pop3_ssl_connect_last'} = $temp{'ssl_connect'};
 
 	print "pop3_connect:$count{'pop3_connect'}:pop3_ssl_connect:$count{'pop3_ssl_connect'}:pop3_success:$count{'pop3_success'}:pop3_ssl_success:$count{'pop3_ssl_success'}\n";
 
@@ -557,9 +597,9 @@ Count the number of webmail authentications.
 	my @logfiles = CheckLogFiles( $syslog );
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};      $logbase  ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};  $counters ||= "counters";
-	my $web_log   = $conf->{'logs_web_count'}; $web_log  ||= "webmail.txt";
+	my $logbase   = $conf->{'logs_base'}      || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}  || "counters";
+	my $web_log   = $conf->{'logs_web_count'} || "webmail.txt";
 	#my $supervise = $conf->{'logs_supervise'};
 
 	my $countfile = "$logbase/$counters/$web_log";
@@ -568,36 +608,50 @@ Count the number of webmail authentications.
 	if ( $logfiles[0] eq "" ) 
 	{
 		carp "\n    ERROR: no logfiles!\n\n";
+		return 0;
 	} 
-	else 
+
+
+# newer log entries
+# Feb 21 10:24:41 cadillac sqwebmaild: LOGIN, user=matt@cadillac.net, ip=[66.227.213.209]
+# Feb 21 10:27:00 cadillac sqwebmaild: LOGIN FAILED, user=matt@cadillac.net, ip=[66.227.213.209]
+
+	my %temp;
+	foreach (@logfiles) 
 	{
-		# older log style
-		my $success   = `grep "Successful webmail login" @logfiles | wc -l`;
-		my $connect   = `grep "Successful webmail login" @logfiles | wc -l`;
+		open(LOGF, $_);
 
-		# newer log entries
-		# Feb 21 10:24:41 cadillac sqwebmaild: LOGIN, user=matt@cadillac.net, ip=[66.227.213.209]
-		# Feb 21 10:27:00 cadillac sqwebmaild: LOGIN FAILED, user=matt@cadillac.net, ip=[66.227.213.209]
-		my $failed    = `grep webmail @logfiles | grep "LOGIN FAILED" | wc -l`;
-		my $connect2  = `grep webmail @logfiles | grep LOGIN | wc -l`;
-		my $success2  = $connect2 - $failed;
+		while (my $line = <LOGF>)
+		{
+			next if $line =~ /spamd/;  # typically half the syslog file
+			next if $line =~ /pop3/;   # another 1/3 to 1/2
 
-		$success   = $success + $success2;
-		$connect   = $connect + $connect2;
-
-		if ( $success >= $count{'success_last'} ) {
-	 		$count{'success'} = $count{'success'} + ( $success - $count{'success_last'} ) }
-		else  { $count{'success'} = $count{'success'} + $success };
-
-		if ( $connect >= $count{'connect_last'} ) { 
-			$count{'connect'} = $count{'connect'} + ( $connect - $count{'connect_last'} ) }
-		else  { $count{'connect'} = $count{'connect'} + $connect };
-
-		$count{'success_last'} = $success;
-		$count{'connect_last'} = $connect;
+			if    ( $line =~ /Successful webmail login/) {    # squirrelmail w/plugin
+				$temp{'success'}++; 
+				$temp{'connect'}++; 
+			}
+			elsif ( $line =~ /sqwebmaild/              ) {    # sqwebmail
+				$temp{'connect'}++;
+				$temp{'success'}++  if ( $line !~ /FAILED/);
+			}
+			elsif ( $line =~ /imapd: LOGIN/ && $line =~ /127\.0\.0\.1/ ) {    # IMAP connections from localhost are webmail
+				$temp{'success'}++;
+			}
+		}
 	};
 
-	print "connect:$count{'connect'}:success:$count{'success'}\n";
+	if ( $temp{'success'} >= $count{'success_last'} ) {
+ 		$count{'success'} = $count{'success'} + ( $temp{'success'} - $count{'success_last'} ) }
+	else  { $count{'success'} = $count{'success'} + $temp{'success'} };
+
+	if ( $temp{'connect'} >= $count{'connect_last'} ) { 
+		$count{'connect'} = $count{'connect'} + ( $temp{'connect'} - $count{'connect_last'} ) }
+	else  { $count{'connect'} = $count{'connect'} + $temp{'connect'} };
+
+	$count{'success_last'} = $temp{'success'};
+	$count{'connect_last'} = $temp{'connect'};
+
+	print "webmail_connect:$count{'connect'}:webmail_success:$count{'success'}\n";
 
 	$self->counter_write($countfile, %count);
 };
@@ -614,12 +668,11 @@ Count statistics logged by SpamAssassin.
 =cut
 
 	my ($self, $conf, $syslog) = @_;
-	my ($sa_clean, $sa_spam, $sa_clean_score, $sa_spam_score, $sa_threshhold);
 
 	my $debug     = $conf->{'debug'};
-	my $logbase   = $conf->{'logs_base'};       $logbase   ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters  ||= "counters";
-	my $spam_log  = $conf->{'logs_spam_count'}; $spam_log  ||= "spam.txt";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $spam_log  = $conf->{'logs_spam_count'} || "spam.txt";
 
 	my $countfile = "$logbase/$counters/$spam_log";
 	my @logfiles  = CheckLogFiles( $syslog );
@@ -628,44 +681,64 @@ Count statistics logged by SpamAssassin.
 	if ( $logfiles[0] eq "" ) 
 	{
 		carp "\n   spamassassin_count ERROR: no logfiles!\n\n";
+		return 0;
 	} 
-	else 
+
+	my %temp = ( spam=>1,ham=>1);
+	foreach (@logfiles) 
 	{
-		$sa_clean  = `grep spamd @logfiles | grep clean | wc -l`;
-		$sa_clean  = $sa_clean * 1;
-		$sa_spam   = `grep spamd @logfiles | grep "identified spam" | wc -l`;
-		$sa_spam   = $sa_spam  * 1;
+		open(LOGF, $_);
 
-		if ( $sa_clean >= $count{'sa_clean_last'} ) {
-	 		$count{'sa_clean'} = $count{'sa_clean'} + ( $sa_clean - $count{'sa_clean_last'} ) }
-		else  { $count{'sa_clean'} = $count{'sa_clean'} + $sa_clean };
-	
-		if ( $sa_spam >= $count{'sa_spam_last'} ) { 
-			$count{'sa_spam'} = $count{'sa_spam'} + ( $sa_spam - $count{'sa_spam_last'} ) }
-		else  { $count{'sa_spam'} = $count{'sa_spam'} + $sa_spam };
+		while (my $line = <LOGF>)
+		{
+#			$temp{lines}++;
+			next unless $line =~ /spamd/;
 
-		my $i;
-		my @lines = `grep spamd @logfiles | grep "identified spam" | cut -d"(" -f2 | cut -d"/" -f1`;
-		foreach my $line (@lines) { $sa_spam_score = $sa_spam_score + $line; $i++ };
-		$sa_spam_score = floor($sa_spam_score / $i) if ($sa_spam_score);
-		$count{'sa_spam_score'}  = $sa_spam_score;
+#			$temp{spamd_lines}++;
 
-		$i = 0;
-		@lines = `grep spamd @logfiles | grep "clean" | cut -d"(" -f2 | cut -d"/" -f1`;
-		foreach my $line (@lines) { $sa_clean_score = $sa_clean_score + $line; $i++ };
-		$sa_clean_score = ($sa_clean_score / $i) if $sa_clean_score;
-		$count{'sa_clean_score'} = $sa_clean_score;
+			if ( $line =~ /clean message \(([0-9-\.]+)\/([0-9\.]+)\) for .* in ([0-9\.]+) seconds, ([0-9]+) bytes/ ) {
+				$temp{ham}++;
+				$temp{ham_scores}  = $temp{ham_scores} + $1;
+				$temp{threshhold}  = $temp{threshhold}   + $2;
+				$temp{ham_seconds} = $temp{ham_seconds}  + $3;
+				$temp{ham_bytes}   = $temp{ham_bytes}    + $4;
+			}
+			elsif ( $line =~ /identified spam \(([0-9-\.]+)\/([0-9\.]+)\) for .* in ([0-9\.]+) seconds, ([0-9]+) bytes/ ) {
+				$temp{spam}++;
+				$temp{spam_scores}  = $temp{spam_scores}  + $1;
+				$temp{threshhold}   = $temp{threshhold}   + $2;
+				$temp{spam_seconds} = $temp{spam_seconds} + $3;
+				$temp{spam_bytes}   = $temp{spam_bytes}   + $4;
+			}
+			else {
+				$temp{other}++;
+			};
+		};
 
-		@lines = `grep spamd @logfiles | grep "identified spam" | cut -d"(" -f2 | cut -d"/" -f2 | cut -d ")" -f1`;
-		chomp @lines;
-		$sa_threshhold = $lines[0];
-		$count{'sa_threshhold'}  = $sa_threshhold;
-
-		$count{'sa_clean_last'}  = $sa_clean;
-		$count{'sa_spam_last'}   = $sa_spam;
+		close LOGF;
 	};
 
-	print "sa_spam:$count{'sa_spam'}:sa_clean:$count{'sa_clean'}:sa_spam_score:$sa_spam_score:sa_clean_score:$sa_clean_score:sa_threshhold:$sa_threshhold\n";
+	if ( $temp{'ham'} >= $count{'sa_ham_last'} ) {
+ 		$count{'sa_ham'} = $count{'sa_ham'} + ( $temp{'ham'} - $count{'sa_ham_last'} ) }
+	else  { 
+		$count{'sa_ham'} = $count{'sa_ham'} + $temp{'ham'} };
+
+	if ( $temp{'spam'} >= $count{'sa_spam_last'} ) { 
+		$count{'sa_spam'} = $count{'sa_spam'} + ( $temp{'spam'} - $count{'sa_spam_last'} ) }
+	else  { 
+		$count{'sa_spam'} = $count{'sa_spam'} + $temp{'spam'} };
+
+	$count{'avg_spam_score'}  = floor($temp{spam_scores} / $temp{spam} * 100);
+	$count{'avg_ham_score'}   = floor($temp{ham_scores} / $temp{ham} * 100);
+	$count{'threshhold'}      = floor($temp{threshhold} / ($temp{ham} + $temp{spam}) * 100);
+	$count{'sa_ham_last'}     = $temp{ham};
+	$count{'sa_spam_last'}    = $temp{spam};
+	$count{'sa_ham_seconds'}  = floor($temp{ham_seconds}  / $temp{ham} * 100);
+	$count{'sa_spam_seconds'} = floor($temp{spam_seconds} / $temp{spam} * 100);
+	$count{'sa_ham_bytes'}    = floor($temp{ham_bytes}    / $temp{ham} * 100);
+	$count{'sa_spam_bytes'}   = floor($temp{spam_bytes}   / $temp{spam} * 100);
+
+	print "sa_spam:$count{'sa_spam'}:sa_ham:$count{'sa_ham'}:spam_score:$count{'avg_spam_score'}:ham_score:$count{'avg_ham_score'}:threshhold:$count{'threshhold'}:ham_seconds:$count{'sa_ham_seconds'}:spam_seconds:$count{'sa_spam_seconds'}:ham_bytes:$count{'sa_ham_bytes'}:spam_bytes:$count{'sa_spam_bytes'}\n";
 
 	$self->counter_write($countfile, %count);
 };
@@ -685,10 +758,9 @@ Count statistics logged by qmail scanner.
 	my ($qs_clean, $qs_virus, $qs_all);
 
 	my $debug      = $conf->{'debug'};
-	my $logbase    = $conf->{'logs_base'};        $logbase   ||= "/var/log/mail";
-	my $counters   = $conf->{'logs_counters'};    $counters  ||= "counters";
-	my $virus_log  = $conf->{'logs_virus_count'}; $virus_log ||= "virus.txt";
-	#my $supervise = $conf->{'logs_supervise'};
+	my $logbase    = $conf->{'logs_base'}        || "/var/log/mail";
+	my $counters   = $conf->{'logs_counters'}    || "counters";
+	my $virus_log  = $conf->{'logs_virus_count'} || "virus.txt";
 
 	my $countfile = "$logbase/$counters/$virus_log";
 	my @logfiles  = CheckLogFiles( $syslog );
@@ -735,9 +807,9 @@ Roll the qmail-send multilog logs. Update the maillogs counter.
 
 	my ($self, $conf, $debug) = @_;
 
-	my $logbase   = $conf->{'logs_base'};       $logbase  ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};   $counters ||= "counters";
-	my $send_log  = $conf->{'logs_send_count'}; $send_log ||= "send.txt";
+	my $logbase   = $conf->{'logs_base'}       || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}   || "counters";
+	my $send_log  = $conf->{'logs_send_count'} || "send.txt";
 
 	my $countfile = "$logbase/$counters/$send_log";
 	my %count     = $self->counter_read($countfile, $debug);
@@ -760,9 +832,9 @@ Roll the qmail-smtpd logs (without 2>&1 output generated by rblsmtpd).
 
 	my ($self, $conf, $debug) = @_;
 
-	my $logbase   = $conf->{'logs_base'};      $logbase  ||= "/var/log/mail";
-	my $counters  = $conf->{'logs_counters'};  $counters ||= "counters";
-	my $rbl_log   = $conf->{'logs_rbl_count'}; $rbl_log  ||= "smtp_rbl.txt";
+	my $logbase   = $conf->{'logs_base'}      || "/var/log/mail";
+	my $counters  = $conf->{'logs_counters'}  || "counters";
+	my $rbl_log   = $conf->{'logs_rbl_count'} || "smtp_rbl.txt";
 
 	my $cronolog  = $utility->find_the_bin("cronolog");
 	my $countfile = "$logbase/$counters/$rbl_log";
@@ -855,8 +927,7 @@ Keep guessing...
 
 	my ($dd, $mm, $yy) = SetupDateVariables(-2592000);
 
-	my $logbase = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
-
+	my $logbase    = $conf->{'logs_base'} || "/var/log/mail";
 	my $last_m_log = "$logbase/$yy/$mm";
 
 	if ( -d $last_m_log ) 
@@ -1004,15 +1075,27 @@ sub CountRblLine($$;$)
 
 	my ($line, $debug) = @_;
 
-	if    ( $_ =~ /dsbl/ )       { $spam{'smtp_block_dsbl'}++;     } 
-	elsif ( $_ =~ /spamhaus/ )   { $spam{'smtp_block_spamhaus'}++; } 
-	elsif ( $_ =~ /spamcop/ )    { $spam{'smtp_block_spamcop'}++;  } 
-	elsif ( $_ =~ /ORDB/ )       { $spam{'smtp_block_ordb'}++;     } 
-	elsif ( $_ =~ /mail-abuse/ ) { $spam{'smtp_block_maps'}++;     } 
-	elsif ( $_ =~ /Reverse/ )    { $spam{'smtp_block_dns'}++;      }
-	else  { print $line if $debug; $spam{'smtp_block_other'}++;    };
+	if    ( $_ =~ /dsbl\.org/ )  { $spam{'dsbl'}++;        } 
+	elsif ( $_ =~ /badhelo:/ )   { $spam{'badhelo'}++;     } 
+	elsif ( $_ =~ /badmailfrom:/){ $spam{'badmailfrom'}++; } 
+	elsif ( $_ =~ /badmailto:/ ) { $spam{'badmailto'}++;   } 
+	elsif ( $_ =~ /rfc-ignorant/){ $spam{'ignorant'}++;    } 
+	elsif ( $_ =~ /services/ )   { $spam{'services'}++;    } 
+	elsif ( $_ =~ /sorbs/ )      { $spam{'sorbs'}++;       } 
+	elsif ( $_ =~ /spamhaus/ )   { $spam{'spamhaus'}++;    } 
+	elsif ( $_ =~ /spamcop/ )    { $spam{'spamcop'}++;     } 
+	elsif ( $_ =~ /CHKUSER reje/){ $spam{'chkuser'}++;     } 
+	elsif ( $_ =~ /CHKUSER acce/){                         } 
+	elsif ( $_ =~ /virus:/ )     { $spam{'virus'}++;       }
+	elsif ( $_ =~ /njabl/ )      { $spam{'njabl'}++;       } 
+	elsif ( $_ =~ /ORDB/ )       { $spam{'ordb'}++;        } 
+	elsif ( $_ =~ /mail-abuse/ ) { $spam{'maps'}++;        } 
+	elsif ( $_ =~ /Reverse/ )    { $spam{'dns'}++;         }
+	elsif ( $_ =~ /monkeys/ )    { $spam{'monkeys'}++;     }
+	elsif ( $_ =~ /visi/ )       { $spam{'visi'}++;        }
+	else  { print $line if $debug; $spam{'other'}++;       };
 
-	$spam{'smtp_block_count'}++;
+	$spam{'count'}++;
 };
 
 sub ProcessSendLogs($$$$@)
@@ -1024,10 +1107,10 @@ sub ProcessSendLogs($$$$@)
 
 	my ($roll, $conf, $count, $debug, @files) = @_;
 
-	my $logbase  = $conf->{'logs_base'}; $logbase ||= "/var/log/mail";
+	my $logbase  = $conf->{'logs_base'} || "/var/log/mail";
 
 	my $cronolog   = $utility->find_the_bin("cronolog");
-	unless ( -x $cronolog ) { carp "Couldn't find cronolog!\n"; };
+	carp "Couldn't find cronolog!\n" unless -x $cronolog;
 
 	my $tai64nlocal;
 	if ( $conf->{'logs_archive_untai'} ) {
@@ -1151,13 +1234,11 @@ $file is the file to read from. $debug is optional, it prints out verbose messag
 		print "done.\n";
 		return 0;
 	} 
-	else 
+
+	foreach (@lines)
 	{
-		foreach my $line (@lines)
-		{
-			my @f = split(":", $line);
-			$hash{$f[0]} = $f[1];
-		};
+		my @f = split(":", $_);
+		$hash{$f[0]} = $f[1];
 	};
 
 	print "done.\n" if $debug;
@@ -1243,33 +1324,29 @@ Determine where syslog.mail is logged to. Right now we just test based on the OS
 
 	my ($self, $debug) = @_;
 
-	if    ( $os eq "freebsd" )
+	my $log = "/var/log/maillog";
+
+	if    ( -e $log )
 	{
-		if ( -e "/var/log/maillog" ) {
-			print "syslog_locate: FreeBSD detected...using /var/log/maillog\n" if $debug;
-			return "/var/log/maillog"; 
-		} else {
-			croak "syslog_locate: can't find your syslog mail log\n";
-		};
+		print "syslog_locate: using $log\n" if $debug;
+		return "$log"; 
 	}
 	elsif ( $os eq "darwin"  ) 
 	{ 
-		if ( -e "/var/log/mail.log" ) {
-			print "syslog_locate: Darwin detected...using /var/log/mail.log\n" if $debug;
-			return "/var/log/mail.log";
-		} else {
-			croak "syslog_locate: can't find your syslog mail log\n";
+		$log = "/var/log/mail.log";
+
+		if ( -e $log ) {
+			print "syslog_locate: Darwin detected...using $log\n" if $debug;
+			return $log;
 		};
 	}
 	else  
-	{ 
-		if ( -e "/var/log/maillog" ) {
-			print "syslog_locate: Darwin detected...using /var/log/mail.log\n" if $debug;
-			return "/var/log/maillog";
-		} else {
-			croak "syslog_locate: can't find your syslog mail log\n";
-		};
+	{
+		$log = "/var/log/mail.log";
+		return $log = -e $log;
 	};
+
+	croak "syslog_locate: can't find your syslog mail log\n";
 };
 
 1;
@@ -1309,27 +1386,11 @@ None known. Report any to author.
 The following are all man/perldoc pages: 
 
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility
-
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
 
  http://matt.simerson.net/computing/mail/toaster/
- http://matt.simerson.net/computing/mail/toaster/docs/
 
 
 =head1 COPYRIGHT

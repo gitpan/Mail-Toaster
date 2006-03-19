@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Utility</title>
-<link rev="made" href="mailto:matt@g5e.simerson.net" />
+<link rev="made" href="mailto:matt@g5.simerson.net" />
 </head>
 
 <body style="background-color: white">
@@ -25,6 +25,7 @@
 		<li><a href="#check_homedir_ownership">check_homedir_ownership</a></li>
 		<li><a href="#clean_tmp_dir">clean_tmp_dir</a></li>
 		<li><a href="#drives_get_mounted">drives_get_mounted</a></li>
+		<li><a href="#install_if_changed">install_if_changed</a></li>
 		<li><a href="#install_from_sources_php">install_from_sources_php</a></li>
 		<li><a href="#file_append">file_append</a></li>
 		<li><a href="#file_archive">file_archive</a></li>
@@ -130,6 +131,23 @@
   $utility-&gt;drives_get_mounted($debug);</pre>
 <p>Uses mount to fetch a list of mounted drive/partitions.</p>
 <p>returned is a hashref of mounted slices and their mount points.</p>
+<p>
+</p>
+<h2><a name="install_if_changed">install_if_changed</a></h2>
+<pre>
+ $attrs = {
+        uid    =&gt; ,
+        gid    =&gt; ,
+        mode   =&gt; ,
+        clean  =&gt; ,
+        notify =&gt; ,
+        email  =&gt; ,
+ };</pre>
+<pre>
+ return values:
+  0 = error (failure)
+  1 = normal success
+  2 = success, no update required</pre>
 <p>
 </p>
 <h2><a name="install_from_sources_php">install_from_sources_php</a></h2>
@@ -406,27 +424,11 @@
 <p>The following are all man/perldoc pages:</p>
 <pre>
  Mail::Toaster 
- Mail::Toaster::Apache 
- Mail::Toaster::CGI  
- Mail::Toaster::DNS 
- Mail::Toaster::Darwin
- Mail::Toaster::Ezmlm
- Mail::Toaster::FreeBSD
- Mail::Toaster::Logs 
- Mail::Toaster::Mysql
- Mail::Toaster::Passwd
- Mail::Toaster::Perl
- Mail::Toaster::Provision
- Mail::Toaster::Qmail
- Mail::Toaster::Setup
- Mail::Toaster::Utility</pre>
-<pre>
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a>
- <a href="http://matt.simerson.net/computing/mail/toaster/docs/">http://matt.simerson.net/computing/mail/toaster/docs/</a></pre>
+ <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
 <p>
 </p>
 <hr />
