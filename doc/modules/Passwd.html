@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Passwd</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -17,29 +17,11 @@
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#dependencies">DEPENDENCIES</a></li>
 	<li><a href="#methods">METHODS</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#show">show</a></li>
-		<li><a href="#delete">delete</a></li>
-		<li><a href="#disable">disable</a></li>
-		<li><a href="#enable">enable</a></li>
-		<li><a href="#encrypt">encrypt</a></li>
-		<li><a href="#exist">exist</a></li>
-		<li><a href="#sanity">sanity</a></li>
-		<li><a href="#backupmasterpasswd">BackupMasterPasswd</a></li>
-		<li><a href="#verifymasterpasswd">VerifyMasterPasswd</a></li>
-		<li><a href="#creategroup">creategroup</a></li>
-		<li><a href="#user_add">user_add</a></li>
-		<li><a href="#user_archive">user_archive</a></li>
-		<li><a href="#user_sanity">user_sanity</a></li>
-	</ul>
-
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
-	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -67,79 +49,145 @@
 </p>
 <hr />
 <h1><a name="methods">METHODS</a></h1>
-<p>
-</p>
-<h2><a name="new">new</a></h2>
-<p>Before calling any of the methods, you must create a password object:</p>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
+Before calling any of the methods, you must create a password object:
+</dd>
+<dd>
 <pre>
   use Mail::Toaster::Passwd;
   my $pass = Mail::Toaster::Passwd-&gt;new;</pre>
-<p>
-</p>
-<h2><a name="show">show</a></h2>
-<p>Show user attributes. Right now it only shows quota info.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_show">show</a></strong><br />
+</dt>
+<dd>
+Show user attributes. Right now it only shows quota info.
+</dd>
+<dd>
 <pre>
    $pass-&gt;show( {user=&gt;&quot;matt&quot;} );</pre>
+</dd>
+<dd>
 <p>input is a hashref</p>
+</dd>
+<dd>
 <p>returns a hashref with error_code and error_desc</p>
-<p>
-</p>
-<h2><a name="delete">delete</a></h2>
-<p>Delete an /etc/passwd user.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_delete">delete</a></strong><br />
+</dt>
+<dd>
+Delete an /etc/passwd user.
+</dd>
+<dd>
 <pre>
   $pass-&gt;delete( {user=&gt;&quot;matt&quot;} );</pre>
+</dd>
+<dd>
 <p>input is a hashref</p>
+</dd>
+<dd>
 <p>returns a hashref with error_code and error_desc</p>
-<p>
-</p>
-<h2><a name="disable">disable</a></h2>
-<p>Disable an /etc/passwd user by expiring their account.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_disable">disable</a></strong><br />
+</dt>
+<dd>
+Disable an /etc/passwd user by expiring their account.
+</dd>
+<dd>
 <pre>
   $pass-&gt;disable( {user=&gt;&quot;matt&quot;} );</pre>
+</dd>
+<dd>
 <p>input is a hashref</p>
+</dd>
+<dd>
 <p>returns a hashref with error_code and error_desc</p>
-<p>
-</p>
-<h2><a name="enable">enable</a></h2>
-<p>Enable an /etc/passwd user by removing the expiration date.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_enable">enable</a></strong><br />
+</dt>
+<dd>
+Enable an /etc/passwd user by removing the expiration date.
+</dd>
+<dd>
 <pre>
   $pass-&gt;enable( {user=&gt;&quot;matt&quot;} );</pre>
+</dd>
+<dd>
 <p>input is a hashref</p>
+</dd>
+<dd>
 <p>returns a hashref with error_code and error_desc</p>
-<p>
-</p>
-<h2><a name="encrypt">encrypt</a></h2>
+</dd>
+<p></p>
+<dt><strong><a name="item_encrypt">encrypt</a></strong><br />
+</dt>
+<dd>
 <pre>
         $pass-&gt;encrypt ($pass, $debug)</pre>
+</dd>
+<dd>
 <p>encrypt (MD5) the plain text password that arrives at $pass.</p>
-<p>
-</p>
-<h2><a name="exist">exist</a></h2>
-<p>Check to see if a user exists</p>
+</dd>
+<dt><strong><a name="item_exist">exist</a></strong><br />
+</dt>
+<dd>
+Check to see if a user exists
+</dd>
+<dd>
 <pre>
         $pass-&gt;exist($user);</pre>
+</dd>
+<dd>
 <p>I use this before adding a new user (easy error trapping) and again after adding a user (to verify success).</p>
+</dd>
+<dd>
 <pre>
         unless ( $pass-&gt;exist($user) ) {
                 $pass-&gt;user_add( {user=&gt;$user} );
         };</pre>
+</dd>
+<dd>
 <p>$user is the username you are adding.</p>
+</dd>
+<dd>
 <p>returns 1 if exists, 0 otherwise</p>
-<p>
-</p>
-<h2><a name="sanity">sanity</a></h2>
-<p>Check a password for sanity.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_sanity">sanity</a></strong><br />
+</dt>
+<dd>
+Check a password for sanity.
+</dd>
+<dd>
 <pre>
     use Mail::Toaster::Passwd;
     my $pass = Mail::Toaster::Passwd-&gt;new();</pre>
+</dd>
+<dd>
 <pre>
     $r =  $pass-&gt;sanity($password, $username);</pre>
+</dd>
+<dd>
 <pre>
     if ( $r-&gt;{'error_code'}==100 ) {  print &quot;success&quot;    }
     else                           {  print $r-&gt;{'error' };</pre>
+</dd>
+<dd>
 <p>$password  is the password the user is attempting to use.</p>
+</dd>
+<dd>
 <p>$username is the username the user has selected.</p>
+</dd>
+<dd>
 <p>Checks:</p>
+</dd>
+<dd>
 <pre>
     Passwords must have at least 6 characters.
     Passwords must have no more than 128 characters.
@@ -147,63 +195,113 @@
     Passwords must not be purely alpha or purely numeric
     Passwords must not be in reserved list 
        (/usr/local/etc/passwd.badpass)</pre>
+</dd>
+<dd>
 <p>$r is a hashref that gets returned.</p>
+</dd>
+<dd>
 <p>$r-&gt;{'error_code'} will contain a result code of 100 (success) or (4-500) (failure)</p>
+</dd>
+<dd>
 <p>$r-&gt;{'error_desc'} will contain a string with a description of which test failed.</p>
-<p>
-</p>
-<h2><a name="backupmasterpasswd">BackupMasterPasswd</a></h2>
+</dd>
+<p></p>
+<dt><strong><a name="item_backupmasterpasswd">BackupMasterPasswd</a></strong><br />
+</dt>
+<dd>
 <pre>
         $pass-&gt;BackupMasterPasswd($file)</pre>
+</dd>
+<dd>
 <p>Back up the /etc/master.passwd database. This copies $file to a new file named $file.bak.</p>
-<p>
-</p>
-<h2><a name="verifymasterpasswd">VerifyMasterPasswd</a></h2>
+</dd>
+<dt><strong><a name="item_verifymasterpasswd">VerifyMasterPasswd</a></strong><br />
+</dt>
+<dd>
 <pre>
     my $r = $pass-&gt;VerifyMasterPasswd ($passwd, $change, $debug)</pre>
+</dd>
+<dd>
 <pre>
     $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'};</pre>
+</dd>
+<dd>
 <p>Verify that new master.passwd is the right size. I found this necessary on some versions of FreeBSD as a race condition would cause the master.passwd file to get corrupted. Now I verify that after I'm finished making my changes, the new file is a small amount larger (or smaller) than the original.</p>
+</dd>
+<dd>
 <p>$passwd is the filename of your master.passwd file.</p>
+</dd>
+<dd>
 <p>$change is whether the file should ``shrink'' or ``grow''</p>
-<p>
-</p>
-<h2><a name="creategroup">creategroup</a></h2>
-<p>Installs a system group. The $gid is optional.</p>
+</dd>
+<dt><strong><a name="item_creategroup">creategroup</a></strong><br />
+</dt>
+<dd>
+Installs a system group. The $gid is optional.
+</dd>
+<dd>
 <pre>
     $r = $pass-&gt;creategroup($group, $gid)</pre>
+</dd>
+<dd>
 <pre>
     $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'};</pre>
-<p>
-</p>
-<h2><a name="user_add">user_add</a></h2>
-<p>Installs a system user. Expects a hashref to be passed containing at least: user.  Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_user_add">user_add</a></strong><br />
+</dt>
+<dd>
+Installs a system user. Expects a hashref to be passed containing at least: user. Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.
+</dd>
+<dd>
 <pre>
     my $r = $pass-&gt;user_add( {user=&gt;&quot;sample&quot;} );</pre>
+</dd>
+<dd>
 <pre>
     $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'}, &quot;\n&quot;;</pre>
+</dd>
+<dd>
 <p>returns a HTTP style result code (200 success, 400 bad, 401 unauthorized, 500 error)</p>
-<p>
-</p>
-<h2><a name="user_archive">user_archive</a></h2>
-<p>Create's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_user_archive">user_archive</a></strong><br />
+</dt>
+<dd>
+Create's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.
+</dd>
+<dd>
 <pre>
     if ( $prov-&gt;user_archive(&quot;user&quot;) ) 
     {
         print &quot;user archived&quot;;
     };</pre>
+</dd>
+<dd>
 <p>returns a boolean.</p>
-<p>
-</p>
-<h2><a name="user_sanity">user_sanity</a></h2>
+</dd>
+<p></p>
+<dt><strong><a name="item_user_sanity">user_sanity</a></strong><br />
+</dt>
+<dd>
 <pre>
    $r = $pass-&gt;user_sanity($user, $denylist);</pre>
+</dd>
+<dd>
 <pre>
    if ( $r-&gt;{'error_code'} eq 200 ) {  print &quot;success&quot;    }
    else                             {  print $r-&gt;{'error_desc' };</pre>
+</dd>
+<dd>
 <p>$user is the username. Pass it along as a scalar (string).</p>
+</dd>
+<dd>
 <p>$denylist is a optional hashref. Define all usernames you want reserved (denied) and it'll check to make sure $user is not in the hashref.</p>
+</dd>
+<dd>
 <p>Checks:</p>
+</dd>
+<dd>
 <pre>
    * Usernames must be between 2 and 16 characters.
    * Usernames must have only lower alpha and numeric chars
@@ -211,18 +309,28 @@
    * Username must not be defined in $denylist hash
    * If the file /usr/local/etc/passwd.reserved exists, 
      the username must not exist in that file.</pre>
+</dd>
+<dd>
 <p>The format of passwd.reserved is simply one username per line.
 </p>
+</dd>
+<dd>
 <pre>
 
 A hashref gets returned that will contain at least error_code, and error_desc.</pre>
+</dd>
+<dd>
 <p>$r-&gt;{'error_code'} will contain a result code of 0 (failure) or a positive number for (success).</p>
+</dd>
+<dd>
 <p>$r-&gt;{'error_desc'} will contain a string with a description of which test failed.</p>
+</dd>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />
@@ -244,12 +352,12 @@ A hashref gets returned that will contain at least error_code, and error_desc.</
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
+ <a href="http://mail-toaster.org/">http://mail-toaster.org/</a></pre>
 <p>
 </p>
 <hr />
-<h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.</p>
+<h1><a name="copyright_and_license">COPYRIGHT AND LICENSE</a></h1>
+<p>Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

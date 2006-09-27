@@ -1,8 +1,8 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>Mail::Toaster toaster.conf</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<title>toaster.conf</title>
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -155,6 +155,7 @@
 <pre>
  logs_taifiles     = 1</pre>
 <p>Today's logfiles will be in filenames timestamped in the tai64n format. For example, a file called @400000004030ff6b05921044.s was created at 2004-02-16 12:35:29.093458500. To view these filenames in a human readable format, go to your log directory and enter ls | tai64nlocal.</p>
+<p>Be warned, if you disable this option, then qmailanalog processing will fail and your nightly qmail activity log will not work as you would hope and expect.</p>
 <pre>
  logs_archive      = 1</pre>
 <p>For example, the SMTP log file for February 14, 2004, is called 2004/02/14/smtplog.gz, unless you are looking at todays logs. Prior days log files are automatically compressed. This directory tree lives inside your logs_base directory. If you set this option to 0, old logs are not archived-- they are deleted.</p>
@@ -251,7 +252,7 @@ The directory to your qmailanalog bin files.</pre>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2005, The Network People, Inc.
+<p>Copyright (c) 2004-2006, The Network People, Inc.
 All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Darwin</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -15,18 +15,12 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#port_install">port_install</a></li>
-		<li><a href="#ports_update">ports_update</a></li>
-	</ul>
-
+	<li><a href="#subroutines">SUBROUTINES</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
-	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -48,22 +42,47 @@
 <p>Usage examples for each subroutine are included.</p>
 <p>
 </p>
-<h2><a name="new">new</a></h2>
+<hr />
+<h1><a name="subroutines">SUBROUTINES</a></h1>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
 <pre>
     use Mail::Toaster::Darwin;
-        my $darwin = new Mail::Toaster::Darwin;</pre>
-<p>
-</p>
-<h2><a name="port_install">port_install</a></h2>
-<pre>
-        $darwin-&gt;port_install(&quot;openldap2&quot;);</pre>
-<p>That's it. Really. Honest. Nothing more.</p>
-<p>
-</p>
-<h2><a name="ports_update">ports_update</a></h2>
-<p>Updates the Darwin Ports tree (/usr/ports/dports/*).</p>
+        my $darwin = Mail::Toaster::Darwin-&gt;new;</pre>
+</dd>
+<dt><strong><a name="item_ports_update">ports_update</a></strong><br />
+</dt>
+<dd>
+Updates the Darwin Ports tree (/usr/ports/dports/).
+</dd>
+<dd>
 <pre>
         $darwin-&gt;ports_update();</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_port_install">port_install</a></strong><br />
+</dt>
+<dd>
+<pre>
+        $darwin-&gt;port_install( port=&gt;&quot;openldap2&quot; );</pre>
+</dd>
+<dd>
+<p>That's it. Really. Honest. Nothing more.</p>
+</dd>
+<dd>
+<pre>
+ arguments required:
+    port  - the name of the port</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    opts  - port options you can pass
+    debug</pre>
+</dd>
+</dl>
 <p>
 </p>
 <hr />
@@ -90,12 +109,12 @@
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
+ <a href="http://mail-toaster.org/">http://mail-toaster.org/</a></pre>
 <p>
 </p>
 <hr />
-<h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.</p>
+<h1><a name="copyright_and_license">COPYRIGHT AND LICENSE</a></h1>
+<p>Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

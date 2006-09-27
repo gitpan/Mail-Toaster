@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Provision</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -17,23 +17,6 @@
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#dependencies">DEPENDENCIES</a></li>
 	<li><a href="#methods">METHODS</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#dns">dns</a></li>
-		<li><a href="#quota_set">quota_set</a></li>
-		<li><a href="#user">user</a></li>
-		<li><a href="#user_usage">user_usage</a></li>
-		<li><a href="#user_options">user_options</a></li>
-		<li><a href="#usage_action">usage_action</a></li>
-		<li><a href="#web">web</a></li>
-		<li><a href="#web_check_setup">web_check_setup</a></li>
-		<li><a href="#web_usage">web_usage</a></li>
-		<li><a href="#web_get_options">web_get_options</a></li>
-		<li><a href="#what_am_i_check">what_am_i_check</a></li>
-		<li><a href="#what_am_i">what_am_i</a></li>
-	</ul>
-
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
@@ -67,64 +50,126 @@
 </p>
 <hr />
 <h1><a name="methods">METHODS</a></h1>
-<p>
-</p>
-<h2><a name="new">new</a></h2>
-<p>To use the following methods, you must first create a provision object. Then invoke any of the methods that follow using your provision object.</p>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
+To use the following methods, you must first create a provision object. Then invoke any of the methods that follow using your provision object.
+</dd>
+<dd>
 <pre>
   use Mail::Toaster::Provision;
   my $prov = Mail::Toaster::Provision-&gt;new();</pre>
+</dd>
+<dd>
 <pre>
-  $vals = { action =&gt; $ARGV[0], debug =&gt; 1 };</pre>
+  use Mail::Toaster::Utility;
+  my $utility = Mail::Toaster::Utility-&gt;new();</pre>
+</dd>
+<dd>
 <pre>
-  $prov-&gt;example_method($vals, $conf);</pre>
-<p>All the public methods will expect to be passed $conf. $conf is a hashref of values pulled from sysadmin.conf. You can get it by calling $utility-&gt;parse_config as follows:</p>
+  my $conf = $utility-&gt;parse_config( file=&gt;&quot;sysadmin.conf&quot; );
+  $prov-&gt;example_method( val=&gt;$vals, conf=&gt;$conf );</pre>
+</dd>
+<dd>
 <pre>
-   $conf = $utility-&gt;parse_config({file=&gt;&quot;sysadmin.conf&quot;});</pre>
-<p>$utility is a Mail::Toaster::Utility object.</p>
-<p>
-</p>
-<h2><a name="dns">dns</a></h2>
-<p>dns will provision a DNS account using the programming API of a NicTool DNS server.</p>
-<p>
-</p>
-<h2><a name="quota_set">quota_set</a></h2>
-<p>Sets a user file system quota.</p>
+ arguments required:
+    conf - a hashref of values pulled from sysadmin.conf.</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_dns">dns</a></strong><br />
+</dt>
+<dd>
+dns will provision a DNS account using the programming API of a NicTool DNS server.
+</dd>
+<dd>
+<p>it is not completed.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_quota_set">quota_set</a></strong><br />
+</dt>
+<dd>
+Sets a user file system quota.
+</dd>
+<dd>
 <pre>
-   my $vals = {
-      user             =&gt; &quot;bob&quot;,
-      quota            =&gt; 1000,
-   };</pre>
-<pre>
-   $prov-&gt;quota_set($vals, $conf);</pre>
+   $prov-&gt;quota_set( conf=&gt;$conf, user=&gt;&quot;bob&quot;, quota=&gt;200 );</pre>
+</dd>
+<dd>
 <p>quota is set in megabytes. A hard limit will be set 5 megs larger than the soft limit.</p>
-<p>This method depends on the perl module Quota.</p>
-<p>
-</p>
-<h2><a name="user">user</a></h2>
+</dd>
+<dd>
 <pre>
-        $prov-&gt;user($vals, $conf)</pre>
-<p>$vals is a hashref of values</p>
+ Dependencies:
+   Quota (the perl module)</pre>
+</dd>
+<dd>
 <pre>
-        my $vals = { 
-                'action'  =&gt; $ARGV[0],
-                'debug'   =&gt; $opt_v,
-        };</pre>
+ arguments required:
+    user -  the system username to modify</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    quota - (int) - the quota value in megabytes (100)</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_user">user</a></strong><br />
+</dt>
+<dd>
+<pre>
+  $prov-&gt;user( action=&gt;'add', conf=&gt;$conf )</pre>
+</dd>
+<dd>
+<pre>
+        'action'  =&gt; $ARGV[0],
+        'debug'   =&gt; $opt_v,</pre>
+</dd>
+<dd>
 <p>user will call several private methods, beginning with user_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.</p>
-<p>user is very fault tolerant. It makes backup copies of the master.passwd files before altering them and tests to make sure the alterations it made are sane. If something is screwy, it saves a date stamped backup of the file.</p>
-<p>It also sets user quotas.</p>
-<p>
-</p>
-<h2><a name="user_usage">user_usage</a></h2>
-<p>returns the following message if improper or missing arguments are passed:</p>
+</dd>
+<dd>
+<p>Due to ancient bugs corrupting FreeBSD's passwd files, user is very fault tolerant. It makes backup copies of the master.passwd files before altering them and tests to make sure the alterations it made are sane. If something is screwy, it saves a date stamped backup of the file.</p>
+</dd>
+<dd>
+<p>It also sets user quotas if quota is passed.</p>
+</dd>
+<dd>
 <pre>
-        useradmin [action] [username]</pre>
+ arguments required:
+    user -</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    conf -</pre>
+</dd>
+<dd>
+<pre>
+ result:</pre>
+</dd>
+<dt><strong><a name="item_user_usage">user_usage</a></strong><br />
+</dt>
+<dd>
+returns the following message if improper or missing arguments are passed:
+</dd>
+<dd>
+<pre>
+        useradmin action username</pre>
+</dd>
+<dd>
 <pre>
     required values:</pre>
+</dd>
+<dd>
 <pre>
        -username</pre>
+</dd>
+<dd>
 <pre>
     optional values:</pre>
+</dd>
+<dd>
 <pre>
        -password
        -shell
@@ -135,61 +180,102 @@
        -gid
        -expire date
        -domain</pre>
+</dd>
+<dd>
 <p>If domain is set, then tit's assumed that you're setting up a web hosted account and you want the home directory to be /home/domain.com instead of /home/user. This integrates quite nicely with Apache's mass virtual hosting.</p>
-<p>
-</p>
-<h2><a name="user_options">user_options</a></h2>
-<p>Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.</p>
-<p>
-</p>
-<h2><a name="usage_action">usage_action</a></h2>
-<p>return the following message:</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_user_options">user_options</a></strong><br />
+</dt>
+<dd>
+Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.
+</dd>
+<p></p>
+<dt><strong><a name="item_usage_action">usage_action</a></strong><br />
+</dt>
+<dd>
+return the following message:
+</dd>
+<dd>
 <pre>
   usage $0 action [params]</pre>
+</dd>
+<dd>
 <pre>
         action is one of:</pre>
+</dd>
+<dd>
 <pre>
        create  - adding users, domains, etc
        destroy - permanently removing objects</pre>
+</dd>
+<dd>
 <pre>
        disable - temporarily disable
        enable  - restore disabled objects</pre>
+</dd>
+<dd>
 <pre>
        show    - show current objects and settings</pre>
+</dd>
+<dd>
 <pre>
        repair  - misc repair options
        test    - test settings</pre>
-<p>
-</p>
-<h2><a name="web">web</a></h2>
+</dd>
+<p></p>
+<dt><strong><a name="item_web">web</a></strong><br />
+</dt>
+<dd>
 <pre>
-        $prov-&gt;web ($vals, $conf)</pre>
+        $prov-&gt;web (vals=&gt;$vals, conf=&gt;$conf)</pre>
+</dd>
+<dd>
 <p>$vals is a hashref of values</p>
+</dd>
+<dd>
 <pre>
         my $vals = { 
                 'action'  =&gt; $ARGV[0],
                 'debug'   =&gt; $opt_v,
         };</pre>
+</dd>
+<dd>
 <p>web will call several private methods, beginning with web_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.</p>
-<p>
-</p>
-<h2><a name="web_check_setup">web_check_setup</a></h2>
-<p>Performs various tests on the apache config settings:</p>
+</dd>
+<dt><strong><a name="item_web_check_setup">web_check_setup</a></strong><br />
+</dt>
+<dd>
+Performs various tests on the apache config settings:
+</dd>
+<dd>
 <pre>
  make sure apache conf dir exists
  make sure vhost config is set up</pre>
-<p>
-</p>
-<h2><a name="web_usage">web_usage</a></h2>
-<p>returns the following message if improper or missing arguments are passed:</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_web_usage">web_usage</a></strong><br />
+</dt>
+<dd>
+returns the following message if improper or missing arguments are passed:
+</dd>
+<dd>
 <pre>
         webadmin action -vhost [vhost name]</pre>
+</dd>
+<dd>
 <pre>
     required values:</pre>
+</dd>
+<dd>
 <pre>
        -vhost</pre>
+</dd>
+<dd>
 <pre>
     optional values:</pre>
+</dd>
+<dd>
 <pre>
        -ip             - IP address to listen on (default *)
        -serveralias    - comma separated list of aliases
@@ -203,29 +289,44 @@
        -cgi            - basic | advanced | custom
        -customlog      - custom logging directive
        -customerror    - custom error logging directive</pre>
+</dd>
+<dd>
 <pre>
        -awstats        - include alias for awstats
        -phpmyadmin     - include alias for php</pre>
-<p>
-</p>
-<h2><a name="web_get_options">web_get_options</a></h2>
-<p>Collects web account settings from the command line arguments or a HTML form.</p>
-<p>
-</p>
-<h2><a name="what_am_i_check">what_am_i_check</a></h2>
-<p>To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options:</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_web_get_options">web_get_options</a></strong><br />
+</dt>
+<dd>
+Collects web account settings from the command line arguments or a HTML form.
+</dd>
+<p></p>
+<dt><strong><a name="item_what_am_i">what_am_i</a></strong><br />
+</dt>
+<dd>
+<pre>
+        $prov-&gt;what_am_i($debug)</pre>
+</dd>
+<dd>
+<p>Determine what the filename of this program is.</p>
+</dd>
+<dt><strong><a name="item_what_am_i_check">what_am_i_check</a></strong><br />
+</dt>
+<dd>
+To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options:
+</dd>
+<dd>
 <pre>
   dnsadmin
   mailadmin
   useradmin
   webadmin</pre>
+</dd>
+<dd>
 <p>This simply checks to make sure a valid one has been invoked.</p>
-<p>
-</p>
-<h2><a name="what_am_i">what_am_i</a></h2>
-<pre>
-        $prov-&gt;what_am_i($debug)</pre>
-<p>Determine what the filename of this program is.</p>
+</dd>
+<p></p></dl>
 <p>
 </p>
 <hr />
@@ -251,13 +352,12 @@
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
+ <a href="http://mail-toaster.org/">http://mail-toaster.org/</a></pre>
 <p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.</p>
+<p>Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::CGI</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -15,33 +15,12 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#instructions">instructions</a></li>
-		<li><a href="#logo">logo</a></li>
-		<li><a href="#heading">heading</a></li>
-		<li><a href="#imp_submit">imp_submit</a></li>
-		<li><a href="#setvwebsubmit">SetVWebSubmit</a></li>
-		<li><a href="#qss_stats_submit">qss_stats_submit</a></li>
-		<li><a href="#isoqlog_submit">isoqlog_submit</a></li>
-		<li><a href="#rrdutil_submit">rrdutil_submit</a></li>
-		<li><a href="#cookies_expire">cookies_expire</a></li>
-		<li><a href="#qmailadmin_submit">qmailadmin_submit</a></li>
-		<li><a href="#sqwebmail_submit">sqwebmail_submit</a></li>
-		<li><a href="#squirrelmail_submit">squirrelmail_submit</a></li>
-		<li><a href="#cookies_set">cookies_set</a></li>
-		<li><a href="#ssl_line">ssl_line</a></li>
-		<li><a href="#cookie_line">cookie_line</a></li>
-		<li><a href="#email_line">email_line</a></li>
-		<li><a href="#process_shell">process_shell</a></li>
-	</ul>
-
+	<li><a href="#subroutines">SUBROUTINES</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
-	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -63,116 +42,187 @@
 <p>This module contains the subroutines that are used by index.cgi. They're named well so you should have no problems reading through index.cgi and understanding exactly what it's doing.</p>
 <p>
 </p>
-<h2><a name="new">new</a></h2>
+<hr />
+<h1><a name="subroutines">SUBROUTINES</a></h1>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
 <pre>
         use Mail::Toaster::CGI;
         my $toaster_cgi = Mail::Toaster::CGI-&gt;new();</pre>
+</dd>
+<dd>
 <p>Once you have a Mail::Toaster::CGI object, you can call any of the following methods.</p>
-<p>
-</p>
-<h2><a name="instructions">instructions</a></h2>
-<p>Displays the end user instructions displayed on the web page. Uses values from toaster.conf.</p>
+</dd>
+<dt><strong><a name="item_instructions">instructions</a></strong><br />
+</dt>
+<dd>
+Displays the end user instructions displayed on the web page. Uses values from toaster.conf.
+</dd>
+<dd>
 <pre>
     $toaster_cgi-&gt;instructions($conf);</pre>
-<p>
-</p>
-<h2><a name="logo">logo</a></h2>
-<p>Displays the logo using the URL and alt data from toaster.conf.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_logo">logo</a></strong><br />
+</dt>
+<dd>
+Displays the logo using the URL and alt data from toaster.conf.
+</dd>
+<dd>
 <pre>
     $toaster_cgi-&gt;logo($conf);</pre>
-<p>
-</p>
-<h2><a name="heading">heading</a></h2>
-<p>Displays the HTML heading using the data from toaster.conf.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_heading">heading</a></strong><br />
+</dt>
+<dd>
+Displays the HTML heading using the data from toaster.conf.
+</dd>
+<dd>
 <pre>
     $toaster_cgi-&gt;heading($conf);</pre>
-<p>
-</p>
-<h2><a name="imp_submit">imp_submit</a></h2>
+</dd>
+<p></p>
+<dt><strong><a name="item_imp_submit">imp_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;imp_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
-<p>
-</p>
-<h2><a name="setvwebsubmit">SetVWebSubmit</a></h2>
+</dd>
+<dt><strong><a name="item_setvwebsubmit">SetVWebSubmit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;vwebmail_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
-<p>
-</p>
-<h2><a name="qss_stats_submit">qss_stats_submit</a></h2>
+</dd>
+<dt><strong><a name="item_qss_stats_submit">qss_stats_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
     $toaster_cgi-&gt;qss_stats_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>Generate the HTML code that renders the Qmail Scanner Statistics table and form that you see in index.cgi.</p>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection, $host is the hostname to submit the form to, and $path is the path to isoqlog on the remote server. A typical invocation might look like this:</p>
+</dd>
+<dd>
 <pre>
     $toaster_cgi-&gt;qss_stats_submit($conf, 1, &quot;matt.cadillac.net&quot; );</pre>
-<p>
-</p>
-<h2><a name="isoqlog_submit">isoqlog_submit</a></h2>
+</dd>
+<dt><strong><a name="item_isoqlog_submit">isoqlog_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         use Mail::Toaster::CGI;
         isoqlog_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>Generate the HTML code that renders the Isoqlog table and form that you see in index.cgi.</p>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection, $host is the hostname to submit the form to. A typical invocation might look like this:</p>
+</dd>
+<dd>
 <pre>
         isoqlog_submit($conf, 1, &quot;matt.cadillac.net&quot;);</pre>
-<p>
-</p>
-<h2><a name="rrdutil_submit">rrdutil_submit</a></h2>
+</dd>
+<dt><strong><a name="item_rrdutil_submit">rrdutil_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;rrdutil_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>Generate the HTML code that renders the table and embedded form that you see in index.cgi.</p>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection. $host is the hostname to submit the form to.</p>
-<p>
-</p>
-<h2><a name="cookies_expire">cookies_expire</a></h2>
-<p>Very simple use of CGI's cookie method. To expire the cookie we just set it's expiration to a negative value.</p>
-<p>
-</p>
-<h2><a name="qmailadmin_submit">qmailadmin_submit</a></h2>
+</dd>
+<dt><strong><a name="item_cookies_expire">cookies_expire</a></strong><br />
+</dt>
+<dd>
+Very simple use of CGI's cookie method. To expire the cookie we just set it's expiration to a negative value.
+</dd>
+<p></p>
+<dt><strong><a name="item_qmailadmin_submit">qmailadmin_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;qmailadmin_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
-<p>
-</p>
-<h2><a name="sqwebmail_submit">sqwebmail_submit</a></h2>
+</dd>
+<dt><strong><a name="item_sqwebmail_submit">sqwebmail_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;sqwebmail_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
-<p>
-</p>
-<h2><a name="squirrelmail_submit">squirrelmail_submit</a></h2>
+</dd>
+<dt><strong><a name="item_squirrelmail_submit">squirrelmail_submit</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;squirrelmail_submit($conf, $ssl, $host);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.  $path is the installed URL path on the server.</p>
-<p>
-</p>
-<h2><a name="cookies_set">cookies_set</a></h2>
-<p>Very simple use of CGI's cookie method. We save a cookie with the users email address and another one for for whether they selected Use SSL.</p>
-<p>
-</p>
-<h2><a name="ssl_line">ssl_line</a></h2>
+</dd>
+<dt><strong><a name="item_cookies_set">cookies_set</a></strong><br />
+</dt>
+<dd>
+Very simple use of CGI's cookie method. We save a cookie with the users email address and another one for for whether they selected Use SSL.
+</dd>
+<p></p>
+<dt><strong><a name="item_ssl_line">ssl_line</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;ssl_line($ssl, $editable);</pre>
+</dd>
+<dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $editable is a binary value, determining if the SSL preference is available or not.</p>
-<p>
-</p>
-<h2><a name="cookie_line">cookie_line</a></h2>
+</dd>
+<dt><strong><a name="item_cookie_line">cookie_line</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;cookie_line($save);</pre>
+</dd>
+<dd>
 <p>$save is a binary value, are the users settings saved or not?</p>
-<p>
-</p>
-<h2><a name="email_line">email_line</a></h2>
+</dd>
+<dt><strong><a name="item_email_line">email_line</a></strong><br />
+</dt>
+<dd>
 <pre>
         $toaster_cgi-&gt;email_line($address, $editable);</pre>
+</dd>
+<dd>
 <p>$address is the email address to display in the form.</p>
+</dd>
+<dd>
 <p>$editable is whether or not the address field is editable.</p>
-<p>
-</p>
-<h2><a name="process_shell">process_shell</a></h2>
-<p>Since we're a CGI app, we don't expect to be run from the command line except to test. This little sub just lets you know everything that was supposed to load did and that the CGI should work right.</p>
+</dd>
+<dt><strong><a name="item_process_shell">process_shell</a></strong><br />
+</dt>
+<dd>
+Since we're a CGI app, we don't expect to be run from the command line except to test. This little sub just lets you know everything that was supposed to load did and that the CGI should work right.
+</dd>
+<p></p></dl>
 <p>
 </p>
 <hr />
@@ -203,9 +253,8 @@
 <p>
 </p>
 <hr />
-<h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.</p>
+<h1><a name="copyright_and_license">COPYRIGHT AND LICENSE</a></h1>
+<p>Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

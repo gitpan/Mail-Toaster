@@ -14,10 +14,11 @@
 
 use_passwords       = 1     # Do we want the users to be able to log in via (telnet/ssh)?
                             # Put the postmaster password into the system passwd files
-use_shell_default   = /sbin/nologin
+shell_default       = /sbin/nologin
 secure_levels       = 1     # Adds multiple levels of security while running this script.
 quota_enable        = 1     # use file system quotas?
-quota_filesystem    = /usr  # 
+quota_fs            = /usr  # 
+quota_default       = 250   # megs
 quota_inodes_soft   = 50000 # inodes soft limit
 quota_inodes_hard   = 90000 # inodes soft limit (these are HUGE limits!)
 

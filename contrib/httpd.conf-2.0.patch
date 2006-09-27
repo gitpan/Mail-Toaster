@@ -4,7 +4,7 @@
 
 # Author: Matt Simerson
 #
-# httpd.conf diffs for Apache 2.0+
+# httpd.conf diffs for Apache 2.0 for Mail::Toaster
 # apply this to the stock httpd.conf.
 #
 

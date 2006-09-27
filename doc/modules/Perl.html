@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Perl</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -16,15 +16,6 @@
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#methods">METHODS</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#check">check</a></li>
-		<li><a href="#module_install">module_install</a></li>
-		<li><a href="#module_load">module_load</a></li>
-		<li><a href="#perl_install">perl_install</a></li>
-	</ul>
-
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
@@ -57,86 +48,158 @@
 </p>
 <hr />
 <h1><a name="methods">METHODS</a></h1>
-<p>
-</p>
-<h2><a name="new">new</a></h2>
-<p>To use a a method in this class, you must first request a Mail::Toaster::Perl object:</p>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
+To use a a method in this class, you must first request a Mail::Toaster::Perl object:
+</dd>
+<dd>
 <pre>
   use Mail::Toaster::Perl;
   my $perl = Mail::Toaster::Perl-&gt;new();</pre>
+</dd>
+<dd>
 <p>You can then call subsequent methods with $perl-&gt;method();</p>
-<p>
-</p>
-<h2><a name="check">check</a></h2>
-<p>Checks perl to make sure the version is higher than a minimum (supplied) value.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_check">check</a></strong><br />
+</dt>
+<dd>
+Checks perl to make sure the version is higher than a minimum (supplied) value.
+</dd>
+<dd>
 <pre>
-   $perl-&gt;check($vals);</pre>
-<p>Input is a hashref with at least the following values set: min. If min is unset, it defaults to 5.6.1 (5.006001).</p>
+   $perl-&gt;check( min=&gt;'5.006001' );</pre>
+</dd>
+<dd>
 <pre>
-   $perl-&gt;check( {min=&gt;5.006001} );</pre>
+ arguments required:
+    min - defaults to 5.6.1 (5.006001).</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    timer - default 60 seconds
+    debug
+    
+ usage:
+   $perl-&gt;check( min=&gt;5.006001 );</pre>
+</dd>
+<dd>
 <p>returns 1 for success, 0 for failure.</p>
-<p>
-</p>
-<h2><a name="module_install">module_install</a></h2>
-<p>Downloads and installs a perl module from sources.</p>
-<pre>
-    $perl-&gt;module_install($vals, $conf);</pre>
-<p>$vals is a hashref with the following values:</p>
-<pre>
-    module  - module name          (CGI)
-    archive - archived module name (CGI-1.35.tar.gz)
-    site    - site to download from
-    url     - path to downloads on site
-    targets - build targets: 
-    
-    
-The values get concatenated to a url like this: $site/$url/$module.tar.gz</pre>
-<p>$conf is toaster-watcher.conf settings and is optional.</p>
-<p>Once downloaded, we expand the archive and attempt to build it. You can optionally pass build targets but if you don't, the default targets are: make, make test, and make install. After install, we clean up the sources and exit.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_module_install">module_install</a></strong><br />
+</dt>
+<dd>
+Downloads and installs a perl module from sources.
+</dd>
+<dd>
+<p>The arguments get concatenated to a url like this: $site/$url/$module.tar.gz</p>
+</dd>
+<dd>
+<p>Once downloaded, we expand the archive and attempt to build it. If not set, the default targets are: make, make test, and make install. After install, we clean up the sources and exit.</p>
+</dd>
+<dd>
 <p>This method builds from sources only. Compare to module_load which will attempt to build from FreeBSD ports, CPAN, and then finally resort to sources if all else fails.</p>
-<p>returns 1 for success, 0 for failure.</p>
-<p>Example:</p>
+</dd>
+<dd>
 <pre>
- my $vals = {
-    module   =&gt; 'Mail-Toaster',
-    archive  =&gt; 'Mail-Toaster-4.01.tar.gz',
-    site     =&gt; '<a href="http://www.tnpi.biz">http://www.tnpi.biz</a>',
-    url      =&gt; '/internet/mail/toaster/src',
-    targets  =&gt; ['perl Makefile.PL', 'make install'],
- };</pre>
+ usage:
+    $perl-&gt;module_install( module=&gt;&quot;Params::Validate&quot;, conf=&gt;$conf );</pre>
+</dd>
+<dd>
 <pre>
- $perl-&gt;module_install($vals);</pre>
-<p>
-</p>
-<h2><a name="module_load">module_load</a></h2>
+ Example:</pre>
+</dd>
+<dd>
 <pre>
-    $perl-&gt;module_load( $hashref );</pre>
+    $perl-&gt;module_install(
+       module   =&gt; 'Mail-Toaster',
+       archive  =&gt; 'Mail-Toaster-4.01.tar.gz',
+       site     =&gt; '<a href="http://www.tnpi.biz">http://www.tnpi.biz</a>',
+       url      =&gt; '/internet/mail/toaster/src',
+       targets  =&gt; ['perl Makefile.PL', 'make install'],
+    );</pre>
+</dd>
+<dd>
+<pre>
+ arguments required:
+    module  - module name          (CGI)
+    site    - site to download from
+    url     - path to downloads on site</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    archive - archived module name (CGI-1.35.tar.gz)
+    targets - build targets: 
+    conf    - $conf is toaster-watcher.conf settings, (barely) optional.</pre>
+</dd>
+<dd>
+<pre>
+ result:
+    1 - success
+    0 - failure.</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_module_load">module_load</a></strong><br />
+</dt>
+<dd>
+<pre>
+    $perl-&gt;module_load( module=&gt;'Net::DNS' );</pre>
+</dd>
+<dd>
 <p>Loads a required Perl module. If the load fails, we attempt to install the required module (rather than failing gracelessly).</p>
-<p>Input is a  hashref which uses the following values:</p>
+</dd>
+<dd>
 <pre>
+ arguments required:
     module      - the name of the module: (ie. LWP::UserAgent)
-    ports_name  - is the name of the FreeBSD port
-    ports_group - is is the ports group ( &quot;ls /usr/ports&quot; to see groups)
+    
+ arguments optional:
+    port_name  - is the name of the FreeBSD port
+    port_group - is is the ports group ( &quot;ls /usr/ports&quot; to see groups)
     warn        - if set, we warn instead of dying upon failure
     timer       - how long (in seconds) to wait for user input (default 60)
     site        - site to download sources from
     url         - url at site (see module_install)
     archive     - downloadable archive name (module-1.03.tar.gz)</pre>
+</dd>
+<dd>
 <p>returns 1 for success, 0 for failure.</p>
-<p>
-</p>
-<h2><a name="perl_install">perl_install</a></h2>
+</dd>
+<dt><strong><a name="item_perl_install">perl_install</a></strong><br />
+</dt>
+<dd>
 <pre>
-    $perl-&gt;perl_install( {version=&gt;&quot;perl-5.8.5&quot;} );</pre>
+    $perl-&gt;perl_install( version=&gt;&quot;perl-5.8.5&quot; );</pre>
+</dd>
+<dd>
 <p>currently only works on FreeBSD and Darwin (Mac OS X)</p>
+</dd>
+<dd>
 <p>input is a hashref with the following values:</p>
+</dd>
+<dd>
 <pre>
     version - perl version to install
     options - compile flags to set (comma separated list)</pre>
-<p>On FreeBSD, version is the directory name such as ``perl5.8'' derived from /usr/ports/lang/perl5.8. Ex: $perl-&gt;perl_install( {version=&gt;``perl5.8''} );</p>
+</dd>
+<dd>
+<p>On FreeBSD, version is the directory name such as ``perl5.8'' derived from /usr/ports/lang/perl5.8. Ex: $perl-&gt;perl_install( version=&gt;``perl5.8'' );</p>
+</dd>
+<dd>
 <p>On Darwin, it's the directory name of the port in Darwin Ports. Ex: $perl-&gt;perl_install( {version=&gt;``perl-5.8''} ) because perl is installed from /usr/ports/dports/lang/perl5.8. Otherwise, it's the exact version to download and install, ex: ``perl-5.8.5''.</p>
+</dd>
+<dd>
 <p>Example with option:</p>
-<p>$perl-&gt;perl_install( {version=&gt;``perl-5.8.5'', options=&gt;``ENABLE_SUIDPERL''} );</p>
+</dd>
+<dd>
+<p>$perl-&gt;perl_install( version=&gt;``perl-5.8.5'', options=&gt;``ENABLE_SUIDPERL'' );</p>
+</dd>
+</dl>
 <p>
 </p>
 <hr />
@@ -167,7 +230,7 @@ The values get concatenated to a url like this: $site/$url/$module.tar.gz</pre>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.</p>
+<p>Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::DNS</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -15,20 +15,12 @@
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
-	<ul>
-
-		<li><a href="#new">new</a></li>
-		<li><a href="#rbl_test">rbl_test</a></li>
-		<li><a href="#rbl_test_ns">rbl_test_ns</a></li>
-		<li><a href="#rbl_test_positive_ip">rbl_test_positive_ip</a></li>
-		<li><a href="#rbl_test_negative_ip">rbl_test_negative_ip</a></li>
-	</ul>
-
+	<li><a href="#subroutines">SUBROUTINES</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
-	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -49,47 +41,106 @@
 <p>These functions are used by toaster-watcher to determine if RBL's are available when generating qmail's smtpd/run control file.</p>
 <p>
 </p>
-<h2><a name="new">new</a></h2>
-<p>Create a new DNS method:</p>
+<hr />
+<h1><a name="subroutines">SUBROUTINES</a></h1>
+<dl>
+<dt><strong><a name="item_new">new</a></strong><br />
+</dt>
+<dd>
+Create a new DNS method:
+</dd>
+<dd>
 <pre>
    use Mail::Toaster::DNS;
-   my $dns = new Mail::Toaster::DNS;</pre>
-<p>
-</p>
-<h2><a name="rbl_test">rbl_test</a></h2>
-<p>After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.</p>
+   my $dns = Mail::Toaster::DNS-&gt;new;</pre>
+</dd>
+<p></p>
+<dt><strong><a name="item_rbl_test">rbl_test</a></strong><br />
+</dt>
+<dd>
+After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.
+</dd>
+<dd>
 <pre>
-        my $r = $dns-&gt;rbl_test($conf, &quot;bl.example.com&quot;);
+        my $r = $dns-&gt;rbl_test(conf=&gt;$conf, zone=&gt;&quot;bl.example.com&quot;);
         if ($r) { print &quot;bl tests good!&quot; };</pre>
-<p>The routine expects to receive the zone of a blacklist to test as it's first argument and a possible debug value (set to a non-zero value) as it's second.</p>
-<p>It will then test to make sure that name servers are found for the zone and then run several test queries against the zone to verify that the answers it returns are sane. We want to detect if a RBL operator does something like whitelist or blacklist the entire planet.</p>
-<p>If the blacklist fails any test, the sub willl return zero and you should not use that blacklist.</p>
-<p>
-</p>
-<h2><a name="rbl_test_ns">rbl_test_ns</a></h2>
+</dd>
+<dd>
 <pre>
-        my $count = $t_dns-&gt;rbl_test_ns($conf, $rbl, $debug);</pre>
-<p>$rbl is the reverse zone we use to test this rbl.</p>
+ arguments required:
+    zone - the zone of a blacklist to test</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    debug</pre>
+</dd>
+<dd>
+<p>Tests to make sure that name servers are found for the zone and then run several test queries against the zone to verify that the answers it returns are sane. We want to detect if a RBL operator does something like whitelist or blacklist the entire planet.</p>
+</dd>
+<dd>
+<p>If the blacklist fails any test, the sub will return zero and you should not use that blacklist.</p>
+</dd>
+<p></p>
+<dt><strong><a name="item_rbl_test_ns">rbl_test_ns</a></strong><br />
+</dt>
+<dd>
+<pre>
+        my $count = $t_dns-&gt;rbl_test_ns(
+            conf  =&gt; $conf, 
+            rbl   =&gt; $rbl, 
+            debug =&gt; $debug,
+        );</pre>
+</dd>
+<dd>
+<pre>
+ arguments required:
+    rbl   - the reverse zone we use to test this rbl.</pre>
+</dd>
+<dd>
 <p>This script requires a zone name. It will then return a count of how many NS records exist for that zone. This sub is used by the rbl tests. Before we bother to look up addresses, we make sure valid nameservers are defined.</p>
-<p>
-</p>
-<h2><a name="rbl_test_positive_ip">rbl_test_positive_ip</a></h2>
+</dd>
+<dt><strong><a name="item_rbl_test_positive_ip">rbl_test_positive_ip</a></strong><br />
+</dt>
+<dd>
 <pre>
-        $t_dns-&gt;rbl_test_positive_ip($conf, $rbl);</pre>
-<p>$rbl is the reverse zone we use to test this rbl. Positive test is a test that should always return a RBL match. If it should and doesn't, then we assume that RBL has been disabled by it's operator.</p>
-<p>Some RBLs have test IP's to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.</p>
+        $t_dns-&gt;rbl_test_positive_ip( rbl=&gt;'sbl.spamhaus.org' );</pre>
+</dd>
+<dd>
+<pre>
+ arguments required:
+    rbl   - the reverse zone we use to test this rbl.</pre>
+</dd>
+<dd>
+<pre>
+ arguments optional:
+    conf
+    debug</pre>
+</dd>
+<dd>
+<p>A positive test is a test that should always return a RBL match. If it should and does not, then we assume that RBL has been disabled by its operator.</p>
+</dd>
+<dd>
+<p>Some RBLs have test <code>IP(s)</code> to verify they are working. For geographic RBLs (like korea.services.net) we can simply choose any IP within their allotted space. Most other RBLs use 127.0.0.2 as a positive test.</p>
+</dd>
+<dd>
 <p>In the case of rfc-ignorant.org, they have no known test IPs and thus we have to skip testing them.</p>
-<p>
-</p>
-<h2><a name="rbl_test_negative_ip">rbl_test_negative_ip</a></h2>
+</dd>
+<dt><strong><a name="item_rbl_test_negative_ip">rbl_test_negative_ip</a></strong><br />
+</dt>
+<dd>
 <pre>
-        $t_dns-&gt;rbl_test_negative_ip($conf, $rbl);</pre>
-<p>This test is a little more difficult as RBL operators don't typically have an IP that's whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.</p>
+        $t_dns-&gt;rbl_test_negative_ip(conf=&gt;$conf, rbl=&gt;$rbl);</pre>
+</dd>
+<dd>
+<p>This test is a little more difficult as RBL operators don't typically have an IP that is whitelisted. The DNS location based lists are very easy to test negatively. For the rest I'm listing my own IP as the default unless the RBL has a specific one. At the very least, my site won't get blacklisted that way. ;) I'm open to better suggestions.</p>
+</dd>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />
@@ -110,13 +161,12 @@
  toaster.conf
  toaster-watcher.conf</pre>
 <pre>
- <a href="http://matt.simerson.net/computing/mail/toaster/">http://matt.simerson.net/computing/mail/toaster/</a></pre>
+ <a href="http://mail-toaster.org/">http://mail-toaster.org/</a></pre>
 <p>
 </p>
 <hr />
-<h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.</p>
+<h1><a name="copyright_and_license">COPYRIGHT AND LICENSE</a></h1>
+<p>Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

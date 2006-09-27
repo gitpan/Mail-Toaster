@@ -2,11 +2,13 @@
 
 toaster-watcher.conf - Configuration file for toaster_setup.pl and toaster-watcher.pl.
 
+
 =head1 SYNOPSIS
 
 Most settings in this file pertain to toaster_setup.pl and toaster-watcher.pl scripts, both of which are run as root. Other settings needed by scripts that do not run with root privileges are in toaster.conf.
 
 A current copy of toaster-watcher.conf is posted on the Mail::Toaster web site at http://www.tnpi.biz/internet/mail/toaster/etc/toaster-watcher.conf
+
 
 =head1 DESCRIPTION
 
@@ -71,7 +73,7 @@ This should be the same value specified in toaster.conf
 
 This is your document root, normally the "data" directory inside your web root.
 
-  toaster_cgi-bin                = /usr/local/www/cgi-bin
+  toaster_cgi_bin                = /usr/local/www/cgi-bin
 
 The path to your cgi-bin dir where sqwebmail, rrdutil, qmailadmin, and other cgi's should be installed.
 
@@ -711,7 +713,7 @@ If qmailadmin_spam_option is set, each user's mail settings will contain a check
 
 Leave this unchanged if you want to use the maildrop script supplied with the toaster. If you have some other filtering method, set it here.
 
-  qmailadmin_cgi-bin_dir          = 0  # override toaster_cgi-bin
+  qmailadmin_cgi_bin_dir          = 0  # override toaster_cgi_bin
   qmailadmin_http_docroot         = 0  # override toaster_http_docs
   qmailadmin_http_images          = /usr/local/www/data/images
 
@@ -858,9 +860,10 @@ Messages in the spam folder are assumed to be "spam" if they are older than mail
 =head1 AUTHOR
 
  David Chaplin-Loebell <david@klatha.com>
- Matt Simerson <matt@tnpi.biz>
+ Matt Simerson <matt@tnpi.net>
 
 David undertook the writing of this documentation for which I (Matt) and the toaster community are VERY grateful. Thank you David, and may the source always be with you.
+
 
 =head1 SEE ALSO
 
@@ -868,10 +871,9 @@ David undertook the writing of this documentation for which I (Matt) and the toa
  toaster.conf
 
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.
+Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

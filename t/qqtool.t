@@ -1,22 +1,38 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
+#!/usr/bin/perl
+#
+use strict;
+use warnings;
+use English qw( -no_match_vars );
 
-######################### We start with some black magic to print on failure.
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
+use Test::More 'no_plan';
+#use Smart::Comments;
 
-BEGIN { $| = 1; print "1..1\n"; }
-END {print "not ok 1\n" unless $loaded;}
-use lib ".";
-$loaded = 1;
+use lib "lib";
 
-######################### End of black magic.
+BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
+require_ok( 'Mail::Toaster::Utility' );
 
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
+# basic OO mechanism
+	my $utility = Mail::Toaster::Utility->new;
+	ok ( defined $utility, 'get Mail::Toaster::Utility object' );
+	ok ( $utility->isa('Mail::Toaster::Utility'), 'check object class' );
 
-system "./qqtool.pl -a list -s matt -h From ";
-print "ok 1 - qqtool\n";
+my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
 
+my $qqtool_location = "bin/qqtool.pl";
+
+ok( -e $qqtool_location, 'found qqtool.pl');
+ok( -x $qqtool_location, 'is executable');
+
+my $queue = $conf->{'qmail_dir'} . "/queue";
+
+### $queue
+### require: -d $queue
+### require: -r $queue
+
+ok( $utility->syscmd(
+        command => "$qqtool_location -a list -s matt -h From ",
+        fatal   => 0,
+        debug   => 0,
+    ), 'qqtool.pl' );

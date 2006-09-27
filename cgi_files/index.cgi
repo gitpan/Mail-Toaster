@@ -2,12 +2,14 @@
 use strict;
 
 #
-# $Id: index.cgi,v 1.1 2005/11/21 01:16:58 matt Exp $
+# $Id: index.cgi,v 4.01 matt Exp $
 #
+
+
 
 use vars qw/ $VERSION /;
 
-$VERSION = "4.00";
+$VERSION = "4.01";
 
 use CGI qw(:standard);
 use CGI::Carp qw( fatalsToBrowser );
@@ -16,11 +18,15 @@ use Mail::Toaster::Perl;      my $perl    = Mail::Toaster::Perl->new();
 use Mail::Toaster::CGI;       my $mt_cgi  = Mail::Toaster::CGI->new();
 use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new();
 
-$perl->module_load( {module=>"HTML::Template", ports_name=>"p5-HTML-Template", ports_group=>"www"} );
+$perl->module_load( 
+    module    =>"HTML::Template", 
+    port_name =>"p5-HTML-Template", 
+    port_group=>"www",
+);
 
 $mt_cgi->process_shell() unless $ENV{'GATEWAY_INTERFACE'};
 
-my $cgi      = new CGI;
+my $cgi      = CGI->new;
 my $template = HTML::Template->new(filename => 'index.tmpl');
 my $editable = 1;
 my $email    = $cgi->param('email'); 
@@ -31,7 +37,7 @@ my $ssl      = $cgi->param('ssl');
 my ($host, $debug);
 my $stats    = 0;
 
-my $conf     = $utility->parse_config({file=>"toaster.conf",debug=>$debug});
+my $conf     = $utility->parse_config( file=>"toaster.conf",debug=>$debug );
 die "FAILURE: Could not find toaster.conf!\n" unless $conf;
 
 if    ( $save )                 { $editable = 0; }
@@ -116,9 +122,39 @@ exit 1;
 __END__
 
 
+=head1 NAME
+
+index.cgi - a web front end for all the webmail and admin urls
+
+
+=head1 VERSION
+
+This documentation refers to version 4.01
+
+
+=head1 SYNOPSIS
+
+index.cgi is a cgi application that provides a front end interface to the various webmail and user preference interfaces available on a Mail::Toaster. 
+
+
+=head1 USAGE
+
+It is not recommended that you use index.cgi. It has been deprecated in version 5 of Mail::Toaster. If you wish, it is still available in the distribution, but you will need to install it manually by copying it and the html files to your web servers document roo.
+
+
+=head1 DEPENDENCIES
+
+ HTML::Template
+
+
+=head1 AUTHOR
+
+Matt Simerson (matt@tnpi.net)
+
+
 =head1 LICENSE
 
-Copyright (c) 2004-2005, The Network People, Inc.
+Copyright (c) 2004-2006, The Network People, Inc.
 All rights reserved.
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

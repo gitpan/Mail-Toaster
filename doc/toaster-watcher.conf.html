@@ -1,8 +1,8 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>Mail::Toaster watcher.conf</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<title>watcher.conf</title>
+<link rev="made" href="mailto:root@b02.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -17,7 +17,7 @@
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
-	<li><a href="#copyright">COPYRIGHT</a></li>
+	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
 <!-- INDEX END -->
 
@@ -85,7 +85,7 @@
   toaster_http_docs              = /usr/local/www/data</pre>
 <p>This is your document root, normally the ``data'' directory inside your web root.</p>
 <pre>
-  toaster_cgi-bin                = /usr/local/www/cgi-bin</pre>
+  toaster_cgi_bin                = /usr/local/www/cgi-bin</pre>
 <p>The path to your cgi-bin dir where sqwebmail, rrdutil, qmailadmin, and other cgi's should be installed.</p>
 <pre>
   toaster_tmp_dir                = /tmp
@@ -239,6 +239,9 @@
 <p>This is the total number of outgoing connections your server will make at a time.  To change this after building qmail, edit /var/qmail/control/concurrencyremote</p>
 <pre>
   qmail_smtpd_auth_0.31 = 0</pre>
+<pre>
+  qmail_queue_extra = 0</pre>
+<p>Queue extra is a qmail feature for keeping a duplicate copy of messages coming into and out of the server. You can find more info about it on Dan's site: <a href="http://cr.yp.to/qmail/faq/admin.html">http://cr.yp.to/qmail/faq/admin.html</a></p>
 <p>Leave this zero unless you know better!</p>
 <pre>
   qmail_log_base      = /var/log/mail
@@ -305,8 +308,9 @@
 <p>This enables local logins-- accounts which are listed in /etc/passwd-- to receive and check mail.</p>
 <p>If you enable this feature, you'll need to add a few lines to /etc/pam.conf to allow courier-imap to work with /etc/passwd accounts. See <a href="http://www.inter7.com/courierimap/INSTALL.html">http://www.inter7.com/courierimap/INSTALL.html</a> for details.</p>
 <pre>
-  vpopmail_domain_quotas         = 1
+  vpopmail_domain_quotas         = 0
   vpopmail_default_quota         = 100000000S,10000C</pre>
+<p>The domain quota feature has been broken on vpopmail almost forever. Even when it worked, it introduced extremely high CPU loads on busy mail systems. It is to be avoided.</p>
 <p>The default quota option is deprecated in vpopmail 5.4.0 and higher. See ~vpopmail/etc/vlimits.default to control default limits.</p>
 <pre>
   vpopmail_disable_many_domains  = 0
@@ -593,7 +597,7 @@ Anything else is considered to be a hostname.</p>
 <p>If qmailadmin_spam_option is set, each user's mail settings will contain a checkbox for spam filtering. When this is checked, that user's mail will be sent through the program set under qmailadmin_spam_command.</p>
 <p>Leave this unchanged if you want to use the maildrop script supplied with the toaster. If you have some other filtering method, set it here.</p>
 <pre>
-  qmailadmin_cgi-bin_dir          = 0  # override toaster_cgi-bin
+  qmailadmin_cgi_bin_dir          = 0  # override toaster_cgi_bin
   qmailadmin_http_docroot         = 0  # override toaster_http_docs
   qmailadmin_http_images          = /usr/local/www/data/images</pre>
 <p>If you change these qmailadmin options, you must re-run <code>toaster_setup.pl -s qmailadmin</code> before they will take effect.</p>
@@ -711,7 +715,7 @@ Anything else is considered to be a hostname.</p>
 <h1><a name="author">AUTHOR</a></h1>
 <pre>
  David Chaplin-Loebell &lt;david@klatha.com&gt;
- Matt Simerson &lt;matt@tnpi.biz&gt;</pre>
+ Matt Simerson &lt;matt@tnpi.net&gt;</pre>
 <p>David undertook the writing of this documentation for which I (Matt) and the toaster community are VERY grateful. Thank you David, and may the source always be with you.</p>
 <p>
 </p>
@@ -723,9 +727,8 @@ Anything else is considered to be a hostname.</p>
 <p>
 </p>
 <hr />
-<h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.</p>
+<h1><a name="copyright_and_license">COPYRIGHT AND LICENSE</a></h1>
+<p>Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

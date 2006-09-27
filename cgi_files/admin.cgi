@@ -2,8 +2,9 @@
 use strict;
 
 #
-# $Id: admin.cgi,v 1.1 2005/11/21 01:16:58 matt Exp $
+# $Id: admin.cgi,v 1.2 2006/06/09 19:26:18 matt Exp $
 #
+
 
 use vars qw/ $VERSION /;
 
@@ -16,11 +17,11 @@ use Mail::Toaster::Perl;      my $perl   = Mail::Toaster::Perl->new;
 use Mail::Toaster::CGI;       my $mt_cgi = Mail::Toaster::CGI->new;
 use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new;
 
-$perl->module_load( {module=>"HTML::Template", ports_name=>"p5-HTML-Template", ports_group=>"www"} );
+$perl->module_load( module=>"HTML::Template", port_name=>"p5-HTML-Template", port_group=>"www" );
 
 $mt_cgi->process_shell() unless $ENV{'GATEWAY_INTERFACE'};
 
-my $cgi      = new CGI;
+my $cgi      = CGI->new;
 my $template = HTML::Template->new(filename => 'admin.tmpl');
 my $editable = 1;
 my $email    = $cgi->param('email'); 
@@ -31,7 +32,7 @@ my $ssl      = $cgi->param('ssl');
 my ($host, $debug);
 my $stats    = 0;
 
-my $conf     = $utility->parse_config({file=>"toaster.conf",debug=>$debug});
+my $conf     = $utility->parse_config( file=>"toaster.conf",debug=>$debug );
 die "FAILURE: Could not find toaster.conf!\n" unless $conf;
 
 if    ( $save )                 { $editable = 0; }
@@ -110,10 +111,37 @@ print $template->output;
 exit 1;
 
 
-=head1 LICENSE
+=head1 NAME
 
-Copyright (c) 2004-2005, The Network People, Inc.
-All rights reserved.
+admin.cgi - an administration portal (index.cgi for admins)
+
+
+=head1 VERSION
+
+This documentation refers to admin.cgi version 4
+
+=head1 SYNOPSIS
+
+A front end to various web enabled utilities for managing aspects of a Mail::Toaster.
+
+=head1 USAGE
+
+It is not recommended that you use admin.cgi. It has been deprecated in version 5 of Mail::Toaster.
+
+=head1 DEPENDENCIES
+
+ HTML::Template
+
+
+=head1 AUTHOR
+
+Matt Simerson (matt@tnpi.net)
+
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright (c) 2004-2006, The Network People, Inc. All rights reserved.
+
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.

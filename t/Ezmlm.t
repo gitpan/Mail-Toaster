@@ -1,47 +1,76 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
-
+#!/usr/bin/perl
 #
 # $Id: Ezmlm.t,v 4.2 2005/05/10 02:28:44 matt Exp $
 #
+use strict;
+use warnings;
 
-######################### We start with some black magic to print on failure.
+use Cwd;
+use English qw( -no_match_vars );
+use Test::More;
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-
-BEGIN { $| = 1; print "1..5\n"; }
-END {print "not ok 1\n" unless $loaded;}
 use lib "lib";
-use Mail::Toaster::Ezmlm;
-$loaded = 1;
-print "ok 1 - Mail::Toaster::Ezmlm\n";
 
-use Mail::Toaster::Utility 4;    my $utility = Mail::Toaster::Utility->new();
-my $conf = $utility->parse_config( {file=>"toaster-watcher.conf", debug=>0} );
-
-######################### End of black magic.
-
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
-
-my $ezmlm = new Mail::Toaster::Ezmlm;
-$ezmlm ? print "ok 2 - new\n" : print "not ok 2 - new\n";
-
-if ( $conf->{'install_ezmlm_cgi'} ) {
-	$r = $ezmlm->process_shell();
-	! $r ? print "ok 3 - process_shell\n" : print "not ok 3 - process_shell\n";
-} else {
-	print "ok 3 - process_shell skipped\n";
+eval "use Mail::Ezmlm";
+if ($EVAL_ERROR) {
+    plan skip_all => "Mail::Ezmlm is required for ezmlm.cgi testing",
 }
+else {
+    plan 'no_plan';
+};
 
-$r = $ezmlm->logo();
-$r ? print "ok 4 - logo\n" : print "not ok 4 - logo\n";
+BEGIN {
+    use_ok( 'Mail::Toaster::Ezmlm' );
+    use_ok( 'Mail::Toaster::Utility' );
+}
+require_ok( 'Mail::Toaster::Ezmlm' );
 
-$r = $ezmlm->dir_check("/tmp");
-$r ? print "ok 5 - dir_check\n" : print "not ok 5 - dir_check\n";
+# let the testing begin
 
-print "r: $r\n";
+# basic OO mechanism
+	my $ezmlm = Mail::Toaster::Ezmlm->new;                       # create an object
+	ok ( defined $ezmlm, 'get Mail::Toaster::Ezmlm object' );    # check it
+	ok ( $ezmlm->isa('Mail::Toaster::Ezmlm'), 'check object class' );
+
+
+my $utility = Mail::Toaster::Utility->new();
+my $conf = $utility->parse_config( 
+    file  => "toaster-watcher.conf", 
+    debug => 0,
+);
+
+ok( $conf, 'toaster-watcher.conf loaded');
+
+# process_shell
+    if ( $conf->{'install_ezmlm_cgi'} ) {
+        ok( $ezmlm->process_shell(), 'process_shell');
+    }
+
+# authenticate
+    if ( eval "require vpopmail" ) {
+        ok( ! $ezmlm->authenticate(
+            domain=>'example.com', 
+            password=>'exampass',
+        ), 'authenticate');
+    };
+
+ok( ! $ezmlm->subs_list(
+    list     => {'list_object'=>1},
+    list_dir => 'path/to/list',
+    debug    => 0, ), 'subs_list');
+
+ok( ! $ezmlm->subs_add (
+        list=>'list_object',
+        list_dir=>'path/to/list',
+        debug=>0,
+        requested=>['user@example.com'],
+        br=>'\n',
+    ), 'subs_add');
+
+#ok( ! $ezmlm->lists_get(domain=>'example.com',debug=>0), 'subs_list');
+
+ok( $ezmlm->logo(), 'logo');
+
+ok( $ezmlm->dir_check(dir=>"/tmp",debug=>0) , 'dir_check');
+
 

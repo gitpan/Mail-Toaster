@@ -9,7 +9,7 @@ Patch against Mail::Ezmlm 0.05
     my(@subscribers);
     ($self->_seterror(-1, 'must setlist() before returning subscribers()') && return undef) unless(defined($self->{'LIST_NAME'}));
 +
-+       # additions by matt simerson (matt@tnpi.biz) to get past mod_perl security (taint) checks
++       # additions by matt simerson (matt@tnpi.net) to get past mod_perl security (taint) checks
 +       $ENV{"PATH"} = "";
 +       if ( $self->{'LIST_NAME'} =~ /([\w\-\/.]*)/ ) {
 +               $self->{'LIST_NAME'} = $1;

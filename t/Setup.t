@@ -1,29 +1,97 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
+#!/usr/bin/perl
+use strict;
+use warnings;
+use Cwd;
+use Test::More 'no_plan';
+
+# Before 'make install' is performed this script should be runnable with
+# 'make test'. After 'make install' it should work as 'perl test.pl'
 
 #
-# $Id: Setup.t,v 4.0 2004/11/16 20:57:31 matt Exp $
+# $Id: Setup.t,v 4.20 2004/11/16 20:57:31 matt Exp $
 #
 
-######################### We start with some black magic to print on failure.
-
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..2\n"; }
-END {print "not ok 1\n" unless $loaded;}
 use lib "lib";
-use Mail::Toaster::Setup;
-$loaded = 1;
-print "ok 1 - Mail::Toaster::Setup\n";
 
-######################### End of black magic.
+BEGIN {
+    use_ok('Mail::Toaster::Utility');
+    use_ok('Mail::Toaster::Setup');
+}
+require_ok('Mail::Toaster::Utility');
+require_ok('Mail::Toaster::Setup');
 
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
+my $utility = Mail::Toaster::Utility->new;
+# read in the .conf file
+my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
 
-my $setup = Mail::Toaster::Setup->new();
-$setup ? print "ok 2 - new\n" : print "not ok 2 - new\n";
+# basic OO mechanism
+my $setup = Mail::Toaster::Setup->new(conf=>$conf);     # create an object
+ok( defined $setup, 'new Mail::Toaster::Setup object)' );    # check it
+ok( $setup->isa('Mail::Toaster::Setup'), 'setup object class' );
 
 
+
+my $initial_working_directory = cwd;
+
+my @subs_to_test = qw/ apache autorespond clamav courier_imap cronolog
+  daemontools djbdns expat ezmlm mysql openssl_conf
+  qmail_scanner razor simscan spamassassin vpopmail vqadmin /;
+
+my $debug = 0;
+
+foreach my $sub (@subs_to_test) {
+
+    my $install_sub = "install_$sub";
+    my $before      = $conf->{$install_sub};    # preserve initial settings
+
+    $conf->{$install_sub} = 1;                  # enable install in $conf
+
+    # test to insure params and initial tests are passed
+    ok(  $setup->$sub( test_ok => 1, debug => $debug ), $sub );
+    ok( !$setup->$sub( test_ok => 0, debug => $debug ), $sub );
+
+    $conf->{$install_sub} = 0;                  # disable install
+
+    # and then make sure it fails to install
+    ok( !$setup->$sub( debug => $debug ), $sub );
+
+    # set $conf->install_sub back to its initial state
+    $conf->{$install_sub} = $before;
+}
+
+# config
+ok( $setup->config( test_ok => 1, debug => 0, fatal => 0 ),
+    'config' );
+ok( !$setup->config( test_ok => 0, debug => 0, fatal => 0 ),
+    'config' );
+
+# dependencies
+ok( $setup->dependencies( test_ok => 1 ), 'dependencies' );
+ok( !$setup->dependencies( test_ok => 0, debug => 1 ),
+    'dependencies' );
+
+#ok ( $setup->dependencies( debug=>1 ), 'dependencies' );
+
+# filtering
+ok( $setup->filtering( test_ok => 1 ), 'filtering' );
+ok( !$setup->filtering( test_ok => 0, debug => 1 ),
+    'filtering' );
+
+# is_newer
+    ok ($setup->is_newer( min=>"5.3.30", cur=>"5.3.31", debug=>0), 'is_newer third');
+    ok ($setup->is_newer( min=>"5.3.30", cur=>"5.4.30", debug=>0), 'is_newer second');
+    ok ($setup->is_newer( min=>"5.3.30", cur=>"6.3.30", debug=>0), 'is_newer first');
+    ok (! $setup->is_newer( min=>"5.3.30", cur=>"5.3.29", debug=>0), 'is_newer third neg');
+    ok (! $setup->is_newer( min=>"5.3.30", cur=>"5.2.30", debug=>0), 'is_newer second neg');
+    ok (! $setup->is_newer( min=>"5.3.30", cur=>"4.3.30", debug=>0), 'is_newer first neg');
+
+# nictool
+ok( $setup->nictool( test_ok => 1 ), 'nictool' );
+ok( !$setup->nictool( test_ok => 0, debug => 1 ), 'nictool' );
+
+# set this back to where we started so subsequent testing scripts work
+chdir($initial_working_directory);
+
+
+
+1;

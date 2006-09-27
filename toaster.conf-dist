@@ -1,16 +1,16 @@
 # 
-# $Id: toaster.conf-dist,v 4.4 2006/03/10 14:35:21 matt Exp $
+# $Id: toaster.conf-dist,v 5.0 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
 # distribution, in perl pod format (perldoc toaster.conf)
 # and posted online at the following URLs:
 #
-#   http://www.tnpi.biz/internet/mail/toaster/docs/ or
-#   http://www.tnpi.biz/support/phpBB/viewtopic.php?t=80
+#   http://mail-toaster.org/docs/ or
+#   http://www.tnpi.net/support/forums/
 #
 # A current copy of this file is posted on the Mail::Toaster web site:
-# http://www.tnpi.biz/internet/mail/toaster/etc/toaster.conf
+#   http://mail-toaster.org/etc/toaster.conf
 
 
 ######################################
@@ -22,8 +22,81 @@ system_config_dir              = /usr/local/etc
 
 
 #######################################
+#         Mail::Toaster::Logs         #
+#######################################
+
+logs_debug         = 0      # caution, turning this on will result in LOTS of debug 
+                            # output, you certainly don't want to leave it on.
+
+logs_base          = /var/log/mail         # where qmail logs live (/var/log)
+logs_supervise     = /var/qmail/supervise
+logs_user          = qmaill
+logs_group         = qnofiles
+logs_pop3d         = qpop3d                # choices are courier or qpop3d
+logs_isoqlog       = 0                     # configure isoqlog first!
+logs_taifiles      = 1                     # output to multilogs @NNNNNNN files
+logs_archive       = 1                     # output to YYYY/MM/DD/xxxxlog files
+logs_archive_untai = 0                     # convert tai to human readable dates
+logs_archive_purge = 0                     # purge logs older than 1 month
+qmailanalog_bin    = /var/qmail/qmailanalog/bin
+send_log_method    = multilog
+
+logs_counters      = counters              # dir for storing counters
+logs_rbl_count     = smtp_rbl.txt
+logs_smtp_count    = smtp_auth.txt
+logs_send_count    = send.txt
+logs_pop3_count    = pop3.txt
+logs_imap_count    = imap.txt
+logs_spam_count    = spam.txt
+logs_virus_count   = virus.txt
+logs_web_count     = webmail.txt
+
+
+#######################################
+#       Mail::Toaster::Admin          #
+#######################################
+
+admin_update           = /usr/local/sbin/update   # custom Matt script updates clients
+admin_home             = /usr/home                # where you store home directories
+admin_quotafs          = /home                    # mount point for quota enabled file system
+admin_qmailpath        = /var/qmail               # where qmail is installed
+admin_qmailadminlimits = /var/qmail/control/.qmailadmin-limits
+admin_adminhost        = matt.cadillac.net        # the "master" server in a cluster
+admin_fileservers      = matt                     # all file servers in this array
+admin_mailservers      = mail1 mail2 mail3 mail4 mail5
+
+admin_vpopbin          = /usr/local/vpopmail/bin
+
+singleuid           = vpopmail #  If all your mail domains will be owned by a single user
+                            #  (vpopmail) then set to the username of your vpopmail user
+
+create_sys_user     = 0     #  by default, when in single uid mode this script won't 
+                            #  create a new system user. This flag overrides that. (y/n)
+
+homedirtree         = 0     #  Using a homedir tree? (/usr/home/a/ab/abcuser instead of
+                            #  /usr/home/abcuser)
+
+homedir_base        = u     # If using a system user account, where do we put their 
+                            # home dir? IE, is it based on user or domain name (u/d)
+
+use_passwords       = 0     # Do we want the users to be able to log in via (telnet/ssh)?
+                            # Put the postmaster password into the system passwd files
+
+show_function       = 1     # A handy utility that lets support staff view the current 
+                            # settings of a mail account.
+
+vauth               = mysql # where vpopmail stores it's auth info (cdb, mysql, ldap)
+
+delete_old_archives = 0     # Delete archive files after restoring?
+
+secure_levels       = 1     # Adds multiple levels of security while running this script.
+
+
+#######################################
 #         Mail::Toaster::CGI          #
 #######################################
+# as of Mail::Toaster v5, this is deprecated. It is here for legacy support
+# only.
 
 web_logo_url                    = /images/tnpi_logo.jpg
 web_logo_alt_text               = example.com logo
@@ -86,71 +159,4 @@ web_qs_stat_url                 = /qss/index.php
 web_qs_stat_require_ssl         = 0
 web_qs_stat_name                = Qmail Scanner Stats:
 web_qs_stat_description         = Virus blocks
-
-
-#######################################
-#         Mail::Toaster::Logs         #
-#######################################
-
-logs_base          = /var/log/mail         # where qmail logs live (/var/log)
-logs_supervise     = /var/qmail/supervise
-logs_user          = qmaill
-logs_group         = qnofiles
-logs_pop3d         = qpop3d                # choices are courier or qpop3d
-logs_isoqlog       = 0                     # configure isoqlog first!
-logs_taifiles      = 1                     # output to multilogs @NNNNNNN files
-logs_archive       = 1                     # output to YYYY/MM/DD/xxxxlog files
-logs_archive_untai = 0                     # convert tai to human readable dates
-logs_archive_purge = 1                     # purge logs older than 1 month
-qmailanalog_bin    = /var/qmail/qmailanalog/bin
-
-logs_counters      = counters              # dir for storing counters
-logs_rbl_count     = smtp_rbl.txt
-logs_smtp_count    = smtp_auth.txt
-logs_send_count    = send.txt
-logs_pop3_count    = pop3.txt
-logs_imap_count    = imap.txt
-logs_spam_count    = spam.txt
-logs_virus_count   = virus.txt
-logs_web_count     = webmail.txt
-
-
-#######################################
-#       Mail::Toaster::Admin          #
-#######################################
-
-admin_update           = /usr/local/sbin/update   # custom Matt script updates clients
-admin_home             = /usr/home                # where you store home directories
-admin_quotafs          = /home                    # mount point for quota enabled file system
-admin_qmailpath        = /var/qmail               # where qmail is installed
-admin_qmailadminlimits = /var/qmail/control/.qmailadmin-limits
-admin_adminhost        = matt.cadillac.net        # the "master" server in a cluster
-admin_fileservers      = matt                     # all file servers in this array
-admin_mailservers      = mail1 mail2 mail3 mail4 mail5
-
-admin_vpopbin          = /usr/local/vpopmail/bin
-
-singleuid           = vpopmail #  If all your mail domains will be owned by a single user
-                            #  (vpopmail) then set to the username of your vpopmail user
-
-create_sys_user     = 0     #  by default, when in single uid mode this script won't 
-                            #  create a new system user. This flag overrides that. (y/n)
-
-homedirtree         = 0     #  Using a homedir tree? (/usr/home/a/ab/abcuser instead of
-                            #  /usr/home/abcuser)
-
-homedir_base        = u     # If using a system user account, where do we put their 
-                            # home dir? IE, is it based on user or domain name (u/d)
-
-use_passwords       = 0     # Do we want the users to be able to log in via (telnet/ssh)?
-                            # Put the postmaster password into the system passwd files
-
-show_function       = 1     # A handy utility that lets support staff view the current 
-                            # settings of a mail account.
-
-vauth               = mysql # where vpopmail stores it's auth info (cdb, mysql, ldap)
-
-delete_old_archives = 0     # Delete archive files after restoring?
-
-secure_levels       = 1     # Adds multiple levels of security while running this script.
 

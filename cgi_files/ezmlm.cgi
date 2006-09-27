@@ -2,18 +2,19 @@
 use strict;
 
 #
-# $Id: ezmlm.cgi,v 4.0 2004/11/16 20:57:30 matt Exp $
+# $Id: ezmlm.cgi,v 4.1 2006/06/09 19:26:18 matt Exp $
 #
 
+
 use lib "lib";
-use Mail::Toaster::Ezmlm; my $ezmlm = new Mail::Toaster::Ezmlm;
+use Mail::Toaster::Ezmlm; my $ezmlm = Mail::Toaster::Ezmlm->new;
 
 use vars qw/ $VERSION /;
 $VERSION = "1.2";
 
 if ( $ENV{'GATEWAY_INTERFACE'} ) 
 {
-	$ezmlm->process_cgi("\n", 1);
+	$ezmlm->process_cgi(br=>"\n", debug=>1);
 } 
 else 
 {
@@ -24,16 +25,26 @@ exit 1;
 
 =head1 NAME
 
-ezmlm.cgi
+ezmlm.cgi - batch administration tool for ezmlm lists (add lists of users, etc)
+
+
+=head1 SYNOPSIS 
+
+    ezmlm.cgi -a [ add | remove | list ] -d /path/to/ezmlm/list
+
+      -a   action  - add, remove, list
+      -d   dir     - ezmlm list directory
+      -f   file    - file containing list of email addresses
+      -v   verbose - print debugging options
+
 
 =head1 DESCRIPTION
 
 
-
 =head1 LICENSE
 
-Copyright (c) 2004, The Network People, Inc.
-All rights reserved.
+Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
+
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.

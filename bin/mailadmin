@@ -1,0 +1,1789 @@
+#!/usr/bin/perl
+
+#
+# $Id: mailadmin,v 4.1 2004/11/16 21:20:01 matt Exp $
+#
+
+use strict;
+use Getopt::Std;
+use Sys::Hostname;
+use File::Find;
+use CGI ':standard';
+use English;
+
+use lib "lib";
+
+use Mail::Toaster::Qmail;        my $qmail = Mail::Toaster::Qmail->new;
+use Mail::Toaster::Passwd  1.16; my $password = Mail::Toaster::Passwd->new;
+use Mail::Toaster::FreeBSD 1.0;  my $freebsd = Mail::Toaster::FreeBSD->new;
+use Mail::Toaster::Perl    1.0;  my $perl = Mail::Toaster::Perl->new;
+use Mail::Toaster::Utility 1.0;  my $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Provision;    my $provision = Mail::Toaster::Provision->new;
+
+use vars qw/ $VERSION /;
+
+$VERSION = "4.01";
+
+my $banner = "maildomain $VERSION by Matt Simerson <matt\@tnpi.net>";
+
+# ChangeLog
+# http://www.tnpi.net/internet/mail/toaster/maildomain/Changes.html
+
+my $conf      = $utility->parse_config( file => "toaster.conf", debug => 0 );
+my $update    = $conf->{'admin_update'};
+my $home      = $conf->{'admin_home'};
+my $qmailpath = $conf->{'admin_qmailpath'};
+my $adminhost = $conf->{'admin_adminhost'};
+my $vbin      = $conf->{'admin_vpopbin'};
+my $singleuid = $conf->{'singleuid'};
+my $vauth     = $conf->{'vauth'};
+my $secure_levels = $conf->{'secure_levels'};
+
+use vars qw/ $opt_v $iam /;
+getopts('v');
+my $debug = 0;
+$debug = 1 if ($opt_v);
+
+if ( $ENV{'GATEWAY_INTERFACE'} ) {
+
+    #my %r = &parse_form_data();
+    #&setup_global_vars(\%r);
+    print header('text/html');
+    $iam   = "www";
+    $debug = 1;
+}
+else {
+    $iam = getpwuid($<);    # get our system username
+}
+
+my $sudo = $utility->sudo( debug => 0 );    # what to prepend before commands
+                                            # requiring root privileges
+my $sl = set_securelevel($iam);             # secure level
+check_hostname($adminhost);                 # warn if not admin host
+my $name = "mailadmin";                     # this scripts filename
+
+print "You are $iam running as UID: $< in support level: $sl.\n" if $debug;
+
+#
+# Redirect STDERR to STDOUT so we can see what's printed out in a die() call.
+#
+## no critic
+open( STDERR, ">&STDOUT" );
+select(STDERR);
+$OUTPUT_AUTOFLUSH = 1;
+select(STDOUT);
+$OUTPUT_AUTOFLUSH = 1;
+## use critic
+
+my $rm    = $utility->find_the_bin( bin => "rm", debug=>0 );
+my $cp    = $utility->find_the_bin( bin => "cp", debug=>0 );
+my $chown = $utility->find_the_bin( bin => "chown", debug=>0 );
+my $action = $ARGV[0];
+
+if ( $iam eq "www" ) {
+    my $action = param('action');
+}
+
+    $action eq "add"     ? &add_account
+  : $action eq "vadd"    ? &vadd_domain
+  : $action eq "padd"    ? &padd_domain
+  : $action eq "hold"    ? &hold_user
+  : $action eq "unhold"  ? &unhold_user
+  : $action eq "suspend" ? &hold_user
+
+  #  : $action eq "suspend" ? &suspend
+  : $action eq "restore" ? &unhold_user
+
+  #  : $action eq "restore" ? &restore
+  : $action eq "vpassrestore" ? &vpassrestore
+  : $action eq "modify"       ? &modify
+  : $action eq "delete"       ? &delete
+  : $action eq "fix"          ? &fix
+  : $action eq "adduser"      ? add_v_email( $banner, $vbin )
+  : $action eq "show"         ? &show_settings
+  : $action eq "exec"         ? &exec_all
+  : $action eq "count"        ? &count_users
+  : $action eq "check"        ? &check
+  : &print_menu;
+
+exit 0;
+
+##
+# Subroutines
+##
+# -----------------------------------------------------------------------
+
+=head2 print_menu_line
+
+=cut
+
+sub print_menu_line {
+    my ( $opt, $desc ) = @_;
+    if ( $iam eq "www" ) {
+        print a( { -href => '/' }, "\t$opt" );
+        print "$desc\n";
+    }
+    else {
+        print "\t$opt\t- $desc\n";
+    }
+}
+
+sub print_menu {
+    print $banner;
+    print "\n\n   Valid choices are: \n\n";
+
+    my ( @options, @descrip );
+    if ( $sl <= 1 ) {
+        if ( $singleuid eq "" ) {
+            push @options, "add";
+            push @descrip, "creates a new user & mail domain";
+        }
+        else {
+            push @options, "add";
+            push @descrip, "creates a new mail domain";
+        }
+    }
+    if ( $sl <= "2" ) {
+        if ( $singleuid eq "" ) {
+            push @options, "vadd";
+            push @descrip, "add a new mail domain to an existing user";
+        }
+    }
+    if ( $sl <= "2" ) {
+        push @options, "padd";
+        push @descrip, "add a mail domain pointer\n";
+    }
+    if ( $sl <= "1" ) {
+        push @options, "hold";
+        push @descrip, "Disable an accounts ability to retrieve email";
+    }
+    if ( $sl <= "2" ) {
+        push @options, "unhold";
+        push @descrip, "Enable an accounts ability to retrieve email\n";
+    }
+
+    #	if ( $sl <= "1" ) {
+    #		if ( $singleuid eq "" ) {
+    #			print "\tsuspend - suspend a user and all their mail domains";
+    #			print "\trestore - restore a suspended user and their domains";
+    #		};
+    #	};
+    if ( $sl <= "2" ) {
+        if ( $vauth eq "cdb" ) {
+            push @options, "vpassrestore";
+            push @descrip, "restore the vpasswd file of a domain";
+        }
+    }
+    if ( $sl <= "3" ) {
+        if ( $conf->{'show_function'} ) {
+            push @options, "show";
+            push @descrip, "display properties of a user or domain";
+        }
+        if ( $sl <= "1" ) {
+            push @options, "fix";
+            push @descrip, "various repair options\n";
+        }
+        push @options, "modify", "adduser";
+        push @descrip, "make changes to a user or domain";
+        push @descrip, "add a user to a maildomain";
+    }
+    if ( $sl <= "2" ) {
+        push @options, "delete";
+        if ( $singleuid eq "" ) {
+            push @descrip, "remove a mail user or domain(s)\n";
+        }
+        else {
+            push @descrip, "remove a mail domain\n";
+        }
+    }
+    if ( $sl <= "0" ) {
+        push @options, "exec", "check";
+        push @descrip, "run a command on each server(s)";
+        push @descrip, "various tests for consistency";
+    }
+
+    if ( $iam eq "www" ) {
+        my @rows;
+        my $i        = 0;
+        my $space    = "<pre>    </pre>";
+        my @col_head = ( $space, "Options", $space, "Description" );
+        print start_form();
+        print radio_group( -name => "action", -value => $options[0] );
+        print radio_group( -name => "action", -value => $options[1] );
+        print radio_group( -name => "action", -value => $options[2] );
+
+        foreach my $opt (@options) {
+
+            #my $check = radio_group(-name="action", -value="opt");
+            my @bug = ( $opt, "", $descrip[$i] );
+            push( @rows, th("") . td( \@bug ) );
+            $i++;
+        }
+        print table(
+            { -border => '0' },
+            caption("tables are cool"),
+            Tr( [ th( \@col_head ), @rows ] )
+        );
+    }
+    else {
+        my $i = 0;
+        foreach my $opt (@options) {
+            print "\t$opt\t-$descrip[$i]\n";
+            $i++;
+        }
+    }
+}
+
+sub add_v_email {
+    my ( $banner, $vbin ) = @_;
+    my $vadduser = "$vbin/vadduser";
+    print $banner;
+    if ($secure_levels) { check_permissions("3") }
+    if ( $ARGV[1] ne "" ) {
+        system "$sudo $vadduser $ARGV[1] $ARGV[2]";
+        print "+100 useradd Done.\n\n";
+    }
+    else {
+        print_error("\n   I need a user\@domain.com handed to me.");
+    }
+}
+
+sub fix {
+    if ($secure_levels) { check_permissions("0") }
+    print $banner;
+    if ( $ARGV[1] eq "homedirtree" ) {
+        make_home_dir_tree();
+    }
+    elsif ( $ARGV[1] eq "default" ) {
+        reset_default_delivery( $ARGV[2] );
+    }
+    elsif ( $ARGV[1] eq "permissions" ) {
+        my $home = ( getpwnam( $ARGV[2] ) )[7];
+        if ( -d $home ) {
+            print "executing $sudo $chown -R $ARGV[2] $home..." if $debug;
+            system "$sudo $chown -R $ARGV[2] $home";
+            print "done.\n";
+        }
+        else {
+            print "user: $ARGV[2] or home: $home doesn't exist!\n";
+        }
+    }
+    else {
+        print "\nI need you to pass me a command like this:\n\n";
+        print "      $name fix homedirtree\n";
+        print "      $name fix default <uid>\n";
+        print "      $name fix permissions <user>\n\n";
+    }
+}
+
+sub add_account {
+    my $action = $ARGV[0];
+
+    my ( %vals, $user, $domain, $pass, $quota, $foo );
+
+    print $banner;
+
+    if ( $singleuid ne "" ) {
+        %vals = {
+            user    => $singleuid,
+            domain  => $ARGV[1],
+            pass    => $ARGV[2],
+            quota   => $ARGV[3],
+            homedir => undef,
+            shell   => undef,
+            uid     => undef,
+            gid     => undef,
+            gecos   => undef,
+        };
+
+    }
+    else {
+        %vals = {
+            user   => $ARGV[1],
+            domain => $ARGV[2],
+            pass   => $ARGV[3],
+            quota  => $ARGV[4],
+            foo    => $ARGV[5],
+        };
+    }
+
+    check_permissions("1") if ($secure_levels);
+
+    if ( $quota > 0 ) {
+        $vals{'homedir'} = set_homedir( $vals{'user'}, $vals{'domain'} );
+
+        if ( $singleuid eq "" ) {
+            unless ( add_system_user( \%vals )
+              )    # $user, $homedir, $domain, $pass, $quota) )
+            {
+                die
+"FAILED.\n\nThe user failed to be added. This must be fixed.\n\n";
+            }
+            add_mail_domain(
+                \%vals )    # $user, $homedir, $domain, $pass, $quota);
+        }
+        else {
+            if ( $password->exist($singleuid) ) {
+                add_mail_domain(
+                    \%vals )    # $user, $homedir, $domain, $pass, $quota);
+            }
+            else {
+                die "\tFAILED: The user $singleuid does not exist!\n\n";
+            }
+        }
+        print "+100 adddomain Done.\n\n";
+    }
+    else {
+        if ( $singleuid eq "" ) {
+            &print_error("$name add <user> <domain> <password> <quota>");
+        }
+        else {
+            &print_error("$name add <domain> <password> <quota>");
+        }
+    }
+}
+
+sub delete {
+    print $banner;
+    if ($secure_levels) { check_permissions("2") }
+
+    if ( $singleuid eq ""
+        || ( $singleuid ne "" && $conf->{'create_sys_user'} ) )
+    {
+        if ( $ARGV[1] eq "domain" and $ARGV[2] ne "" ) {
+            &delete_domain( $ARGV[2] );
+            print "+100 deldomain Done.\n\n";
+        }
+        elsif ( $ARGV[1] eq "user" and $ARGV[2] ne "" ) {
+            &delete_domain( &get_users_domain_list( $ARGV[2] ) );
+            &delete_sys_user( $ARGV[2], $ARGV[3] );
+        }
+        else {
+            print "\nI need you to pass me a command like this:\n\n";
+            print "      $name delete domain <domainname>\n";
+            print "  or  $name delete user   <username> [archive]\n\n";
+            print
+              "To archive the domain files pass any non-zero value with the";
+            print " delete switch.\n\n";
+        }
+    }
+    else {
+        if ( $ARGV[1] ne "" ) {
+            &delete_domain( $ARGV[1] );
+            print "+100 deldomain Done.\n\n";
+        }
+        else {
+            &print_error("      $name delete <domainname>");
+        }
+    }
+}
+
+# Adding a domain
+#
+
+sub vadd_domain {
+    print $banner;
+    if ($secure_levels) { check_permissions("2") }
+    my ( $user, $domain, $pass, $quota, $foo );
+    my $homedir = set_homedir( $user, $domain );
+
+    if ( $singleuid ne "" ) {
+        print "You shouldn't be using vadd!\n";
+    }
+    else {
+        $user   = $ARGV[1];
+        $domain = $ARGV[2];
+        $pass   = $ARGV[3];
+        $quota  = $ARGV[4];
+        $foo    = $ARGV[5];
+    }
+
+    if ( $quota > 0 ) {
+        if ( $password->exist($user) ) {
+            &add_mail_domain( $user, $homedir, $domain, $pass, $quota );
+        }
+        else {
+            die "\tFAILED: The user must exist to use the vadd feature.\n\n";
+        }
+
+        if ( $pass eq "null" ) {    # Check the password for the keyword "null"
+            my @domvals = get_main_domain($user);
+            print
+"done.\n\n...\tSetting password for $domain to same as $domvals[0]...";
+            print "the password for $domvals[0] is $domvals[1].\n" if $debug;
+            set_pass_to_main( $homedir, $domain, $domvals[1] );
+            system "$sudo $vbin/vmkpasswd $domain";
+        }
+    }
+    else {
+        &print_error("$name vadd <user> <domain> <password> <quota>");
+
+    }
+    print "+100 vadddomain Done.\n\n";
+}
+
+sub padd_domain {
+    print $banner;
+    my $newdom   = $ARGV[1];
+    my $existing = $ARGV[2];
+
+    if ($secure_levels) { check_permissions("2") }
+    if ( $existing ne "" ) {
+        if ( does_domain_exist_in_qmail($existing) ) {
+            print "\tCreating alias for $newdom to $existing...";
+            system "$sudo $vbin/vaddaliasdomain $newdom $existing";
+            print "+100 padddomain Done.\n\n";
+        }
+        else {
+            die "\tThe domain $existing must exist to use padd!\n\n";
+        }
+    }
+    else {
+        &print_error("$name padd <new_domain> <existing_domain>");
+    }
+}
+
+sub add_mail_domain {
+    my ( $user, $homedir, $domain, $pass, $quota ) = @_;
+    my $vadddomain = "$vbin/vadddomain";
+    my $chmod = $utility->find_the_bin( bin => "chmod" );
+    if ( !does_domain_exist_in_qmail($domain) ) {
+        system "$sudo $vadddomain -u $user -q ${quota}000000 $domain $pass";
+        system "$sudo $chmod 750 $homedir/domains $homedir/domains/$domain";
+        my @domain_list =
+          get_users_domain_list($user);    # make sure the domain got created
+                                           #
+            # Need to add a check here to verify the domain was created
+            #
+        my $qmailadminlimits = $conf->{'admin_qmailadminlimits'};
+        if ( -e $qmailadminlimits ) {
+            system "$sudo $cp $qmailadminlimits $homedir/domains/$domain/";
+            system
+              "$sudo $chown $user $homedir/domains/$domain/.qmailadmin-limits";
+        }
+        &update_command("mail");
+        return 1;
+    }
+    else {
+        warn "The domain $domain already exists!\n";
+        return 0;
+    }
+}
+
+sub add_system_user {
+    my ($vals) = @_;    #  $user, $homedir, $domain, $pass, $quota) = @_;
+
+    my $r;
+
+    print "\tAdding $vals->{'user'} to the system password files...";
+
+    $password->BackupMasterPasswd();
+
+    if ( $conf->{'use_password'} ) {
+        $r =
+          $password->user_add($vals)
+          ;             # $user, undef, $homedir, undef, "vchkpw");
+    }
+    else {
+        $vals->{'pass'} = undef;
+        $r =
+          $password->user_add($vals)
+          ;             # $user, undef, $homedir, undef, "vchkpw");
+    }
+
+    if ( $r->{'error_code'} == 200 ) {
+
+        # success!
+        $password->VerifyMasterPasswd( "/etc/master.passwd", "grow" );
+        if ( $vals->{'quota'} ne "" ) {
+            setupquota( $vals->{'user'}, $vals->{'quota'} );
+        }
+        print "done.\n\tUpdating mail cluster...";
+        &update_command("passwd");
+        print "done.\n";
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+
+# Holding a domain
+#
+#   To hold a domain, we simply remove the users ability to retrieve their mail.
+#
+sub hold_user {
+    print $banner;
+    my $user = $ARGV[1];
+
+    if ($secure_levels) { check_permissions("1") }
+    if ( $user ne "" ) {
+        print $banner;
+        print "\n\n\t Removing ${user}'s ability to retrieve email...\n";
+        my @domains = get_users_domain_list($user);
+        foreach my $domain (@domains) {
+            if ($domain) {
+                print "holding domain: $domain...";
+                system "$sudo $vbin/vmoduser -ipswr $domain";
+                print "done.\n";
+
+          #				my @users = get_domains_userlist( $domain );
+          #				if ( $users[0] ) {
+          #					foreach my $user ( @users ) {
+          #						system "$sudo $vbin/vmoduser -ipswr $user\@$domain";
+          #						print "$sudo $vbin/vmoduser -ipswr $user\@$domain\n" if $debug;
+          #					};
+          #				};
+            }
+        }
+        print "done.\n\n";
+        print "+100 hold/unhold Done.\n\n";
+    }
+    else {
+        &print_error("$name hold <username>\n");
+    }
+}
+
+sub unhold_user {
+    print $banner;
+    my $user = $ARGV[1];
+    if ($secure_levels) { check_permissions("2") }
+    if ( $user ne "" ) {
+        print $banner;
+        print "\n\n   Enabling ${user}'s ability to retrieve email...\n";
+        my @domains = get_users_domain_list($user);
+        foreach my $domain (@domains) {
+            if ($domain) {
+                print "Enabling domain: $domain...";
+                system "$sudo $vbin/vmoduser -x $domain";
+            }
+            print "done.\n";
+
+          #				my @users = get_domains_userlist( $domain );
+          #				foreach my $user ( @users ) {
+          #					if ($user) { system "$sudo $vbin/vmoduser -x $user\@$domain"; };
+          #				};
+          #			};
+        }
+        print "done.\n\n";
+        print "+100 hold/unhold Done.\n\n";
+    }
+    else {
+        &print_error("$name unhold <username>\n");
+    }
+}
+
+# Suspending a domain
+#
+#   The mail server has two parameters it needs to find a user, the domain
+#   mapping and the system user. To suspend a domain, we simply remove the
+#   domain mapping.
+
+sub suspend {
+    print $banner;
+
+    #
+    # This way is now disabled.  Due to vpopmail changes (all for the better)
+    # this stopped working and I need to revisit this and add a bunch of code
+    # to make it do The Right Stuff[TM].
+    #
+    my $user = $ARGV[1];
+    if ($secure_levels) { check_permissions("1") }
+    if ( $user ne "" ) {
+        print $banner;
+        $password->user_archive($user);
+        print "\n\n   Then we'll remove the domains from the config files...";
+        my @domains = &get_users_domain_list($user);
+        foreach my $domain (@domains) {
+            my $cmd = "$sudo $vbin/vdeldomain $domain";
+            print "$cmd\n" if $debug;
+            system $cmd;
+        }
+        print "done.\n\n  And then tell the mail servers about it...";
+        &update_command("mail");
+        print "done.\n\n";
+    }
+    else {
+        &print_error("$name suspend <username>\n");
+    }
+}
+
+# Restore a domain
+
+sub restore {
+    print $banner;
+    my ($user) = @_;
+    my $tar = $utility->find_the_bin( bin => "tar" );
+    if ($secure_levels) { check_permissions("1") }
+    if ( $user ne "" ) {
+        if ( getpwnam($user) > 0 ) {    # Make sure user exists
+            print $banner;
+            my $homedir = get_users_homedir($user);
+
+            my @pathparts = split( "/", $homedir );
+            my $userdir   = pop @pathparts;
+            my $path      = join( "/", @pathparts );
+            chdir($path) or warn "couldn't cd to $path: $!\n";
+
+            if ( !-e "$user.tar.gz" ) {
+                warn "\tFAILED: $path/$user.tar.gz doesn't exist.\n";
+                return 0;
+            }
+
+            if ( -d "$user" ) {
+                warn "\tFAILED: $path/$user already exists.\n";
+                return 0;
+            }
+
+            print "\n\n\tFirst extract all their files...";
+            system "$sudo $tar -xzf $user.tar.gz";
+            if ( $conf->{'delete_old_archives'} ) {
+                system "$sudo $rm $user.tar.gz";    # Delete the archive.
+            }
+            print "   Restoring $user's domains....";
+            my @domains = get_users_domain_list($user);
+            foreach my $domain (@domains) {
+                my $vadddomain = "$vbin/vadddomain";
+                system "$sudo $vadddomain -u $user $domain secret";
+            }
+
+            #
+            # We need to go back through now and add all the mail users to
+            # the SQL database. Conversion to MySQL auth broke this - 12.12.02
+            #
+
+            print "done.\n\n  Finally, tell the mail servers about it...";
+            &update_command("mail");
+            print "done.\n\n";
+        }
+        else {
+            die "   FAILED: The user $user doesn't exist.\n\n";
+        }
+    }
+    else {
+        &print_error("$name restore <username>");
+    }
+}
+
+# Restore a domains vpasswd file.
+
+sub vpassrestore {
+    print $banner;
+    my $user   = $ARGV[1];
+    my $domain = $ARGV[2];
+    my $find   = $utility->find_the_bin( bin => "find" );
+    if ($secure_levels) { check_permissions("2") }
+    if ( $user ne "" ) {
+        my $userdir   = get_users_homedir($user);
+        my $domaindir = "$userdir/domains/$domain";
+        my @vpr_userlist;
+        my @dirtylist = `$sudo $find $domaindir -name Maildir -type directory`;
+        print @dirtylist if $debug;
+        foreach my $dir (@dirtylist) {
+            chomp $dir;
+            my @fields = split( "/", $dir );
+            if ( $fields[9] eq "Maildir" ) {
+                push @vpr_userlist, $fields[8];
+            }
+            elsif ( $fields[10] eq "Maildir" ) {
+                push @vpr_userlist, $fields[9];
+            }
+            elsif ( $fields[11] eq "Maildir" ) {
+                push @vpr_userlist, $fields[10];
+            }
+            else {
+                print "uh-oh, report this error to matt!\n";
+            }
+        }
+        my $file  = "/tmp/$domain";
+        my $file2 = "$domaindir/vpasswd";
+        open my $NEWVPASS, ">", $file;
+        my $counter = 0;
+        foreach my $user (@vpr_userlist) {
+            if (   $user ne "vpasswd"
+                && $user ne "vpasswd.cdb"
+                && $user !~ /^\./ )
+            {
+                my $line =
+                  "$user:nWCF8/.cJUZ5.:1:0:$user:$domaindir/$user:100000000";
+                print $NEWVPASS "$line\n";
+            }
+            ++$counter;
+        }
+        close $NEWVPASS;
+        system "$sudo $cp $file $file2";
+        system "$sudo $vbin/vmkpasswd $domain";
+        system "$sudo $rm $file";
+        print "\n\nOK, the vpasswd file lives in $file2\n\n";
+        print " The default passwords have been reset to 'temp'\n";
+    }
+    else {
+        &print_error("$name vpassrestore <username> <domain>");
+    }
+}
+
+# Modify a domain
+#
+#    The modify command can accept one of two options: quota, or password.
+#    We expect the modify command to be passed to us with one of those
+#    keywords and a value to set.
+sub modify {
+    print $banner;
+    if ($secure_levels) { check_permissions("3") }
+    my $target = $ARGV[1];
+    my $two    = $ARGV[2];
+    my $thr    = $ARGV[3];
+    my $fou    = $ARGV[4];
+
+    if ( $target ne "" ) {
+        if ( $target eq "quota" && $ARGV[4] ne "" ) {
+            my $sub   = $ARGV[2];
+            my $user  = $ARGV[3];
+            my $quota = $ARGV[4];
+            if ( $sub eq "main" ) {
+                setupquota( $user, $quota );
+                my $maindomain = ( get_main_domain($user) )[0];
+                print "main domain is: $maindomain\n" if $debug;
+                system
+"$sudo $vbin/vsetuserquota postmaster\@${maindomain} ${quota}400000";
+                print "completed.\n\n";
+            }
+            elsif ( $sub eq "domain" ) {
+                my $domain = $user;
+                print
+"\nModifying postmaster\@${domain}'s quota to $quota megabytes....";
+                system
+"$sudo $vbin/vsetuserquota postmaster\@$domain ${quota}400000";
+                print "completed.\n\n";
+            }
+            elsif ( $sub eq "user" ) {
+                if ( $user =~ /^all/ ) {
+                    my $domain = ( split( /\@/, $user ) )[1];
+                    system "$sudo $vbin/vsetuserquota $domain ${quota}400000";
+                }
+                else {
+                    print
+                      "   \nModifying ${user}'s quota to $quota megabytes....";
+                    system "$sudo $vbin/vsetuserquota ${user} ${quota}400000";
+                }
+                print "completed.\n\n";
+            }
+        }
+        elsif ( $target eq "password" && $ARGV[3] ne "" ) {
+            my $user  = $ARGV[2];
+            my $quota = $ARGV[3];
+            print "\t\nModifying ${user}'s password to $quota...";
+            my $cmd = "$sudo $vbin/vpasswd $user $quota";
+            system $cmd;
+            print "done.\n\n";
+            print "\ncmd is: ${cmd}\n" if $debug;
+        }
+        elsif ( $target eq "limits" && $ARGV[2] ne "" ) {
+            my $user = $ARGV[2];
+            edit_qmailadmin_limits( $target, $user );
+        }
+        else {
+            &print_modify_menu;
+        }
+    }
+    else {
+        &print_modify_menu;
+    }
+}
+
+sub print_modify_menu {
+    print "\nI need you to pass me a command like this:\n\n";
+    print "      $name modify password     <user\@domain.com> <newpass>\n";
+    print "  or  $name modify limits       <username>\n";
+    print "  or  $name modify quota main   <username> <value>\n";
+    print "  or  $name modify quota domain <domainname> <value>\n";
+    print "  or  $name modify quota user   <user\@domain> <value>\n";
+    print "  or  $name modify quota user   <all\@domain> <value>\n";
+    print "\n";
+}
+
+# Delete a domain
+#
+#   The delete domain script can (optionally) be called with any non-zero value
+#   and if so, it will first archive the domain home directory before blowing it
+#   away. The pw utility does not, by default, remove the domain home directory
+#   so we pass it the "-r" flag.
+#
+
+sub delete_sys_user {
+    my ( $user, $ar ) = @_;
+
+    my $pw = $utility->find_the_bin( bin => "pw" );
+
+    if ( getpwnam($user) > 0 ) {    # Make sure user exists
+        if ( getpwnam($user) < 100 ) {
+            die "you naughty little bastard!\n";
+        }
+        print $banner;
+        $password->user_archive($user)
+          if ( $ar ne "" );         # Check for archive flag
+        my %vals = ( 'user' => $user );
+        $password->delete( \%vals );
+        print "done.\n\n  Now we'll tell all the pass servers about it...";
+        &update_command("passwd");
+        print "done.\n";
+        print "+100 deldomain Done.\n\n";
+    }
+    else {
+        print $banner;
+        print "   FAILED: That user doesn't exist.\n\n";
+        print "+100 deldomain Done.\n\n";
+    }
+}
+
+sub update_command {
+    my ($cmd) = @_;
+    print "$sudo $update $cmd" if $debug;
+    system "$sudo $update $cmd";
+}
+
+sub delete_domain {
+    my @domains = @_;
+    if ( $domains[0] ne "" ) {
+        foreach my $domain (@domains) {
+            print "\tRemoving the domain $domain from the config files...";
+            system "$sudo $vbin/vdeldomain $domain";
+            print "done.\n";
+        }
+        &update_command("mail");
+    }
+}
+
+sub set_homedir {
+    my ( $user, $domain ) = @_;
+    my $homedir;
+    my $tmp;
+    if ( $conf->{'homedir_base'} eq "u" ) {
+        $tmp = $user;
+    }
+    else {
+        $tmp = $domain;
+    }
+
+    if ( $conf->{'homedirtree'} ) {
+        my $tmp1 = substr( $tmp, 0, 1 );    # Grab the first char of their login
+        my $tmp2 = substr( $tmp, 0, 2 );    # Grab the first two characters
+        $homedir = "$home/$tmp1/$tmp2/$tmp";    # Define their home directory
+    }
+    else {
+        $homedir = "$home/$user";
+    }
+    return $homedir;
+}
+
+sub get_domains_userlist {
+    my ($domain) = @_;
+    if ( lc($vauth) eq "cdb" ) {
+        my @users;
+        my $domaindir = get_domains_homedir($domain);
+        print "The domain $domain is at: $domaindir\n" if $debug;
+
+        open my $VPASS, "<", "$domaindir/vpasswd";
+        while (<$VPASS>) {
+            my @parts = split( /:/, $_ );
+            print "username is: $parts[0]\n" if $debug;
+            push @users, $parts[0];
+        }
+        close $VPASS;
+
+        return @users;
+    }
+    else {
+        warn "get_domains_userlist doesn't work with $vauth yet.\n";
+        return 0;
+    }
+}
+
+sub get_users_domain_list {
+    my ($user) = @_;
+    my @domain_list;
+    print $banner;
+
+    if ( $password->exist($user) ) {
+        my $homedir = &get_users_homedir($user);
+        if ($homedir) {
+            print "found homedir\n";
+            my $domaindir = "$homedir/domains";
+            print "get_users_domain_list: domaindir: $domaindir\n" if $debug;
+            if ( -d $domaindir ) {
+                opendir DOMAINDIR, "$domaindir"
+                  or die "FAILED: Can't read $domaindir: $!\n";
+                while ( defined( my $file = readdir DOMAINDIR ) ) {
+                    next if $file =~ /^\..*$/;
+                    my @parts = split( "/", $file );    # Strip off the path
+                    push @domain_list, $parts[$#parts];
+                }
+                closedir DOMAINDIR;
+                print "get_users_domain_list: @domain_list\n" if $debug;
+                return @domain_list;
+            }
+        }
+        else {
+            my $uid = getpwnam($user);
+            if ( $uid < 100 ) { return 0; }
+            my $homedir = ( getpwnam($user) )[7];
+            my $mkdir = $utility->find_the_bin( bin => "mkdir" );
+            $mkdir = "$mkdir -p";
+            my ($maindomain) = &get_main_domain($user);
+            if ($maindomain) {
+                my $exists = &does_domain_exist_in_qmail($maindomain);
+                if ($exists) {
+                    print
+                      "\nThe home directory for $user is $homedir and has\n";
+                    print
+"$maindomain set up to use it! That domain is not working\n";
+                    print
+                      "and should likely be removed from the mail system. \n";
+                    print "\nShall I? ";
+
+                    my $ans = $utility->yes_or_no;
+                    if ($ans) {
+                        print "deleting main domain: $maindomain\n";
+                        print "$sudo $mkdir $homedir/domains/$maindomain\n"
+                          if $debug;
+                        system "$sudo $mkdir $homedir/domains/$maindomain";
+                        print "$sudo $chown -R $user $homedir\n" if $debug;
+                        system "$sudo $chown -R $user $homedir";
+                        &delete_domain($maindomain);
+                    }
+                }
+            }
+            else {
+                print
+                  "the domain $maindomain doesn't exist as a main domain.\n";
+            }
+
+            my $assign = "$qmailpath/users/assign";
+            my @domains = &get_mail_domains_from_assign( $assign, "uid", $uid );
+            if ( $domains[0] ne "" ) {
+                print
+"\nYikes! The home directory for $user is $homedir and it doesn't\n";
+                print
+"exist. As such, the following domains should likely be removed:\n\n";
+                foreach my $f (@domains) {
+                    print "\t$f->{'dom'}\n";
+                }
+                print "\nShall I delete it? ";
+
+                my $ans = $utility->yes_or_no;
+                if ($ans) {
+                    foreach my $domain (@domains) {
+                        print "deleting domain: $domain->{'dom'}\n";
+                        print "$sudo $mkdir $homedir/domains/$domain->{'dom'}\n"
+                          if $debug;
+                        system "$sudo $mkdir $homedir/domains/$domain->{'dom'}";
+                        print "$sudo $chown -R $user $homedir\n" if $debug;
+                        system "$sudo $chown -R $user $homedir";
+                        &delete_domain( $domain->{'dom'} );
+                    }
+                }
+            }
+
+            my @domains = &get_mail_domains_from_assign( $assign, "uid", $uid );
+            if ( $domains[0] eq "" ) {
+                print "User $user has no domains, shall I just delete them? ";
+                my $ans = $utility->yes_or_no;
+                if ($ans) {
+                    &delete_sys_user($user);
+                }
+            }
+            return 0;
+
+            #
+            # FOO
+            #
+        }
+
+        #
+        # TO DO
+        # This needs to check for alias domains as well. Must do that
+        # with MySQL calls
+        #
+    }
+    else {
+        print "FAILED, invalid user: $user.\n";
+        return 0;
+    }
+}
+
+sub show_files_where_domain_exists {
+    my ($domain) = @_;
+    my @files = ( "$qmailpath/users/assign", "$qmailpath/control/*" );
+    foreach my $file (@files) {
+        system "grep $domain $file";
+    }
+}
+
+sub show_settings {
+    my $one       = $ARGV[1];
+    my $two       = $ARGV[2];
+    my $thr       = $ARGV[3];
+    my $quota_bin = $utility->find_the_bin( bin => "quota" );
+
+    if ($secure_levels) { check_permissions("3") }
+    if ( $one eq "quota" ) {
+        print $banner;
+        system "$sudo $quota_bin $two";
+        print "\n\n";
+        my @domain_list = get_users_domain_list($two);
+        foreach my $domain (@domain_list) {
+            print
+"\n              *********  domain quota for $domain (in bytes) *********\n";
+            system "$sudo $vbin/vuserinfo -q postmaster\@$domain";
+        }
+        print "\n";
+    }
+    elsif ( $one eq "userquota" ) {
+        print $banner;
+        system "$sudo $vbin/vuserinfo -q $two";
+        print "\n";
+    }
+    elsif ( $one eq "all" ) {
+        print $banner;
+        system "$sudo $quota_bin $two";
+        print "\n\n";
+        my @domvals = get_main_domain($two);
+        print "           *********  main domain is $domvals[0]  *********\n";
+        my $cmd = "$sudo $vbin/vdominfo $domvals[0]";
+        system $cmd;
+        my @domain_list = get_users_domain_list($two);
+
+        foreach my $domain (@domain_list) {
+            if ( $domain ne "" ) {
+                print
+                  "\n              *********  info for $domain  *********\n";
+                system "$sudo $vbin/vdominfo $domain";
+                system "$sudo $vbin/vuserinfo postmaster\@$domain";
+            }
+        }
+    }
+    else {
+        print $banner;
+        print "\n   Valid choices are: \n\n";
+        print
+"      quota     - Display quota for a user account and their domains (user)\n";
+        print
+"      userquota - Display quotas for an email account (user\@domain.com)\n";
+        print
+          "      all       - Display all info for a user and their domains\n\n";
+    }
+}
+
+sub get_main_domain {
+    my ($user) = @_;
+    my $passwd;
+    my ( $dom, $dir ) = ( getpwnam($user) )[ 6, 7 ];
+    print "the homedir for $user is: $dir\n" if $debug;
+
+    if ( $vauth eq "cdb" ) {
+        open my $PASS, "<", "$dir/domains/$dom/vpasswd";
+        foreach my $line (<$PASS>) {
+
+            #print $line;
+            my @fields = split( ":", $line );
+            if ( $fields[0] eq "postmaster" ) {
+                $passwd = $fields[1];
+            }
+        }
+        close $PASS;
+    }
+    else {
+        $passwd = `$vbin/vuserinfo -p postmaster\@$dom`;
+    }
+    print "postmaster password: $passwd\n" if $debug;
+    return $dom, $passwd;
+}
+
+sub set_pass_to_main {
+    my @vpasswd;
+
+    #print "opening file $_[0]/domains/$_[1]/vpasswd.\n";
+    open my $PASS, "+<", "$_[0]/domains/$_[1]/vpasswd";
+    my $counter = 0;
+    foreach my $line (<$PASS>) {
+        my @fields = split( ":", $line );
+        if ( $fields[0] eq "postmaster" ) {
+
+            #print "inserting $_[2] into the password field.\n";
+            $fields[1] = $_[2];
+            $vpasswd[$counter] = join( ":", @fields );
+        }
+        else {
+            $vpasswd[$counter] = $line;
+        }
+
+        #print $vpasswd[$counter];
+        ++$counter;
+    }
+    close $PASS;
+    open my $PASS, ">", "$_[0]/domains/$_[1]/vpasswd";
+    foreach my $line (@vpasswd) {
+        print $PASS $line;
+    }
+    close $PASS;
+
+    #print @vpasswd;
+}
+
+sub does_domain_exist_in_qmail {
+    my $grep         = $utility->find_the_bin( bin => "grep" );
+    my $assign       = `$grep "+${_[0]}" $qmailpath/users/assign`;
+    my @assign_parts = split( /:/, $assign );
+    print "\n\n  $assign  \n\n $assign_parts[1] \n\n" if $debug;
+    if ( $assign_parts[1] eq "$_[0]" ) {
+        return "1";
+    }
+    else {
+        return "0";
+    }
+}
+
+sub make_home_dir_tree {
+    my @alpha = qw(a b c d e f g h i j k l m n o p q r s t u v w x y z);
+    my @num   = qw( 1 2 3 4 5 6 7 8 9 0 );
+    my $mkdir = $utility->find_the_bin( bin => "mkdir" );
+    $mkdir = "$mkdir -p";
+    foreach my $iter (@alpha) {
+        foreach my $iter2 (@alpha) {
+            print "creating directory /usr/home/${iter}/${iter}${iter2}\n";
+            system "$mkdir /usr/home/${iter}/${iter}${iter2}";
+        }
+        foreach my $iter2 (@num) {
+            print "creating directory /usr/home/${iter}/${iter}${iter2}\n";
+            system "$mkdir /usr/home/${iter}/${iter}${iter2}";
+        }
+    }
+}
+
+sub get_number {
+    my ( $min, $max ) = @_;
+    my $ans;
+    do {
+        print "($min-$max:) ";
+        $ans = <STDIN>;
+        chomp($ans);
+    } until ( $ans >= $min && $ans <= $max );
+    return $ans;
+}
+
+sub edit_qmailadmin_limits {
+    my ( $target, $user ) = @_;
+
+    unless (
+        $utility->yes_or_no("Do, you want to edit domain limits for $user?") )
+    {
+        print "\n\t 0 = disabled and empty is unlimited\n\n";
+        print "\t Please specify the maximum number of POP accounts: ";
+        my $maxpop = &get_number( "0", "1000" );
+        print "\t Please specify the maximum number of aliases: ";
+        my $maxalias = &get_number( "0", "1000" );
+        print "\t Please specify the maximum number of forwards: ";
+        my $maxforward = &get_number( "0", "1000" );
+        print "\t Please specify the maximum number of mailing lists: ";
+        my $maxlist = &get_number( "0", "100" );
+        print "\t Please specify the maximum number of autoresponders: ";
+        my $maxauto = &get_number( "0", "1000" );
+        print "\n\n\tmaxpopaccounts\t\t$maxpop\n\tmaxaliases\t\t$maxalias\n";
+        print "\tmaxforwards\t\t$maxforward\n\tmaxmailinglists\t\t$maxlist\n";
+        print "\tmaxautoresponders\t$maxauto\n";
+        print "\n\n   Your file looks like this, go ahead and install? : ";
+        my $install = $utility->yes_or_no;
+
+        if ($install) {
+            my @domains = &get_users_domain_list($user);
+            foreach my $domain (@domains) {
+                my $homedir = get_domains_homedir($domain);
+                print "\nInstalling file $homedir/.qmailadmin-limits...";
+                open my $LIMITS, ">", "/tmp/.qmailadmin-limits";
+                print $LIMITS
+                  "maxpopaccounts\t\t$maxpop\nmaxaliases\t\t$maxalias\n";
+                print $LIMITS
+                  "maxforwards\t\t$maxforward\nmaxmailinglists\t\t$maxlist\n";
+                print $LIMITS "maxautoresponders\t$maxauto\n";
+                close $LIMITS;
+                system "$sudo $cp /tmp/.qmailadmin-limits $homedir\n";
+                system
+                  "$sudo $chown $user:vchkpw $homedir/.qmailadmin-limits\n";
+                print "done.\n";
+            }
+            unlink "/tmp/.qmailadmin-limits";
+        }
+    }
+    else {
+        print "\n. Ok then, see ya later.\n";
+    }
+}
+
+sub get_domains_homedir {
+    my ($domain) = @_;
+    print "get_domains_homedir: searching for: $domain\n" if $debug;
+    my @lines = `grep +${domain} $qmailpath/users/assign`;
+    my $rows  = @lines;
+    if ( $rows > 1 ) {
+        print
+"Oh crap, you've got duplicate entries for $domain. You need to fix that!\n";
+        print @lines;
+        return 0;
+    }
+    elsif ( $rows < 1 ) {
+        print "Sorry, $domain doesn't exist\n";
+        return 0;
+    }
+    else {
+        my $domaindir = ( split( /:/, $lines[0] ) )[4];
+        print "domaindir is: $domaindir\n" if $debug;
+        return $domaindir;
+    }
+}
+
+sub get_users_homedir {
+    my ($user) = @_;
+    my $homedir = ( getpwnam($user) )[7];
+    if ( -d $homedir ) {
+        return $homedir;
+    }
+    else {
+        warn("get_users_homedir: WARNING, $user's home missing ($homedir).\n");
+        return 0;
+    }
+}
+
+sub setupquota {
+    my ( $user, $quota ) = @_;
+    my $ssh      = $utility->find_the_bin( bin => "ssh" );
+    my $setquota = $utility->find_the_bin( bin => "setquota" );
+    if ( !-e $setquota ) {
+        $freebsd->port_install( port => "setquota", base => "sysutils" );
+    }
+
+    my @fileservers = split( " ", $conf->{'admin_fileservers'} );
+    my $quotafs     = $conf->{'admin_quotafs'};
+    my $quotabump   = $quota + 5;
+
+    if ( $fileservers[0] ne "" ) {
+        foreach my $host (@fileservers) {
+            print
+              "done.\n   Set the $host quota for $user to $quota megabytes...";
+            my $cmd =
+"$ssh $host \"$sudo $setquota -u -f $quotafs -bh${quotabump}M -bs${quota}M $user\"";
+            print "\n$cmd\n" if $debug;
+            system "$cmd";
+        }
+    }
+    print "done.\n";
+}
+
+sub reset_default_delivery {
+    my $user    = getpwuid( $_[0] );
+    my $homedir = get_users_homedir($user);
+
+    my $domain = ( getpwnam($user) )[6];    # Fetch from gecos
+    print "$domain\n" if $debug;
+    my $defaultfile = "$homedir/domains/$domain/.qmail-default";
+    my $string      = "| $vbin/vdelivermail '' bounce-no-mailbox";
+    print "writing $string to $defaultfile\n" if $debug;
+    open my $FILE, ">", $defaultfile 
+      or die "Couldn't open $defaultfile for writing: $!\n";
+    print $FILE "$string\n";
+    close $FILE;
+    print "The .qmail-default file for $domain has been updated.\n\n";
+}
+
+sub check_permissions {
+    if ( $_[0] == "0" && $sl <= "1" ) {
+        print "passed secure level 0 with $sl.\n\n" if $debug;
+    }
+    elsif ( $_[0] == "1" && $sl <= "1" ) {
+        print "passed secure level 1 with $sl.\n\n" if $debug;
+    }
+    elsif ( $_[0] == "2" && $sl <= "2" ) {
+        print "passed secure level 2 with $sl.\n\n" if $debug;
+    }
+    elsif ( $_[0] == "3" && $sl <= "3" ) {
+        print "passed secure level 3 with $sl.\n\n" if $debug;
+    }
+    elsif ( $_[0] == "4" && $sl <= "4" ) {
+        print "passed secure level 4 with $sl.\n\n" if $debug;
+    }
+    else {
+        print "Sorry but you don't have permission!\n";
+        exit;
+    }
+}
+
+sub print_error {
+    my ($error) = @_;
+    print "\n\n\tI need you to pass me a command like this:\n\n";
+    print "\t$error\n\n";
+}
+
+sub set_securelevel {
+    my ($iam) = @_;
+    if ( !$secure_levels ) { return 0; }
+    if ( $< ne 0 ) {
+        if ( $iam eq "matt" || $iam eq "seaupdel" ) { return 0; }
+        elsif ( $iam eq "support3" )    { return 1; }
+        elsif ( $iam eq "support2" )    { return 2; }
+        elsif ( $iam eq "support1" )    { return 3; }
+        elsif ( $iam eq "techsupport" ) { return 3; }
+        elsif ( $iam eq "www" )         { return 0; }
+        else { return 4; }
+    }
+    else {
+        return 0;
+    }
+}
+
+sub check_hostname {
+    my ($adminhost) = @_;
+
+    # Make sure we are running on the admin box
+    #
+    my $host = hostname();
+    print "My hostname is: $host\n" if ($debug);
+    if ( $host ne $adminhost ) {
+        print "\n WARNING! You're not running this on $adminhost!\n\n";
+    }
+}
+
+sub exec_all {
+    print $banner;
+    if ($secure_levels) { check_permissions("0") }
+    my $ssh = $utility->find_the_bin( bin => "ssh" );
+    if ( $ARGV[1] ne "" ) {
+        print $banner;
+        print "executing $ARGV[1] on all systems...\n";
+        my @mailservers = split( " ", $conf->{'admin_mailservers'} );
+        foreach my $host (@mailservers) {
+            system "$ssh $host $ARGV[0] $ARGV[1] $ARGV[2] $ARGV[3]";
+        }
+    }
+    else {
+        print "\tYou have you to give me a command to execute!\n";
+    }
+}
+
+sub count_users {
+    my $totalusers = "0";
+
+    if ( $vauth eq "cdb" ) {
+        my $assign     = "$qmailpath/users/assign";
+        my @domainlist = &get_mail_domains_from_assign($assign);
+        foreach my $file (@domainlist) {
+            my $numusers   = count_cdb_users("$file->{'dir'}/vpasswd");
+            my $totalusers = $totalusers + $numusers;
+            print "$file has $numusers\t" if $debug;
+        }
+        print "There are $totalusers total users on the system\n\n";
+    }
+    else {
+
+        #
+        # TO DO
+        #
+        print "don't support that auth method yet!\n";
+    }
+}
+
+sub get_mail_domains_from_assign {
+    my ( $assign, $match, $value ) = @_;
+    my @domains;
+    my @lines = $utility->file_read( file => $assign );
+    print "Parsing through the file $assign..." if $debug;
+    foreach my $line (@lines) {
+        chomp $line;
+        my @fields = split( ":", $line );
+        if ( $fields[0] ne "" && $fields[0] ne "." ) {
+            my %domain = (
+                stat => "$fields[0]",
+                dom  => "$fields[1]",
+                uid  => "$fields[2]",
+                gid  => "$fields[3]",
+                dir  => "$fields[4]"
+            );
+            if ( !$match ) {
+                push @domains, \%domain;
+            }
+            else {
+                if ( $match eq "dom" && $value eq "$fields[1]" ) {
+                    push @domains, \%domain;
+                }
+                elsif ( $match eq "uid" && $value eq "$fields[2]" ) {
+                    push @domains, \%domain;
+                }
+                elsif ( $match eq "dir" && $value eq "$fields[4]" ) {
+                    push @domains, \%domain;
+                }
+            }
+        }
+    }
+    print "done.\n\n." if $debug;
+    return @domains;
+}
+
+sub count_cdb_users {
+    open my $USERLIST, "<", $_[0]  or warn "couldn't open $_[0]: $!\n";
+    my @users = <$USERLIST>;
+    close $USERLIST;
+    my $numusers = @users;
+    print "There are $numusers in $_[0]\n" if $debug;
+    return $numusers;
+}
+
+sub check {
+    print $banner;
+    if ($secure_levels) { check_permissions("0") }
+    if ( $ARGV[1] eq "duplicates" && $ARGV[2] ) {
+        &check_duplicates();
+    }
+    elsif ( $ARGV[1] eq "domain-dir" ) {
+        &check_domain_owners_home_dir($qmailpath);
+    }
+    elsif ( $ARGV[1] eq "count" ) {
+        &count_users;
+    }
+    elsif ( $ARGV[1] eq "homedir-owners" ) {
+        $utility->check_homedir_ownership();
+    }
+    elsif ( $ARGV[1] eq "qmail-default" ) {
+        check_qmail_default_files();
+    }
+    elsif ( $ARGV[1] eq "migrate" && $ARGV[2] ) {
+        &migrate_mail_files( $ARGV[2], $ARGV[3] );
+    }
+    elsif ( $ARGV[1] eq "rcpthosts" ) {
+        $qmail->check_rcpthosts();
+    }
+    else {
+        print "usage: $0 $ARGV[0] duplicates [uid] [name] [domain]\n";
+        print "       $0 $ARGV[0] count\n";
+        print "       $0 $ARGV[0] domain-dir\n";
+        print "       $0 $ARGV[0] homedir-owners\n";
+        print "       $0 $ARGV[0] qmail-default\n";
+        print "       $0 $ARGV[0] rcpthosts\n";
+        print "       $0 $ARGV[0] migrate <dest-serv> [letter] \n";
+    }
+}
+
+sub check_duplicates {
+    my $sortf;
+    my $full = "/tmp/full";
+    my $sort = "/tmp/sort";
+    my $uniq = "/tmp/uniq";
+
+    if ( $ARGV[2] eq "uid" ) {
+        print "\tListing all duplicate UIDs from /etc/passwd\n";
+        $sortf = "2";
+    }
+    elsif ( $ARGV[2] eq "name" ) {
+        print "\tListing all duplicate user names from /etc/passwd\n";
+        $sortf = "0";
+    }
+    elsif ( $ARGV[2] eq "domain" ) {
+        print "\tListing all duplicate main domains from /etc/passwd\n";
+        $sortf = "6";
+    }
+    else {
+        print "usage: $0 $1 [uid] [name]\n";
+        exit 0;
+    }
+
+    if ( -e $full ) { system "$sudo $rm $full"; }
+
+    open my $FULL, ">", $full or die "couldn't open for write $full\n";
+    while ( my @f = getpwent ) {
+        print $FULL "$f[$sortf]\n";
+    }
+    close $FULL;
+
+    if ( -e $full ) {
+        system "$sudo sort $full > $sort";
+        system "$sudo $rm $full";
+        system "$sudo sort -u $sort > $uniq";
+        system "diff $sort $uniq";
+        system "$sudo $rm $sort";
+        system "$sudo $rm $uniq";
+    }
+    else {
+        print "$full doesn't exist\n";
+    }
+}
+
+sub check_domain_owners_home_dir {
+    my ($qmailpath) = @_;
+
+    my %pass;
+    my $minuid = 1000;
+    my $assign = "$qmailpath/users/assign";
+    my @lines  = &get_mail_domains_from_assign($assign);
+    my $c      = @lines;
+
+    print "Checking $c home directories...";
+    foreach my $v (@lines) {
+        my @f = split( "/", $v->{'dir'} );
+        my $home1 = "/$f[1]/$f[2]/$f[3]/$f[4]/$f[5]";
+        if ( $f[1] eq "" ) { next; }
+
+        # name, passwd, uid, gid, quota, comment, gcos, dir, shell = getpwuid
+        my ( $name, $uid, $dir ) = ( getpwuid( $v->{'uid'} ) )[ 0, 2, 7 ];
+
+        if ( $uid eq getpwnam("vpopmail") ) {
+            next;
+        }
+        elsif ( $home1 ne $dir ) {
+            if ( !%pass->{ $f[5] } && $name ) {
+                print
+"\t qmuid: $v->{'uid'} \t qmdir: $v->{'dir'}\t qmdom: $v->{'dom'}\n";
+                print "\t   uid: $uid \t pwdir: $dir\n";
+
+                #print "$f[5]:*:$i:88::0:0:$v->{'dom'}:$home1:/sbin/nologin\n";
+                #print "$chown -R $f[5] ~$f[5]\n";
+                #print "edquota -p phark $f[5]\n";
+                %pass = ( $f[5] => 1 );
+                print "\n";
+            }
+            if ( !-e $v->{'dir'} ) {
+                print "WARNING: $v->{'dir'} does not exist!\n";
+            }
+            $minuid++;
+        }
+    }
+    print "done.\n\n";
+}
+
+sub check_qmail_default_files {
+## VPOPMAIL
+##
+    my $updated = 0;
+    my $skipped = 0;
+    my $counter = 0;
+
+    if ( $iam ne "root" ) {
+        die "Sorry, this option must be run as root.\n";
+    }
+    else {
+        print "\tThis goes through and finds every .qmail-default file\n";
+        print "\ton your mail server and verifies it's accuracy. This\n";
+        print "\tis particularly useful with older vpopmail installs\n";
+        print "\twhere users could malform this files contents.\n";
+        print "\n\tIt takes a while to run, be patient or Ctrl-C to cancel.\n";
+    }
+
+    &find( \&wanted, '/home' );
+    print "\n\t updated: $updated \t skipped: $skipped \n";
+
+    sub wanted {
+        /^\.qmail-default$/
+          && ( my ( $dev, $ino, $mode, $nlink, $uid, $gid ) = lstat($_) )
+          && &check_default_file($File::Find::name);
+    }
+
+    sub check_default_file {
+        my ($file) = @_;
+        my @lines   = $utility->file_read( file => $file );
+        my $lines_c = @lines;
+
+        if ( $lines_c == 1 ) {
+            chomp $lines[0];
+            my $newline = check_delivery( $lines[0] );
+
+            if ($newline) {
+                print "oldline: $lines[0]\n";
+                print "newline: $newline\n\n";
+                &WriteFile( $file, $newline );
+                $updated++;
+            }
+            else {
+                $skipped++;
+            }
+        }
+        else { print "There's $lines_c lines in $file\n"; }
+        $counter++;
+        if ( $counter =~ /00$/ ) {
+            print "\n\t updated: $updated \t skipped: $skipped \n";
+        }
+    }
+}
+
+sub check_delivery {
+## VPOPMAIL
+    my ($line) = @_;
+    my ( $pipe, $vdel, $qq, $def, $huh ) = split( / /, $line );
+
+    return 0 if $huh;
+
+    if ( $vdel eq "''" && $pipe =~ /^|\// ) {
+        $def  = $qq;
+        $qq   = $vdel;
+        $vdel = "$vbin/vdelivermail";
+        $pipe = "|";
+        $line = join( / /, $pipe, $vdel, $qq, $def );
+        return $line;
+    }
+
+    if ( $pipe eq /^|/ ) {
+        $vdel = &check_vdelivermail_bin($vdel);
+        $def  = &check_default_delivery($def);
+        if ( $vdel && $def ) {
+            $line = join( / /, $pipe, $vdel, $qq, $def );
+            return $line;
+        }
+        else {
+            return 0;
+        }
+    }
+    else {
+        return 0;
+    }
+}
+
+sub check_default_delivery {
+    my ($current) = @_;
+    my $default = "bounce-no-mailbox";
+    if ( $current eq $default ) {
+        return $default;
+    }
+    elsif ( $current eq "delete" ) {
+        return "delete";
+    }
+    elsif ( -d $current ) {
+        return $current;
+    }
+    else {
+        print "delivery unmodified: $current\n";
+        return 0;
+    }
+}
+
+sub check_vdelivermail_bin {
+    my ($current) = @_;
+    my $old = "/usr/local/vpopmail/bin/vdelivermail";
+
+    if ( $current eq $old ) {
+        return "$vbin/vdelivermail";
+    }
+    else {
+        return 0;
+    }
+}
+
+sub migrate_mail_files {
+
+    my ( $remote_server, @letters ) = @_;
+
+    if ( $iam ne "root" ) {
+        die "Sorry, this option must be run as root.\n";
+    }
+
+    $perl->module_load(
+        module     => "Parallel::ForkManager",
+        port_name  => "p5-DBI",
+        port_group => "databases",
+    );
+
+    my $rsync = $utility->find_the_bin( bin => "rsync", debug => 0 );
+    $rsync = "$rsync -aW -e ssh --delete";
+
+    print "Please be patient, this takes a while.\n";
+
+    my $forked_processes = new Parallel::ForkManager(4);
+
+    # this is used on the extraordinarily simple method of distributing
+    # domains into buckets on a large Mail::Toaster. We simply break them
+    # up into e/ex/example.com style buckets. This works quite well up to
+    # a hundred thousand domains. We don't have to worry about users within
+    # domains because vpopmail handles that automatically.
+
+    # if @letters was passed in, only do those letters
+
+    # otherwise, do all of them
+    if ( $letters[0] eq "" ) {
+        @letters = ( "a" .. "z" );
+    }
+
+    foreach my $letter (@letters) {
+        foreach my $d ( "a" .. "z", 1 .. 9 ) {
+            $forked_processes->start and next;
+            my $cmd =
+              "$rsync $home/$letter/$letter$d $remote_server:$home/$letter/";
+            print "$cmd\n";
+            system $cmd;
+            $forked_processes->finish;
+        }
+    }
+}
+
+1;
+__END__
+
+
+=head1 NAME
+
+mailadmin - A program to manage large mail systems
+
+
+=head1 SYNOPSIS
+
+mailadmin is a handy script used to manage a Matt Simerson style
+http://www.tnpi.net/internet/mail/toaster/ mail toaster. Mailadmin
+alters a mail farm and updates each slave in the cluster. 
+
+
+=head1 DESCRIPTION
+
+Mailadmin began as a provisioning agent. It grew to encompass 
+allowing non-root users to perform mail admin tasks on behalf 
+of end users (ie, for tech support personnel).
+
+
+=head2 DEPENDENCIES
+
+	The vpopmail package from http://www.inter7.com/vpopmail
+	A mechanism to distribute configuration files (rdist/rsync)
+	A properly configured /etc/pw.conf file (man pw.conf)
+	Properly configured and enabled file system quotas (man quota)
+	Setquota (/usr/ports/sysutils/setquota)
+	/var/qmail/control/.qmailadmin-limits file configured with 
+	settings appropriate for your site
+
+
+=head1 AUTHOR
+
+Matt Simerson <matt@tnpi.net>
+
+
+=head1 BUGS
+
+None known. Report any to author.
+
+
+=head1 TODO
+
+documentation!
+
+
+=head1 SEE ALSO
+
+http://mail-toaster.org/
+
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright 2003-2006, The Network People, Inc. All Rights Reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+=cut

@@ -22,20 +22,21 @@ $passwd ? print "ok 2 - new\n" : print "not ok 2 new\n";
 my $r = $passwd->user_sanity("test");
 $r->{'error_code'}==200 ? print "ok 3 - user sanity\n" : print "not ok 3 " . $r->{'error_desc'}."\n";
 
-
 $r = $passwd->sanity("testing", "test");
 $r->{'error_code'}==100 ? print "ok 4 - password sanity\n" : print "not ok 4 " . $r->{'error_desc'};
 
 $r = $passwd->show( {user=>"int-testing", debug=>0} );
 $r->{'error_code'}==100 ? print "ok 5 - show\n" : print "not ok 5 " . $r->{'error_desc'};
 
-
 $r = $passwd->exist("nobody");
 $r ? print "ok 6 - exist\n" : print "not ok 6 " . "exist\n";
 
-
-$r = $passwd->encrypt("secret");
-$r ? print "ok 7 - encrypt\n" : print "not ok 7 " . "encrypt\n";
-
-
+my $mod = "Crypt::PasswdMD5";
+if (eval "require $mod")
+{
+	$r = $passwd->encrypt("secret");
+	$r ? print "ok 7 - encrypt\n" : print "not ok 7 " . "encrypt\n";
+} else {
+	print "ok 7 - encrypt\n";
+}
 

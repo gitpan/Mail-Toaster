@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster</title>
-<link rev="made" href="mailto:matt@g5.simerson.net" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:matt@intellimac.local" />
 </head>
 
 <body style="background-color: white">
@@ -113,11 +115,12 @@
 <h2><a name="email_send">email_send</a></h2>
 <p>Email test routines for testing a mail toaster installation.</p>
 <pre>
-   $toaster-&gt;email_send($conf, &quot;clean&quot;);
-   $toaster-&gt;email_send($conf, &quot;spam&quot;);
+   $toaster-&gt;email_send($conf, &quot;clean&quot; );
+   $toaster-&gt;email_send($conf, &quot;spam&quot;  );
    $toaster-&gt;email_send($conf, &quot;attach&quot;);
-   $toaster-&gt;email_send($conf, &quot;virus&quot;);</pre>
-<p>This sends 4 test emails of various types to the email address configured in toaster-watcher.conf.</p>
+   $toaster-&gt;email_send($conf, &quot;virus&quot; );
+   $toaster-&gt;email_send($conf, &quot;clam&quot;  );</pre>
+<p>This sends a test email of a specified type to the email address configured in toaster-watcher.conf.</p>
 <p>
 </p>
 <hr />

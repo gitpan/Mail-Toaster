@@ -1,22 +1,30 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
+#!/usr/bin/perl
+use strict;
+use warnings;
 
-######################### We start with some black magic to print on failure.
+use Cwd;
+use English qw( -no_match_vars );
+use Test::More 'no_plan';
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
+use lib "lib";
 
-BEGIN { $| = 1; print "1..1\n"; }
-END {print "not ok 1\n" unless $loaded;}
-use lib ".";
-$loaded = 1;
+BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
+require_ok( 'Mail::Toaster::Utility' );
 
-######################### End of black magic.
+my $utility = Mail::Toaster::Utility->new;    # create an object
 
-# Insert your test code below (better if it prints "ok 13"
-# (correspondingly "not ok 13") depending on the success of chunk 13
-# of the test code):
+my $setup_location = "bin/toaster_setup.pl";
 
-system "./toaster_setup.pl -s test2";
-#print "ok 1 - toaster_setup\n";
+ok( -e $setup_location, 'found toaster_setup.pl');
+ok( -x $setup_location, 'is executable');
 
+#my $wd = cwd; print "wd: $wd\n";
+#ok (system "$setup_location -s test2", 'test2');
+
+ok( $utility->syscmd(
+        command => "$setup_location -s test2",
+        fatal   => 0,
+        debug   => 0,
+    ), 
+    'toaster_setup.pl',
+);

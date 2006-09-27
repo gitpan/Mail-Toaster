@@ -8,12 +8,173 @@ use strict;
 package Mail::Toaster::Darwin;
 
 use Carp;
+use Params::Validate qw(:all);
+
 use vars qw($VERSION);
-$VERSION = '4.6';
+$VERSION = '5.00';
 
 use lib "lib";
-use lib "../..";
-use Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Utility 5;
+my $utility = Mail::Toaster::Utility->new();
+
+sub new {
+
+    my $class = shift;
+    my $self = { class => $class };
+    bless( $self, $class );
+    return $self;
+}
+
+sub port_install {
+
+    my $self = shift;
+
+    my %p = validate( @_, {
+            'port_name' => { type=>SCALAR, },
+            'opts'      => { type=>SCALAR,  optional=>1 },
+            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
+            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
+        },
+    );
+
+    my ( $port_name, $opts, $fatal, $debug )
+        = ( $p{'port_name'}, $p{'opts'}, $p{'fatal'}, $p{'debug'} );
+
+    #	$self->ports_check_age("30");
+
+    print "port_install: installing $port_name...";
+
+    my $port_bin = $utility->find_the_bin( bin => "port", fatal => 0 );
+
+    unless ( -x $port_bin ) {
+        print "FAILED: please install DarwinPorts!\n";
+        return 0;
+    }
+
+    my $cmd = "$port_bin install $port_name";
+    $cmd .= " $opts" if (defined $opts && $opts);
+    
+    return $utility->syscmd( command => $cmd );
+}
+
+sub ports_check_age {
+
+    my ( $self, $age, $url ) = @_;
+
+    $url ||= "http://www.tnpi.biz/internet/mail/toaster";
+
+    if ( -M "/usr/ports" > $age ) {
+        $self->ports_update();
+    }
+    else {
+        print "ports_check_age: Ports file is current (enough).\n";
+    }
+}
+
+sub ports_update {
+
+    my $cvsbin = $utility->find_the_bin( bin => "cvs",fatal=>0 );
+
+    unless ( -x $cvsbin ) {
+        die "FATAL: could not find cvs, please install Developer Tools!\n";
+    }
+
+    print "Updating Darwin ports...\n";
+
+    my $portsdir = "/usr/darwinports";
+
+    if ( !-d $portsdir && -e "/usr/dports" ) { 
+        $portsdir = "/usr/dports"; 
+    }
+
+    if ( !-d $portsdir && -e "/usr/ports/dports" ) {
+        $portsdir = "/usr/ports/dports";
+    }
+
+    if ( -d $portsdir ) {
+
+        print "\n\nports_update: You might want to update your ports tree!\n\n";
+        unless (
+            $utility->yes_or_no("\n\nWould you like me to do it for you?:") )
+        {
+            print "ok then, skipping update.\n";
+            return 0;
+        }
+
+        # the new way
+        my $bin = $utility->find_the_bin( bin => "port" );
+        $utility->syscmd( command => "$bin -d sync" );
+
+        #	 the old way
+        #chdir($portsdir);
+
+        #print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+
+        #my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
+        #$utility->syscmd( command=>$cmd );
+        #$utility->syscmd( command=>'cvs -q -z3 update -dP' );
+
+        #	if ( -x "/opt/local/bin/portindex") { #
+        #		$utility->syscmd( command=>"/opt/local/bin/portindex" ); }
+        #	elsif ( -x "/usr/local/bin/portindex" ) { #
+        #		$utility->syscmd( command=>"/usr/local/bin/portindex" );
+        #	};
+    }
+    else {
+        print
+"WARNING! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n If you need to install DarwinPorts, please visit this URL for details: http://darwinports.opendarwin.org/getdp/ or the DarwinPorts guide: http://darwinports.opendarwin.org/docs/ch01s03.html.\n\n";
+
+        unless (
+            $utility->yes_or_no(
+                "Do you want me to try and set up darwin ports for you?")
+          )
+        {
+            print "ok, skipping install.\n";
+            exit 0;
+        }
+
+        $utility->chdir_source_dir( dir => "/usr" );
+
+        print
+          "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+
+        my $cmd =
+'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
+        $utility->syscmd( command => $cmd );
+        
+        $cmd =
+'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P darwinports';
+        $utility->syscmd( command => $cmd );
+        
+        chdir("/usr");
+        $utility->syscmd( command => "mv darwinports dports" );
+        
+        unless ( -d "/etc/ports" ) { mkdir( "/etc/ports", oct('0755') ) };
+        
+        $utility->syscmd(
+            command => "cp dports/base/doc/sources.conf /etc/ports/" );
+            
+        $utility->syscmd(
+            command => "cp dports/base/doc/ports.conf /etc/ports/" );
+            
+        $utility->file_write(
+            file   => "/etc/ports/sources.conf",
+            lines  => ["file:///usr/dports/dports"],
+            append => 1
+        );
+
+        my $portindex = $utility->find_the_bin( bin => "portindex" );
+        unless ( -x $portindex ) {
+            print "compiling darwin ports base.\n";
+            chdir("/usr/dports/base");
+            $utility->syscmd( command => "./configure; make; make install" );
+        }
+    }
+}
+
+1;
+__END__
+
 
 =head1 NAME
 
@@ -29,152 +190,39 @@ functions I've written for perl scripts running on MacOS X (Darwin) systems.
 
 Usage examples for each subroutine are included.
 
-=head2 new
+=head1 SUBROUTINES
+
+=over
+
+=item new
 
     use Mail::Toaster::Darwin;
-	my $darwin = new Mail::Toaster::Darwin;
+	my $darwin = Mail::Toaster::Darwin->new;
 
-=cut
 
-sub new
-{
-	my $class = shift;
-	my $self = { class=>$class };
-	bless ($self, $class);
-	return $self;
-}
+=item ports_update
 
-sub port_install($;$)
-{
-
-=head2 port_install
-
-	$darwin->port_install("openldap2");
-
-That's it. Really. Honest. Nothing more. 
-
-=cut
-
-	my ($self, $name, $opts) = @_;
-
-#	$self->ports_check_age("30");
-
-	print "port_install: installing $name...";
-
-	my $port = $utility->find_the_bin("port");
-
-	unless ( -x $port )
-	{
-		print "FAILED: please install DarwinPorts!\n";
-		return 0;
-	};
-
-	my $r = $utility->syscmd( "$port install $name $opts");
-#	$utility->syscmd( "port clean $name");
-	return $r;
-};
-
-sub ports_check_age($;$)
-{
-	my ($self, $age, $url) = @_;
-
-	$url |= "http://www.tnpi.biz/internet/mail/toaster";
-
-	if ( -M "/usr/ports" > $age )
-	{
-		$self->ports_update();
-	}
-	else
-	{
-		print "ports_check_age: Ports file is current (enough).\n";
-	};
-};
-
-=head2 ports_update
-
-Updates the Darwin Ports tree (/usr/ports/dports/*).
+Updates the Darwin Ports tree (/usr/ports/dports/).
 
 	$darwin->ports_update();
 
-=cut
 
-sub ports_update
-{
-	my $cvsbin = $utility->find_the_bin("cvs");
+=item port_install
 
-	unless (-x $cvsbin) { print "FATAL: could not find cvs, please install Developer Tools!\n"; exit 0; };
+	$darwin->port_install( port=>"openldap2" );
 
-	print "Updating Darwin ports...\n";
+That's it. Really. Honest. Nothing more. 
 
-	my $portsdir = "/usr/darwinports";
-	if ( ! -d $portsdir && -e "/usr/dports"      ) { $portsdir = "/usr/dports";       };
-	if ( ! -d $portsdir && -e "/usr/ports/dports") { $portsdir = "/usr/ports/dports"; };
+ arguments required:
+    port  - the name of the port
 
-	if ( -d $portsdir ) 
-	{
-		print "\n\nports_update: You might want to update your ports tree!\n\n";
-		unless ( $utility->yes_or_no( "\n\nWould you like me to do it for you?:") )
-		{
-			print "ok then, skipping update.\n";
-			return 0;
-		};
-
-	# the new way
-		$utility->syscmd( $utility->find_the_bin("port") . " -d sync");
-
-	# the old way
-#		chdir($portsdir);
-
-#		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
-
-#		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-#		$utility->syscmd($cmd);
-#		$utility->syscmd('cvs -q -z3 update -dP');
-
-#		if ( -x "/opt/local/bin/portindex") 
-#		{
-#			$utility->syscmd("/opt/local/bin/portindex");
-#		} 
-#		elsif ( -x "/usr/local/bin/portindex" ) 
-#		{
-#			$utility->syscmd("/usr/local/bin/portindex");
-#		};
-	} 
-	else {
-		print "WARNING! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n If you need to install DarwinPorts, please visit this URL for details: http://darwinports.opendarwin.org/getdp/ or the DarwinPorts guide: http://darwinports.opendarwin.org/docs/ch01s03.html.\n\n";
-
-		unless ( $utility->yes_or_no("Do you want me to try and set up darwin ports for you?") ) 
-		{
-			print "ok, skipping install.\n"; exit 0;
-		};
-
-		$utility->chdir_source_dir("/usr");
-
-		print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
-		my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-		$utility->syscmd($cmd);
-		$cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P darwinports';
-		$utility->syscmd($cmd);
-		chdir("/usr");
-		$utility->syscmd("mv darwinports dports");
-		unless ( -d "/etc/ports" ) { mkdir("/etc/ports", 0755) };
-		$utility->syscmd("cp dports/base/doc/sources.conf /etc/ports/");
-		$utility->syscmd("cp dports/base/doc/ports.conf /etc/ports/");
-		$utility->file_append("/etc/ports/sources.conf", "file:///usr/dports/dports");
-
-		my $portindex = $utility->find_the_bin("portindex");
-		unless (-x $portindex) {
-			print "compiling darwin ports base.\n";
-			chdir("/usr/dports/base");
-			$utility->syscmd("./configure; make; make install");
-		};
-	};
-};
+ arguments optional:
+    opts  - port options you can pass
+    debug
 
 
-1;
-__END__
 
+=back
 
 =head1 AUTHOR
 
@@ -197,12 +245,12 @@ The following are all man/perldoc pages:
  toaster.conf
  toaster-watcher.conf
 
- http://matt.simerson.net/computing/mail/toaster/
+ http://mail-toaster.org/
 
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2003-2005, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

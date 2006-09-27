@@ -1,19 +1,19 @@
 #!/usr/bin/perl
 
 #
-# $Id: sysadmin,v 4.1 2004/11/22 19:24:42 matt Exp $
+# $Id: sysadmin, matt Exp $
 #
 
 use strict;
 use Sys::Hostname;
 
 use lib "lib";
-use Mail::Toaster::Utility 1.0;  my $utility = Mail::Toaster::Utility->new();
-use Mail::Toaster::Provision;
+use Mail::Toaster::Utility   5;  my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Provision 5;
 
 use vars qw/ $VERSION $iam $whoami $opt_v /;
 
-$VERSION = "3.00";
+$VERSION = "5.00";
 
 =head1 NAME
 
@@ -32,7 +32,7 @@ non-root users to perform admin tasks on behalf of end users
 
 =cut
 
-my $conf          = $utility->parse_config({file=>"sysadmin.conf"});
+my $conf          = $utility->parse_config( file=>"sysadmin.conf", debug=>0 );
 
 # Redirect STDERR to STDOUT so we can see what's printed out in a die() call.
 #open(STDERR, ">&STDOUT");
@@ -48,8 +48,8 @@ $ENV{'GATEWAY_INTERFACE'} ? ProcessCGI($iam) : ProcessShell($iam);
 1;
 
 
-sub ProcessShell
-{
+sub ProcessShell {
+
 	use Getopt::Std;
 	getopts('v');
 
@@ -61,13 +61,16 @@ sub ProcessShell
 
 	my %vals = ( 
 		'action'  => $ARGV[0],
+		'user'    => $ARGV[1],
 		'debug'   => $opt_v,
 	);
 
-	if    ( $iam eq "dnsadmin"  ) { $provision->dns (\%vals, $conf) }
-	elsif ( $iam eq "mailadmin" ) { $provision->mail(\%vals, $conf) }
-	elsif ( $iam eq "useradmin" ) { $provision->user(\%vals, $conf) }
-	elsif ( $iam eq "webadmin"  ) { $provision->web (\%vals, $conf) }
+	#print "user should be $ARGV[1] \n";
+
+	if    ( $iam eq "dnsadmin"  ) { $provision->dns (vals=>\%vals, conf=>$conf) }
+	elsif ( $iam eq "mailadmin" ) { $provision->mail(vals=>\%vals, conf=>$conf) }
+	elsif ( $iam eq "useradmin" ) { $provision->user(vals=>\%vals, conf=>$conf) }
+	elsif ( $iam eq "webadmin"  ) { $provision->web (vals=>\%vals, conf=>$conf) }
 	else                          { $provision->usage(); exit 0;    };
 
 	print "ProcessShell...end\n" if $debug;
@@ -81,8 +84,8 @@ sub ProcessCGI
 
 =head1 Dependencies
 
-Quota  (for file system quotas)
-Apache::ConfigFile
+ Quota  (for file system quotas)
+ Apache::ConfigFile
 
 =cut
 

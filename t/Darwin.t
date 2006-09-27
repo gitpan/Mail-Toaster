@@ -21,6 +21,7 @@ print "ok 1 - Mail::Toaster::Darwin\n";
 # (correspondingly "not ok 13") depending on the success of chunk 13
 # of the test code):
 
-my $darwin = new Mail::Toaster::Darwin;
+my $darwin = Mail::Toaster::Darwin->new;
 $darwin ? print "ok 2 - new\n" : print "not ok 3 - new\n";
+
 
