@@ -1,16 +1,16 @@
 #!/usr/bin/perl
 use strict;
+use warnings;
 
 #
-# $Id: ezmlm.cgi,v 4.1 2006/06/09 19:26:18 matt Exp $
+# $Id: ezmlm.cgi, matt Exp $
 #
-
 
 use lib "lib";
 use Mail::Toaster::Ezmlm; my $ezmlm = Mail::Toaster::Ezmlm->new;
 
 use vars qw/ $VERSION /;
-$VERSION = "1.2";
+$VERSION = "5.02";
 
 if ( $ENV{'GATEWAY_INTERFACE'} ) 
 {

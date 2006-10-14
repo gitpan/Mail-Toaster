@@ -4,7 +4,7 @@ use warnings;
 #use diagnostics;
 
 #
-# $Id: Utility.pm,v 4.28 2006/03/18 03:32:54 matt Exp $
+# $Id: Utility.pm, matt Exp $
 #
 
 package Mail::Toaster::Utility;
@@ -18,8 +18,9 @@ use Scalar::Util qw( openhandle );
 #use Smart::Comments;
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.01';
+$VERSION = '5.02';
 
+use lib "inc";
 use lib "lib";
 
 sub new {
@@ -441,7 +442,7 @@ sub clean_tmp_dir {
     my ( $dir, $fatal, $debug ) = ($p{'dir'}, $p{'fatal'}, $p{'debug'});
 
     # be a friendly program and remember where we started
-    my ($before) = cwd =~ /^([\/\w\-\s\.]+)$/;
+    my $before = cwd;
 
     if ( !chdir $dir ) {
         carp "couldn't chdir to $dir: $!";
@@ -458,7 +459,7 @@ sub clean_tmp_dir {
 
         if ( -f $file ) {
             unless ( unlink $file ) {
-                $self->file_delete( file => $file );
+                $self->file_delete( file => $file,debug=>$debug );
             }
         }
         elsif ( -d $file ) {
@@ -1353,6 +1354,11 @@ sub get_dir_files {
 
     my @files;
 
+    unless ( -d $dir ) {
+        carp "get_dir_files: dir $dir is not a directory!";
+        return;
+    };
+
     unless ( opendir D, $dir ) {
         $err = "get_dir_files: couldn't open $dir: $!";
         croak $err if $fatal;
@@ -1735,7 +1741,7 @@ sub install_if_changed {
     return 1;
 }
 
-sub install_from_sources_php {
+sub install_from_source_php {
 
 
 =begin install_from_sources_php
@@ -2215,7 +2221,7 @@ sub is_writable {
     my $self = shift;
     
     my %p = validate (@_, {
-            'file'    => { type=>SCALAR },
+            'file'    => SCALAR,
             'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
             'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
         }
@@ -2320,9 +2326,11 @@ sub mailtoaster {
     my $perlbin = $self->find_the_bin( program => "perl", debug=>0 );
 
     if ( -e "/usr/local/etc/toaster-watcher.conf" ) {
-        $conf    =
-          $self->parse_config( file => "/usr/local/etc/toaster-watcher.conf", debug=>0 );
-    }
+
+        $conf = $self->parse_config( file   => "toaster-watcher.conf", 
+                                     debug  => 0,
+                                     etcdir => "/usr/local/etc", );
+    };
 
     my $archive = "Mail-Toaster.tar.gz";
     my $url     = "/internet/mail/toaster";
@@ -2650,22 +2658,33 @@ sub regexp_test {
     my %p = validate( @_, {
             'exp'     => { type=>SCALAR },
             'string'  => { type=>SCALAR },
+            'pbp'     => { type=>BOOLEAN, optional=>1, default=>0 },
             'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
             'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
         },
     );
 
-    my ( $exp, $string, $fatal, $debug )
-        = ( $p{'exp'}, $p{'string'},  $p{'fatal'}, $p{'debug'} );
+    my ( $exp, $string, $pbp, $fatal, $debug )
+        = ( $p{'exp'}, $p{'string'}, $p{'pbp'}, $p{'fatal'}, $p{'debug'} );
+
+    if ( $pbp ) {
+        if ( $string =~ m{($exp)}xms ) {
+            print "\t Matched pbp: |$`<$&>$'|\n" if $debug;
+            return $1;
+        }
+        else {
+            print "\t No match.\n" if $debug;
+            return;
+        }
+    };
 
     if ( $string =~ m{($exp)} ) {
         print "\t Matched: |$`<$&>$'|\n" if $debug;
         return $1;
     }
-    else {
-        print "\t No match.\n" if $debug;
-        return 0;
-    }
+
+    print "\t No match.\n" if $debug;
+    return;
 }
 
 sub sources_get {
@@ -3100,38 +3119,13 @@ sub syscmd {
 
 sub validate_params {
 
-
 =begin validate_params
-
-Validates that the values passed into a subroutine are:
-  a. expected
-  b. the right type
 
 This was a great idea and it mostly works. Part way through writing this I found Params::Validate. I still don't like Params::Validate because I cannot cleanly use it without depending on it. Its API requires that if you use it, it must be installed on every system upon which your software runs. I work very hard to make my software work without dependency chains as they always create problems for users, particularly ones that don't know a lot about Perl. I wanted a solution that I could use if present, but continued to work just as well (albeit minus the extra tests). After conversing with the author Params::Validate I determined what I wanted was not possible. 
 
 I then tried out Getargs::Long but the error message yielded up when invalid params are passed were abyssmal. Just like the man page says, it does return errors from the perspective of the caller. Well, that's only partly true, it returns them from the perspective of the callers caller, which is a pain. You know which sub/function your error is in, but then you have to guess which function within that, or call tripped it. Blech. It required far too much use of the perl debugger to track down simple errors. 
 
 So, for now I use Params::Validate and I expect it will be a good solution. I just have to live with the fact that I am dependent on it and hope that causes me less trouble than maintaining my own solution.
-
-If you set 'required' and 'optional', it will also check to verify no additional parameters have been provided. This is an excellent way to catch typos and miscreants attempting to circumvent security measures.
-
- arguments required:
-   sub  - the name of the subroutine whose arguments we are parsing
-   min  - the minimum number of arguments expected
-   max  - the maximum number of arguments expected
-   params - the arguments (an arrayref)
-
- arguments optional:
-   fatal    - die on errors (default)
-   required - arguments that must be passed (arrayref)
-   optional - arguments that are optional (arrayref)
-   debug    - enables status messages
-
- result:
-   0 - failure
-   1 - success
-
-=end validate_params
 
 =cut
 
@@ -3429,6 +3423,26 @@ sub _formatted {
     #print "$mess $dots $result\n";
 }
 
+sub _progress_begin {
+    my ($self, $phase) = @_;
+    print {*STDERR} "$phase...";
+    return;
+};
+sub _progress_continue {
+    print {*STDERR} '.';
+    return;
+};
+sub _progress_end {
+    my ($self,$mess) = @_;
+    if ( $mess ) {
+        print {*STDERR} "$mess\n";
+    }
+    else {
+        print {*STDERR} "done\n";
+    };
+    return;
+};
+
 1;
 __END__
 
@@ -3472,7 +3486,7 @@ Almost nothing else. A few of the methods do require certian things, like archiv
 
 =head1 METHODS
 
-=over 8
+=over
 
 
 =item new
@@ -3540,8 +3554,7 @@ Changes the current working directory to the supplied one. Creates it if it does
   # Parameters : S - dir - a directory to build programs in
 
 
-=item check_homedir_ownership
-
+=item check_homedir_ownership 
 
 Checks the ownership on all home directories to see if they are owned by their respective users in /etc/password. Offers to repair the permissions on incorrectly owned directories. This is useful when someone that knows better does something like "chown -R user /home /user" and fouls things up.
 
@@ -3556,29 +3569,9 @@ Checks the ownership on all home directories to see if they are owned by their r
 Comments: Auto mode should be run with great caution. Run it first to see the results and then, if everything looks good, run in auto mode to do the actual repairs. 
 
 
-=item file_chmod
+=item check_pidfile
 
-Set the permissions (ugo-rwx) of a file. Will use the native perl methods (by default) but can also use system calls and prepend sudo if additional permissions are needed.
-
-  $utility->file_chmod(
-		file_or_dir => '/etc/resolv.conf',
-		mode => '0755',
-		sudo => $sudo
-  )
-
- arguments required:
-   file_or_dir - a file or directory to alter permission on
-   mode   - the permissions (numeric)
-
- arguments optional:
-   sudo  - the output of $utility->sudo
-   fatal - die on errors? (default: on)
-   debug
-
- result:
-   0 - failure
-   1 - success
-
+see pidfile_check
 
 =item chown_system
 
@@ -3605,7 +3598,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
   # Purpose    : clean up old build stuff before rebuilding
   # Returns    : 0 - failure,  1 - success
   # Parameters : S - $dir - a directory or file. 
-  # Throws     : no exceptions
+  # Throws     : die on failure
   # Comments   : Running this will delete its contents. Be careful!
 
 
@@ -3626,6 +3619,30 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
   # Returns    : the filename of the backup file, or 0 on failure.
   # Parameters : S - file - the filname to be backed up
   # Comments   : none
+
+
+=item file_chmod
+
+Set the permissions (ugo-rwx) of a file. Will use the native perl methods (by default) but can also use system calls and prepend sudo if additional permissions are needed.
+
+  $utility->file_chmod(
+		file_or_dir => '/etc/resolv.conf',
+		mode => '0755',
+		sudo => $sudo
+  )
+
+ arguments required:
+   file_or_dir - a file or directory to alter permission on
+   mode   - the permissions (numeric)
+
+ arguments optional:
+   sudo  - the output of $utility->sudo
+   fatal - die on errors? (default: on)
+   debug
+
+ result:
+   0 - failure
+   1 - success
 
 
 =item file_chown
@@ -3688,6 +3705,10 @@ Use the standard URL fetching utility (fetch, curl, wget) for your OS to downloa
    1 - success
    0 - failure
 
+
+=item file_is_newer
+
+compares the mtime on two files to determine if one is newer than another. 
 
 =item file_read
 
@@ -3813,6 +3834,14 @@ Example:
    success will return the full path to the binary.
 
 
+=item get_file
+
+an alias for file_get for legacy purposes. Do not use.
+
+=item get_my_ips
+
+returns an arrayref of IP addresses on local interfaces. 
+
 =item is_process_running
 
 Verify if a process is running or not.
@@ -3905,6 +3934,10 @@ Returns the date split into a easy to work with set of strings.
 	my ($dd, $mm, $yy, $lm, $hh, $mn, $ss) = $utility->get_the_date();
 
 
+=item graceful_exit
+
+do not use, legacy sub
+
 =item install_if_changed
 
 Compares two text files. If the newer file is different than the existing one, it installs it.
@@ -3971,6 +4004,10 @@ Downloads and installs a program from sources.
    0 - failure
 
 
+=item install_from_source_php
+
+Downloads a PHP program and installs it. This function is not completed due to lack o interest.
+
 =item is_arrayref
 
 Checks whatever object is passed to it to see if it is an arrayref.
@@ -3986,6 +4023,10 @@ Most methods pass parameters around inside hashrefs. Unfortunately, if you try a
 
    $utility->is_hashref($hashref, $debug);
 
+
+=item is_interactive
+
+tests to determine if the running process is attached to a terminal.
 
 
 =item logfile_append
@@ -4015,13 +4056,24 @@ That will append a line like this to the log file:
    0 - failure
 
 
-
 =item mailtoaster
 
    $utility->mailtoaster();
 
 Downloads and installs Mail::Toaster.
 
+
+=item make_safe_for_shell
+
+A good idea, poorly implemented.
+
+=item mkdir_system
+
+creates a directory using the system mkdir binary. Can also make levels of directories (-p) and utilize sudo if necessary to escalate.
+
+=item parse_line
+
+parses a conf file line and returns the key and value.
 
 =item path_parse
 
@@ -4182,6 +4234,35 @@ If sudo is not installed and you're running as root, it'll offer to install sudo
       the exit status of the program you called.
 
 
+=item try_mkdir
+
+try creating a directory using perl's builtin mkdir.
+
+=item validate_params
+
+Validates that the values passed into a subroutine are:
+  a. expected
+  b. the right type
+
+If you set 'required' and 'optional', it will also check to verify no additional parameters have been provided. This is an excellent way to catch typos and miscreants attempting to circumvent security measures.
+
+ arguments required:
+   sub  - the name of the subroutine whose arguments we are parsing
+   min  - the minimum number of arguments expected
+   max  - the maximum number of arguments expected
+   params - the arguments (an arrayref)
+
+ arguments optional:
+   fatal    - die on errors (default)
+   required - arguments that must be passed (arrayref)
+   optional - arguments that are optional (arrayref)
+   debug    - enables status messages
+
+ result:
+   0 - failure
+   1 - success
+
+
 =item yes_or_no
 
   my $r = $utility->yes_or_no( 
@@ -4201,7 +4282,6 @@ If sudo is not installed and you're running as root, it'll offer to install sudo
  result:
    0 - negative (or null)
    1 - success (affirmative)
-
 
 
 =back

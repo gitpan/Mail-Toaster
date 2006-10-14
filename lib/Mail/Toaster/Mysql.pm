@@ -531,10 +531,10 @@ sub phpmyadmin_install {
 
     my ( $self, $conf ) = @_;
 
-    unless ( $conf->{'install_phpmyadmin'} ) {
-        print
-"phpmyadmin: install is disabled. Enable install_phpmyadmin in toaster-watcher.conf and try again.\n";
-        return 0;
+    if ( ! $conf->{'install_phpmyadmin'} ) {
+        print "phpmyadmin: install is disabled. Enable install_phpmyadmin in "
+            . "toaster-watcher.conf and try again.\n";
+        return;
     }
 
     my $dir;

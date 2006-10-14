@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 #
-# $Id: Perl.pm,v 4.13 2006/03/17 00:29:48 matt Exp $
+# $Id: Perl.pm, matt Exp $
 #
 
 package Mail::Toaster::Perl;
@@ -14,8 +14,9 @@ use Params::Validate qw( :all);
 
 use vars qw($VERSION $err);
 
-$VERSION = '5.00';
+$VERSION = '5.02';
 
+use lib "inc";
 use lib "lib";
 
 sub new {
@@ -518,6 +519,21 @@ Checks perl to make sure the version is higher than a minimum (supplied) value.
 returns 1 for success, 0 for failure.
 
 
+=item has_module
+
+Checks to see if a perl module is installed.
+
+   if ( $perl->has_module("Date::Format") ) {
+       print "yay!\n";
+   };
+
+ arguments required:
+    module - the name of the perl module
+
+ arguments optional:
+    version - minimum version
+
+
 =item module_install
 
 Downloads and installs a perl module from sources.
@@ -599,16 +615,13 @@ Example with option:
 
 $perl->perl_install( version=>"perl-5.8.5", options=>"ENABLE_SUIDPERL" );
 
-=cut
-
-
 
 
 =back
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson (matt@tnpi.net)
 
 =head1 BUGS
 
@@ -625,9 +638,9 @@ The following are all man/perldoc pages:
  toaster.conf
  toaster-watcher.conf
 
- http://matt.simerson.net/computing/mail/toaster/
+ http://www.tnpi.net/internet/mail/toaster/
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
 Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
 

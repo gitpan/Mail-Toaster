@@ -72,7 +72,9 @@ ok(
 # get_maildir_paths
 my $qdir   = $conf->{'qmail_dir'};
 my $assign = "$qdir/users/assign";
-if ( -r $assign && -s $assign ) {
+my $assign_size = -s $assign;
+
+if ( -r $assign && $assign_size > 10 ) {
     ok( $toaster->get_maildir_paths( conf => $conf, fatal => 0 ),
         'get_maildir_paths' );
 }

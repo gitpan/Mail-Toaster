@@ -377,10 +377,10 @@ qqtool.pl - A tool for viewing and purging messages from a qmail queue
 	If no -q is specified, then both queues are searched.
 
 	To list messages in queue from matt: 
-	$0 -a list -s matt -h From
+	qqtool.pl -a list -s matt -h From
 
 	To list messages in queue with string \"foo\" in the headers:
-	$0 -a list -s foo	
+	qqtool.pl -a list -s foo	
 
 
 =head1 DESCRIPTION

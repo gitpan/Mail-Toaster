@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# $Id: Apache.pm,v 4.22 2006/06/09 19:26:18 matt Exp $
+# $Id: Apache.pm, matt Exp $
 #
 use strict;
 use warnings;
@@ -8,7 +8,7 @@ use warnings;
 package Mail::Toaster::Apache;
 
 use vars qw/ $VERSION /;
-$VERSION = '5.01';
+$VERSION = '5.02';
 
 use Carp;
 use English qw( -no_match_vars );
@@ -481,6 +481,10 @@ sub apache2_fixups {
         return;
     }
 
+    if ( ! $conf->{'toaster_apache_vhost'} ) {
+        return 1;
+    };
+
     my $httpd_conf = $self->conf_get_dir(conf=>$conf);
     my ($apache_conf_dir) = $utility->path_parse($httpd_conf);
 
@@ -585,11 +589,29 @@ NameVirtualHost $local_ip:443
     Allow from all
 </Directory>
 
+# don't divilge our Apache version, to help protect us from scanners
+# looking for vulnerable versions of Apache.
+ServerSignature Off
+ServerTokens ProductOnly
+
+# take Cert vulnerability #867593 off the table
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} ^(TRACE|TRACK)
+    RewriteRule .* - [F]
+</IfModule>
+
+# this is necessary for index.cgi to work
 AddHandler cgi-script .cgi
-AddType application/x-httpd-php .php
-AddType application/x-httpd-php-source .phps
 
 EO_MAIL_TOASTER_CONF
+
+    if ( $conf->{'install_php'} ) {
+        print $MT_CONF "# enable php parsing
+AddType application/x-httpd-php .php
+AddType application/x-httpd-php-source .phps
+    ";
+    };
 
     if ( $conf->{'install_isoqlog'} ) {
         print $MT_CONF '
@@ -618,8 +640,43 @@ Alias /squirrelmail/ "/usr/local/www/squirrelmail/"
     if ( $conf->{'install_phpmyadmin'} ) {
         print $MT_CONF '
 Alias /phpMyAdmin/ "/usr/local/www/phpMyAdmin/"
+<Directory "/usr/local/www/phpMyAdmin">
+    Options Indexes ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+</Directory>
 ';
     };
+
+    if ( $conf->{'install_rrdutil'} ) {
+        print $MT_CONF '
+Alias /rrdutil/ "/usr/local/rrdutil/html/"
+<Directory "/usr/local/rrdutil/html">
+    Options Indexes ExecCGI
+    AllowOverride None
+    Order allow,deny
+    Allow from all
+</Directory>
+';
+    };
+
+    if ( $conf->{'install_roundcube'} ) {
+        print $MT_CONF '
+Alias /roundcube "/usr/local/www/roundcube/"
+<Directory "/usr/local/www/roundcube">
+    Options Indexes FollowSymLinks
+    AllowOverride All
+    Order allow,deny
+    Allow from all
+</Directory>
+';
+    };
+
+    print $MT_CONF '
+# if you install these, comment out these entries
+#Alias /v-webmail/ "/usr/local/www/mail/v-webmail/htdocs/"
+';
 
 #    if ($conf->{'install_apache'} == 22 ) {
 #        print $MT_CONF '

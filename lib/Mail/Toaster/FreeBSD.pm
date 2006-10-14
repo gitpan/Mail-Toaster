@@ -13,7 +13,7 @@ use Carp;
 use Params::Validate qw( :all );;
 
 use vars qw($VERSION $err);
-$VERSION = '5.01';
+$VERSION = '5.03';
 
 use lib "lib";
 
@@ -140,7 +140,7 @@ sub get_version {
     my $self = shift;
     my $debug = shift;
 
-    my $uname = $utility->find_the_bin(bin=>"uname", fatal=>0,debug=>0);
+    my $uname = $utility->find_the_bin(bin=>"uname",debug=>0);
     print "found uname: $uname\n" if $debug;
 
     my $version = `$uname -r`;
@@ -1130,19 +1130,21 @@ sub portsdb_Uu {
     }
 
     my $portsdb = $utility->find_the_bin( bin => "portsdb", debug=>0,fatal=>0 );
-    print "\a";  # bell
-    print "
-    ATTENTION: I could not find portsdb, which means that portugprade
-    is not installed.\n";
+    unless ( $portsdb && -x $portsdb ) {
+        print "\a";  # bell
+        print "
+        ATTENTION: I could not find portsdb, which means that portugprade
+        is not installed.\n";
 
-    if ( ! $utility->yes_or_no( 
-            question=>"Would you like me to install it now",
-        )
-    ) {
-        return 1;
+        if ( ! $utility->yes_or_no( 
+                question=>"Would you like me to install it now",
+            )
+        ) {
+            return 1;
+        };
+
+        $self->install_portupgrade(debug=>$debug, fatal=>$fatal);
     };
-
-    $self->install_portupgrade(debug=>$debug, fatal=>$fatal);
 
     $portsdb = $utility->find_the_bin( bin => "portsdb", debug=>0 );
     $utility->syscmd( command => "$portsdb -Fu", debug=>$debug );
@@ -1289,6 +1291,7 @@ sub portsnap {
 
     # should be installed already on FreeBSD 5.5 and 6.x
     my $portsnap = $utility->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
+    my $ps_conf  = "/usr/local/etc/portsnap.conf";
 
     unless ( $portsnap && -x $portsnap ) {
         # try installing from ports
@@ -1297,7 +1300,16 @@ sub portsnap {
             'base'  => "sysutils",
             'debug' => $debug,
             'fatal' => $fatal,
+            'no_update' => 1,
         );
+
+        if ( ! -e  $ps_conf ) {
+            if ( -e "$ps_conf.sample" ) {
+                copy("$ps_conf.sample", $ps_conf);
+            } else {
+                    warn "WARNING: portsnap configuration file is missing!\n";
+            };
+        };
 
         $portsnap = $utility->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
         unless ( $portsnap && -x $portsnap ) {
@@ -1306,6 +1318,10 @@ sub portsnap {
             carp $err;
             return;
         };
+    };
+
+    if ( !-e $ps_conf ) {
+         $portsnap .= " -s portsnap.freebsd.org";
     };
 
     # grabs the latest updates from the portsnap servers
@@ -1318,10 +1334,10 @@ sub portsnap {
     doing a cvsup and require less bandwidth (good for you, and the FreeBSD 
     servers). So, please be patient.\n\n";
         sleep 2;
-        $utility->syscmd( cmd=>"portsnap extract", debug=>0, fatal=>$fatal );
+        $utility->syscmd( cmd=>"$portsnap extract", debug=>0, fatal=>$fatal );
     }
     else {
-        $utility->syscmd( cmd=>"portsnap update", debug=>0, fatal=>$fatal );
+        $utility->syscmd( cmd=>"$portsnap update", debug=>0, fatal=>$fatal );
     };
 
     $self->portsdb_Uu(debug=>$debug, fatal=>$fatal);
@@ -1416,34 +1432,34 @@ sub source_update {
     print "source_update: using $supfile.\n";
 
     my $releng;
-    unless ( -e "$etcdir/$supfile" ) {
+    if ( ! -e "$etcdir/$supfile" ) {
         print "source_update: your cvsup config file ($etcdir/$supfile) is missing!\n";
-        
-        my $os_version = $self->get_version();
+    };
 
-        # get_version returns something like this: 6.1-RELEASE-p6
-        print "OS version is: " . $os_version. "\n"  if $debug;
+    my $os_version = $self->get_version();
 
-        # if it is set properly, use it.
-        if ( $conf->{'toaster_os_release'}) {
-            my $ver = $conf->{'toaster_os_release'};
-            if ( $ver && $ver eq uc($ver) && $ver =~ /RELENG/ ) {
-                $releng = $ver;
-            } 
+    # get_version returns something like this: 6.1-RELEASE-p6
+    print "OS version is: " . $os_version. "\n"  if $debug;
+
+    # if it is set properly, use it.
+    if ( defined $conf->{'toaster_os_release'} ) {
+        my $ver = $conf->{'toaster_os_release'};
+        if ( $ver && $ver eq uc($ver) && $ver =~ /RELENG/ ) {
+            $releng = $ver;
+        } 
+    }
+    else {
+        # otherwise try to determine it.
+        if ( $os_version =~ /\A ([\d]) \. ([\d]) \- (\w+) /xms ) {
+            $releng = "RELENG_$1.$2";
         }
         else {
-            # otherwise try to determine it.
-            if ( $os_version =~ /\A ([\d]) \. ([\d]) \- (\w+) /xms ) {
-                $releng = "RELENG_$1.$2";
-            }
-            else {
-                print "
-    I need to figure out which cvsup tag to use for your installation. Please 
-    edit toaster-watcher.conf and set toaster_os_release in the following format: 
+            print "
+I need to figure out which cvsup tag to use for your installation. Please 
+edit toaster-watcher.conf and set toaster_os_release in the following format: 
 
-        toaster_os_release = RELENG_6_1\n ";
-                return;
-            }
+    toaster_os_release = RELENG_6_1\n ";
+            return;
         }
     }
 

@@ -20,7 +20,7 @@ use English qw( -no_match_vars );
 use Pod::Usage;
 
 use vars qw( $VERSION $spam_ref $count_ref );
-$VERSION = "5.01";
+$VERSION = "5.02";
 
 use lib "lib";
 
@@ -51,90 +51,12 @@ sub report_yesterdays_activity {
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    my $file  = "sendlog";
     my $email = $conf->{'toaster_admin_email'} || "postmaster";
 
-    my $log;
+    my $qmailanalog_dir = $self->find_qmailanalog();
+    return unless ( $qmailanalog_dir );
 
-    my $qmailanalog_dir = $conf->{'qmailanalog_bin'} || "/var/qmail/qmailanalog/bin";
-
-    # the port location changed, if toaster.conf hasn't been updated, this 
-    # will catch it.
-    if ( ! -d $qmailanalog_dir ) {
-        carp <<"EO_QMADIR_MISSING";
-  ERROR: the location of qmailanalog programs is missing! Make sure you have
-  qmailanalog installed and the path to the binaries is set correctly in 
-  toaster.conf. The current setting is $qmailanalog_dir
-EO_QMADIR_MISSING
-
-        if ( -d "/usr/local/qmailanalog/bin" ) {
-            $qmailanalog_dir = "/usr/local/qmailanalog/bin";
-
-            carp <<"EO_QMADIR_FOUND";
-
-  YAY!  I found your qmailanalog programs in /usr/local/qmailanalog/bin. You 
-  should update toaster.conf so you stop getting this error message.
-EO_QMADIR_FOUND
-        };
-    };
-
-    # make sure that the matchup program is in there
-    unless ( -x "$qmailanalog_dir/matchup" ) {
-        carp <<"EO_NO_MATCHUP";
-
-   report_yesterdays_activity: ERROR! The 'maillogs yesterday' feature only 
-   works if qmailanalog is installed. I am unable to find the binaries for 
-   it. Please make sure it is installed and the qmailanalog_bin setting in
-   toaster.conf is configured correctly.
-EO_NO_MATCHUP
-
-        return;
-    }
-
-    # set up our date variables for today
-    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>0,debug=>$debug);
-
-    if ( $conf->{'send_log_method'} && $conf->{'send_log_method'} eq "syslog" ) {
-        # freebsd's maillog is rotated daily
-        if ( $OSNAME eq "freebsd" ) {
-            $file = "/var/log/maillog.0";
-
-            $log = -e "$file.gz" ? "$file.gz"
-                : -e "$file.bz2" ? "$file.bz2" 
-                : croak "could not find your mail logs from yesterday!\n";
-        } 
-        elsif ( $OSNAME eq "darwin" ) {
-            # logs are rotated weekly.
-            $file = "/var/log/mail.log";
-        }
-        else {
-            $file = "/var/log/mail.log.0";
-        };
-    }
-    else {
-
-        # some form of multilog logging
-        my $logbase = $conf->{'logs_base'}
-          || $conf->{'qmail_log_base'}
-          || "/var/log/mail";
-
-        # where todays logs are being archived
-        $log = "$logbase/$yy/$mm/$dd/$file";
-
-        print "report_yesterdays_activity: updating todays symlink for sendlogs\n"
-          if $debug;
-        unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
-        symlink( $log, "$logbase/sendlog" );
-
-        print "report_yesterdays_activity: updating yesterdays symlink for sendlogs\n"
-          if $debug;
-        ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>1,debug=>$debug);
-        $log = "$logbase/$yy/$mm/$dd/$file.gz";
-
-        unlink("$logbase/sendlog.gz") if ( -l "$logbase/sendlog.gz" );
-        symlink( $log, "$logbase/sendlog.gz" );
-    }
-
+    my $log = $self->get_yesterdays_send_log();
     if ( ! -s $log ) {
         carp "no log file for yesterday found!\n";
         return;
@@ -164,33 +86,206 @@ EO_NO_MATCHUP
     my $deferrals =
       `$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zdeferrals`;
 
+    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>0,debug=>$debug);
     my $date = "$yy.$mm.$dd";
     print "date: $yy.$mm.$dd\n" if $debug;
 
+    #require Mail::Toaster::Perl;
+    #my $perl = Mail::Toaster::Perl->new;
+    #if ( $perl->has_module("Perl6::Form") ) {
+    #    $self->pretty_yesterday($date, $overall, $failures, $deferrals);
+    #    return;
+    #};
+
     ## no critic
     open my $EMAIL, "| /var/qmail/bin/qmail-inject";
-    print $EMAIL <<EO_EMAIL;
+    ## use critic
+    print $EMAIL <<"EO_EMAIL";
 To: $email
 From: postmaster
 Subject: Daily Mail Toaster Report for $date
-\n
-           OVERALL MESSAGE DELIVERY STATISTICS\n\n
+
+ ==================================================================== 
+               OVERALL MESSAGE DELIVERY STATISTICS                  
+ ____________________________________________________________________
 
 $overall
-\n\n\n            MESSAGE FAILURE REPORT\n\n
 
+
+ ==================================================================== 
+                        MESSAGE FAILURE REPORT                         
+ ____________________________________________________________________
 $failures
-\n\n\n            MESSAGE DEFERRAL REPORT  \n\n
+
+
+ ==================================================================== 
+                      MESSAGE DEFERRAL REPORT                       
+ ____________________________________________________________________
 $deferrals
 EO_EMAIL
 
     close $EMAIL;
-    ## use critic
 
     print "all done!\n" if $debug;
 
     return 1;
 }
+
+sub pretty_yesterday {
+
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    my ($date, $overall, $failures, $deferrals) = @_;
+
+    my $email = $conf->{'toaster_admin_email'} || "postmaster";
+    my $host  = $conf->{'toaster_hostname'} || "localhost";
+
+    #use Perl6::Form;
+    #Perl6::Form->import;
+
+    #my $overall = format_me($overall);
+
+    #print form,
+    print 
+        "To: $email
+From: postmaster\@$host
+Subject: Daily Mail Toaster Report for $date",
+        '',
+        '==================================================================== ',
+        '               OVERALL MESSAGE DELIVERY STATISTICS                  |',
+        '--------------------------------------------------------------------|',
+        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}    |',
+        $overall,
+
+        ' ==================================================================== ',
+        '|                     MESSAGE FAILURE REPORT                         |',
+        '|--------------------------------------------------------------------|',
+        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}     |',
+        $failures,
+
+        ' ==================================================================== ',
+        '|                      MESSAGE DEFERRAL REPORT                       |',
+        '|--------------------------------------------------------------------|',
+        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}     |',
+        $deferrals,
+        ' ==================================================================== ';
+
+
+    ## no critic
+    #open my $EMAIL, "| /var/qmail/bin/qmail-inject";
+    ## use critic
+    #print $mess;
+
+    sub format_me {
+        my $overall = shift;
+        my @lines = split(/\n/, $overall);
+        print join("\t", @lines) . "\n";
+    }
+
+};
+
+sub get_yesterdays_send_log {
+
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
+
+    if ( $conf->{'send_log_method'} && $conf->{'send_log_method'} eq "syslog" ) {
+        # freebsd's maillog is rotated daily
+        if ( $OSNAME eq "freebsd" ) {
+             my $file = "/var/log/maillog.0";
+
+             return -e "$file.gz" ? "$file.gz"
+                  : -e "$file.bz2" ? "$file.bz2" 
+                  : croak "could not find your mail logs from yesterday! "
+                    . "Check your send_log_method setting in toaster-watcher.conf "
+                    . "and make sure it is configured appropriately for your system.";
+        } 
+        elsif ( $OSNAME eq "darwin" ) {
+            # logs are rotated weekly.
+            return "/var/log/mail.log";
+        }
+        
+        my $file = "/var/log/mail.log.0";
+
+        return  -e "$file.gz" ? "$file.gz"
+              : -e "$file.bz2" ? "$file.bz2" 
+              : croak "could not find your mail logs from yesterday!\n";
+    };
+
+    # some form of multilog logging
+    my $logbase = $conf->{'logs_base'}
+                || $conf->{'qmail_log_base'}
+                || "/var/log/mail";
+
+    # set up our date variables for today
+    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>0,debug=>$debug);
+
+    # where todays logs are being archived
+    my $log = "$logbase/$yy/$mm/$dd/sendlog";
+
+    print "report_yesterdays_activity: updating todays symlink for sendlogs\n"
+        if $debug;
+    unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
+    symlink( $log, "$logbase/sendlog" );
+
+    # where yesterdays logs are being archived
+    print "report_yesterdays_activity: updating yesterdays symlink for sendlogs\n"
+        if $debug;
+    ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>1,debug=>$debug);
+    $log = "$logbase/$yy/$mm/$dd/sendlog.gz";
+
+    unlink("$logbase/sendlog.gz") if ( -l "$logbase/sendlog.gz" );
+    symlink( $log, "$logbase/sendlog.gz" );
+
+    return $log;
+};
+
+sub find_qmailanalog {
+
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
+
+    my $qmailanalog_dir = $conf->{'qmailanalog_bin'} || "/var/qmail/qmailanalog/bin";
+
+    # the port location changed, if toaster.conf hasn't been updated, this 
+    # will catch it.
+    if ( ! -d $qmailanalog_dir ) {
+        carp <<"EO_QMADIR_MISSING";
+  ERROR: the location of qmailanalog programs is missing! Make sure you have
+  qmailanalog installed and the path to the binaries is set correctly in 
+  toaster.conf. The current setting is $qmailanalog_dir
+EO_QMADIR_MISSING
+
+
+        if ( -d "/usr/local/qmailanalog/bin" ) {
+            $qmailanalog_dir = "/usr/local/qmailanalog/bin";
+
+            carp <<"EO_QMADIR_FOUND";
+
+  YAY!  I found your qmailanalog programs in /usr/local/qmailanalog/bin. You 
+  should update toaster.conf so you stop getting this error message.
+EO_QMADIR_FOUND
+        };
+    };
+
+    # make sure that the matchup program is in there
+    unless ( -x "$qmailanalog_dir/matchup" ) {
+        carp <<"EO_NO_MATCHUP";
+
+   report_yesterdays_activity: ERROR! The 'maillogs yesterday' feature only 
+   works if qmailanalog is installed. I am unable to find the binaries for 
+   it. Please make sure it is installed and the qmailanalog_bin setting in
+   toaster.conf is configured correctly.
+EO_NO_MATCHUP
+
+        return;
+    }
+
+    return $qmailanalog_dir;
+};
 
 sub verify_settings {
 
@@ -498,12 +593,15 @@ sub imap_count {
                 next;
             }
             
-           #	elsif ( $line =~ /ssl: Connection/     ) { $imap_ssl_connect++; }
-           #	elsif ( $line =~ /Connection/          ) { $imap_connect++; }
+            # elsif ( $line =~ /ssl: Connection/     ) { $imap_ssl_connect++; }
+            # elsif ( $line =~ /Connection/          ) { $imap_connect++; }
         }
+        close $LOGF;
     }
 
     unless ( $lines ) {
+        print "imap_success:$count_ref->{'imap_success'}"
+            . ":imap_ssl_success:$count_ref->{'imap_ssl_success'}\n";
         carp "imap_count: no log entries to process. I'm done!" if $debug;
         return 1;
     };
@@ -611,6 +709,7 @@ sub pop3_count {
     foreach (@$logfiles) {
         open my $LOGF, "<", $_;
 
+        LINE:
         while ( my $line = <$LOGF> ) {
             next unless ( $line =~ /pop3/ );
             $lines++;
@@ -624,13 +723,18 @@ sub pop3_count {
                 $new_entries{'success'}++ if ( $line =~ /LOGIN/ );
             }
             elsif ( $line =~ /pop3d-ssl: / ) {    # courier pop3d-ssl
+                if ( $line =~ /LOGIN/ ) {
+                    $new_entries{'ssl_success'}++;
+                    next LINE;
+                };
                 $new_entries{'ssl_connect'}++ if ( $line =~ /Connection/ );
-                $new_entries{'ssl_success'}++ if ( $line =~ /LOGIN/ );
             }
         }
+        close $LOGF;
     }
 
     if ( ! $lines ) {
+        pop3_report();
         carp "pop3_count: no log entries, I'm done!" if $debug;
         return 1;
     };
@@ -681,22 +785,32 @@ sub pop3_count {
         $count_ref->{'pop3_ssl_connect_last'} = $new_entries{'ssl_connect'};
     };
 
-    print "pop3_connect:"     . $count_ref->{'pop3_connect'}
-       . ":pop3_ssl_connect:" . $count_ref->{'pop3_ssl_connect'}
-       . ":pop3_success:"     . $count_ref->{'pop3_success'}
-       . ":pop3_ssl_success:" . $count_ref->{'pop3_ssl_success'}
-       . "\n";
+    pop3_report();
 
-    my $pop3_logs = $conf->{'logs_pop3d'}      || "courier";
+    my $pop3_logs = $conf->{'logs_pop3d'} || "courier";
 
     if ( $pop3_logs eq "qpop3d" ) {
-        my $supervise = $conf->{'logs_supervise'}  || "/var/qmail/supervise";
+        my $supervise = $conf->{'logs_supervise'} || "/var/qmail/supervise";
         $self->rotate_supervised_logs("$supervise/pop3/log");
         $self->compress_yesterdays_logs( file=>"pop3log", fatal=>0 );
     }
 
     return $self->counter_write( log=>$countfile, values=>$count_ref, fatal=>0 );
 }
+
+sub pop3_report {
+
+    $count_ref->{'pop3_connect'}     || 0;
+    $count_ref->{'pop3_ssl_connect'} || 0;
+    $count_ref->{'pop3_success'}     || 0;
+    $count_ref->{'pop3_ssl_success'} || 0;
+
+    print "pop3_connect:"     . $count_ref->{'pop3_connect'}
+       . ":pop3_ssl_connect:" . $count_ref->{'pop3_ssl_connect'}
+       . ":pop3_success:"     . $count_ref->{'pop3_success'}
+       . ":pop3_ssl_success:" . $count_ref->{'pop3_ssl_success'}
+       . "\n";
+};
 
 sub webmail_count {
 
@@ -843,38 +957,53 @@ sub spama_count {
         return 1;
     };
 
-    if ( $temp{'ham'} ) {
-        if ( $temp{'ham'} >= $count_ref->{'sa_ham_last'} ) {
+    my $ham_count  = $temp{'ham'} || 0;
+    my $spam_count = $temp{'spam'} || 0;
+
+    if ( $ham_count ) {
+        if ( $ham_count >= $count_ref->{'sa_ham_last'} ) {
             $count_ref->{'sa_ham'} =
-            $count_ref->{'sa_ham'} + ( $temp{'ham'} - $count_ref->{'sa_ham_last'} );
+            $count_ref->{'sa_ham'} + ( $ham_count - $count_ref->{'sa_ham_last'} );
         }
         else {
-            $count_ref->{'sa_ham'} = $count_ref->{'sa_ham'} + $temp{'ham'};
+            $count_ref->{'sa_ham'} = $count_ref->{'sa_ham'} + $ham_count;
         }
     };
 
-    if ( $temp{'spam'} ) {
-        if ( $temp{'spam'} >= $count_ref->{'sa_spam_last'} ) {
+    if ( $spam_count ) {
+        if ( $spam_count >= $count_ref->{'sa_spam_last'} ) {
             $count_ref->{'sa_spam'} =
-            $count_ref->{'sa_spam'} + ( $temp{'spam'} - $count_ref->{'sa_spam_last'} );
+            $count_ref->{'sa_spam'} + ( $spam_count - $count_ref->{'sa_spam_last'} );
         }
         else {
-            $count_ref->{'sa_spam'} = $count_ref->{'sa_spam'} + $temp{'spam'};
+            $count_ref->{'sa_spam'} = $count_ref->{'sa_spam'} + $spam_count;
         }
     };
 
     require POSIX;    # needed for floor()
-    $count_ref->{'avg_spam_score'} = POSIX::floor( $temp{spam_scores} / $temp{spam} * 100 );
-    $count_ref->{'avg_ham_score'}  = POSIX::floor( $temp{ham_scores} / $temp{ham} * 100 );
-    $count_ref->{'threshhold'}     =
-      POSIX::floor( $temp{threshhold} / ( $temp{ham} + $temp{spam} ) * 100 );
-    $count_ref->{'sa_ham_last'}     = $temp{ham};
-    $count_ref->{'sa_spam_last'}    = $temp{spam};
-    $count_ref->{'sa_ham_seconds'}  = POSIX::floor( $temp{ham_seconds} / $temp{ham} * 100 );
-    $count_ref->{'sa_spam_seconds'} =
-      POSIX::floor( $temp{spam_seconds} / $temp{spam} * 100 );
-    $count_ref->{'sa_ham_bytes'}  = POSIX::floor( $temp{ham_bytes} / $temp{ham} * 100 );
-    $count_ref->{'sa_spam_bytes'} = POSIX::floor( $temp{spam_bytes} / $temp{spam} * 100 );
+    $count_ref->{'avg_spam_score'} = (defined $temp{'spam_scores'} && $spam_count ) 
+        ? POSIX::floor( $temp{'spam_scores'} / $spam_count * 100 ) : 0;
+
+    $count_ref->{'avg_ham_score'}  = (defined $temp{'ham_scores'} && $ham_count ) 
+        ? POSIX::floor( $temp{'ham_scores'} / $ham_count * 100 )   : 0;
+
+    $count_ref->{'threshhold'}     = ( $temp{'threshhold'} && ($ham_count || $spam_count) )
+        ? POSIX::floor( $temp{'threshhold'} / ( $ham_count + $spam_count ) * 100 ) : 0;
+
+    $count_ref->{'sa_ham_last'}     = $ham_count;
+    $count_ref->{'sa_spam_last'}    = $spam_count;
+
+    $count_ref->{'sa_ham_seconds'}  = (defined $temp{'ham_seconds'} && $ham_count )
+        ? POSIX::floor( $temp{'ham_seconds'} / $ham_count * 100 ) : 0;
+
+    $count_ref->{'sa_spam_seconds'} = (defined $temp{spam_seconds} && $spam_count)
+        ? POSIX::floor( $temp{spam_seconds} / $spam_count * 100 ) : 0;
+
+    $count_ref->{'sa_ham_bytes'}  = (defined $temp{'ham_bytes'} && $ham_count ) 
+        ? POSIX::floor( $temp{'ham_bytes'} / $ham_count * 100 ) : 0;
+
+    $count_ref->{'sa_spam_bytes'} = (defined $temp{'ham_bytes'} && $spam_count ) 
+        ? POSIX::floor( $temp{'spam_bytes'} / $spam_count * 100 ) : 0;
 
     print "sa_spam:$count_ref->{'sa_spam'}"
         . ":sa_ham:$count_ref->{'sa_ham'}"
@@ -958,6 +1087,7 @@ sub roll_send_logs {
     my $debug = $self->{'debug'};
 
     my $logbase  = $conf->{'logs_base'} || "/var/log/mail";
+    print "roll_send_logs: logging base is $logbase.\n" if $debug;
 
     my $countfile = $self->set_countfile(prot=>"send");
        $count_ref = $self->counter_read( file=>$countfile );
@@ -1233,16 +1363,12 @@ sub process_rbl_logs {
     if ( $p{'roll'} ) {
 
         # no log file(s)! 
-        if ( !$files_ref->[0] ) {
-            $skip_archive++;
-        };
+        $skip_archive++ if !$files_ref->[0];
 
         my $PIPE_TO_CRONOLOG;
         if ( ! $skip_archive ) {
             $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"smtplog");
-            if ( ! $PIPE_TO_CRONOLOG ) {
-                $skip_archive++;
-            };
+            $skip_archive++ if ! $PIPE_TO_CRONOLOG;
         };
 
         while (<STDIN>) {
@@ -1343,15 +1469,14 @@ sub process_send_logs {
 
     if ( $p{'roll'} ) {
 
+        print "process_send_logs: log rolling is enabled.\n" if $debug;
+
         # no log file(s)! 
-        if ( !$files_ref->[0] ) {
-            $skip_archive++;
-        };
+        $skip_archive++ if !$files_ref->[0];
 
         my $PIPE_TO_CRONOLOG;
         if ( ! $skip_archive ) {
-            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"sendlog");
-            if ( ! $PIPE_TO_CRONOLOG ) {
+            unless ( $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"sendlog") ) {
                 $skip_archive++;
             };
         };
@@ -1364,6 +1489,8 @@ sub process_send_logs {
         close $PIPE_TO_CRONOLOG if ! $skip_archive;
         $skip_archive ? return : return 1;
     }
+
+    print "process_send_logs: log rolling is disabled.\n" if $debug;
 
     foreach my $file ( @$files_ref ) {
         
@@ -1620,24 +1747,24 @@ sub counter_write {
 
 sub get_cronolog_handle {
 
-    my $self = shift;
-    my $conf = $self->{'conf'};
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
     
-    my %p = validate(@_, {
-            'file' => SCALAR,
-        },
-    );
+    my %p = validate(@_, { 'file' => SCALAR, },);
+
     my $file = $p{'file'};
 
     my $logbase = $conf->{'logs_base'} || "/var/log/mail";
 
     # archives disabled in toaster.conf
-    if ( $conf->{'logs_archive'} ) {
+    if ( ! $conf->{'logs_archive'} ) {
+        print "get_cronolog_handle: archives disabled, skipping cronolog handle.\n" if $debug; 
         return;
     };
 
     # $logbase is missing and we haven't permission to create it
-    unless ( $utility->is_writable(file=>$logbase, fatal=>0, debug=>0) ) {
+    unless ( -w $logbase ) {
         carp "WARNING: could not write to $logbase. FAILURE!";
         return;
     }
@@ -1706,14 +1833,18 @@ sub set_countfile {
 
     my $self = shift;
     my $conf = $self->{'conf'};
+    my $debug = $self->{'debug'};
 
     my %p = validate(@_, { prot=>SCALAR }, );
-
     my $prot = $p{'prot'};
+
+    print "set_countfile: countfile for prot $prot is " if $debug;
 
     my $logbase  = $conf->{'logs_base'} || "/var/log/mail";
     my $counters = $conf->{'logs_counters'} || "counters";
     my $prot_file = $conf->{'logs_'.$prot.'_count'} || "$prot.txt";
+
+    print "$logbase/$counters/$prot_file\n" if $debug;
 
     return "$logbase/$counters/$prot_file";
 }

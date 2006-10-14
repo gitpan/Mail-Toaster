@@ -2,9 +2,11 @@ bin/mailadmin
 bin/maillogs
 bin/qqtool.pl
 bin/sysadmin
+bin/useradmin
 bin/toaster-watcher.pl
 bin/toaster_setup.pl
 Build.PL
+Changes
 cgi_files/admin.cgi
 cgi_files/admin.tmpl
 cgi_files/ezmlm.cgi
@@ -108,8 +110,8 @@ lib/Mail/Toaster/Provision.pm
 lib/Mail/Toaster/Qmail.pm
 lib/Mail/Toaster/Setup.pm
 lib/Mail/Toaster/Utility.pm
-lib/Params/Validate.pm
-lib/Params/ValidatePP.pm
+inc/Params/Validate.pm
+inc/Params/ValidatePP.pm
 lib/toaster-watcher.conf.pod
 lib/toaster.conf.pod
 LICENSE

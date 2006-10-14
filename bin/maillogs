@@ -2,10 +2,10 @@
 use strict;
 use warnings;
 #
-# $Id: maillogs,v 4.5 2005/06/10 22:54:12 matt Exp $
+# $Id: maillogs matt Exp $
 #
 
-use vars qw( $VERSION ); $VERSION = "5.00";
+use vars qw( $VERSION ); $VERSION = "5.02";
 
 # ------------------------------------------------------------------------------
 

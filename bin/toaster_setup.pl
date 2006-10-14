@@ -349,7 +349,7 @@ Matt Simerson (matt@tnpi.net)
 
 =head1 BUGS
 
-None known. Report any to author. 
+None known. Report any to author, preferably via RT http://rt.cpan.org/Public/Bug/Report.html?Queue=Mail-Toaster
 
 Patches welcome in "diff -u" format.
 

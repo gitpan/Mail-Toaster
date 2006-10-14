@@ -12,6 +12,7 @@ use ExtUtils::MakeMaker;
 
 $AUTOFLUSH++;
 
+use lib "inc";
 use lib "lib";
 
 BEGIN {
@@ -129,7 +130,7 @@ WriteMakefile(
 	ABSTRACT          => 'Mail::Toaster perl programs and modules',
     PL_FILES          => {},
 #	MAN1PODS          => [],
-#    dist              => { COMPRESS => 'gzip -9f', },
+    dist              => { COMPRESS => 'gzip -9f', },
     clean             => {FILES => "t/trash"}
 );
 

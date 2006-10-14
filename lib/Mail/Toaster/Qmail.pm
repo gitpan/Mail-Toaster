@@ -3,7 +3,7 @@ use strict;
 use warnings;
 #use diagnostics;
 #
-# $Id: Qmail.pm,v 4.36 2006/06/09 19:26:18 matt Exp $
+# $Id: Qmail.pm, matt Exp $
 #
 
 package Mail::Toaster::Qmail;
@@ -14,7 +14,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $err);
-$VERSION = '5.01';
+$VERSION = '5.02';
 
 use lib "lib";
 
@@ -536,11 +536,22 @@ sub config {
       || $utility->answer(
         q => "the hostname for your database server (localhost)" ) || "localhost";
 
+    my $dbport = $conf->{'vpopmail_mysql_repl_slave_port'}
+          || $utility->answer(
+                  q => "the port for your database server (3306)" ) || "3306";
+
+    my $dbname = $conf->{'vpopmail_mysql_database'}
+          || $utility->answer(
+                  q => "the name of your database (vpopmail)" ) || "vpopmail";
+
+    my $dbuser = $conf->{'vpopmail_mysql_repl_user'}
+      || $utility->answer( q => "the SQL username for user vpopmail" ) || "vpopmail";
+
     my $password = $conf->{'vpopmail_mysql_repl_pass'}
       || $utility->answer( q => "the SQL password for user vpopmail" );
 
     my @changes = (
-        { file => 'control/me',                 setting=>$host, },
+        { file => 'control/me',                 setting => $host, },
         { file => 'control/concurrencyremote',  setting => $conf->{'qmail_concurrencyremote'},},
         { file => 'control/mfcheck',            setting => $conf->{'qmail_mfcheck_enable'},   },
         { file => 'control/tarpitcount',        setting => $conf->{'qmail_tarpit_count'},     },
@@ -551,12 +562,12 @@ sub config {
         { file => 'alias/.qmail-mailer-daemon', setting => $postmaster,   },
     );
 
-    if ( $conf->{'install_mysql'} ) {
+    if ( $conf->{'vpopmail_mysql'} ) {
         my $qmail_mysql = "server $dbhost\n" 
-                        . "port 3306\n" 
-                        . "database vpopmail\n"
+                        . "port $dbport\n" 
+                        . "database $dbname\n"
                         . "table relay\n"
-                        . "user vpopmail\n"
+                        . "user $dbuser\n"
                         . "pass $password\n"
                         . "time 1800\n";
 
@@ -652,7 +663,7 @@ sub config {
     }
 
     # don't install sendmail when we rebuild the world
-    if ( `grep NO_SENDMAIL /etc/make.conf` ) {
+    if ( ! `grep NO_SENDMAIL /etc/make.conf` ) {
         $utility->file_write(
             file   => "/etc/make.conf",
             lines  => ["NO_SENDMAIL=true"],
@@ -702,7 +713,6 @@ purgestat       /var/qmail/bin/qmail-tcpok
 
     # install the qmail control script (qmail cdb, qmail restart, etc)
     $self->control_create(conf=>$conf, debug=>$debug);
-
 
     # create all the service and supervised dirs
     $toaster->service_dir_create( conf => $conf, debug => $debug );

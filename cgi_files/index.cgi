@@ -5,11 +5,9 @@ use strict;
 # $Id: index.cgi,v 4.01 matt Exp $
 #
 
-
-
 use vars qw/ $VERSION /;
 
-$VERSION = "4.01";
+$VERSION = "5.02";
 
 use CGI qw(:standard);
 use CGI::Carp qw( fatalsToBrowser );
@@ -34,7 +32,8 @@ my $c_email  = $cgi->cookie('email');
 my $save     = $cgi->param('save');
 my $logout   = $cgi->param('logout');
 my $ssl      = $cgi->param('ssl');
-my ($host, $debug);
+my $host;
+my $debug    = 0;
 my $stats    = 0;
 
 my $conf     = $utility->parse_config( file=>"toaster.conf",debug=>$debug );

@@ -1,5 +1,5 @@
 # 
-# $Id: toaster-watcher.conf-dist,v 5.01 matt Exp $
+# $Id: toaster-watcher.conf-dist,v 5.02 matt Exp $
 #
 # Extensive documentation for this file and it's settings is available
 # It is included in the docs directory of the Mail::Toaster 
@@ -48,6 +48,7 @@ toaster_dl_url                     = /internet/mail/toaster
 
 preserve_cgifiles                  = 0
 toaster_old_index_cgi              = 0
+toaster_apache_vhost               = 1
 
 package_install_method             = ports     # packages | ports
                                      # if both options are supported, the setup
@@ -115,11 +116,13 @@ install_net_snmpd                  = 4       # 4, 5
 install_rrdutil                    = 1
 install_ezmlm                      = 5.1.0   # 0, ver, port
 install_ezmlm_cgi                  = 0
+install_ezmlm_mysql                = 0
 install_openssl                    = 1
 install_qmail_notify               = 0
 install_aspell                     = 0
 install_ispell                     = 1
 install_quota_tools                = 0
+install_roundcube                  = 0       # feature not available yet
 
 
 ######################################
@@ -153,6 +156,8 @@ filtering_spama_discard_score      = 12      # discard messages with a SA score 
 filtering_report_spam_spamassassin = 1
 filtering_report_spam_pyzor        = 0       # don't enable this with report_spamassassin
 filtering_debug                    = 1
+
+install_smtp-delay                 = 0       # feature not coded yet
 
 
 ######################################
@@ -203,12 +208,14 @@ vpopmail_learn_passwords           = 1
 vpopmail_default_domain            = 0
 vpopmail_roaming_users             = 1
 vpopmail_relay_clear_minutes       = 180
-vpopmail_mysql                     = 1
+vpopmail_mysql                     = 1         # disables all mysql options
 vpopmail_mysql_limits              = 0
 vpopmail_mysql_replication         = 0
 vpopmail_mysql_logging             = 0
 vpopmail_mysql_repl_master         = localhost
+vpopmail_mysql_repl_master_port    = 3306
 vpopmail_mysql_repl_slave          = localhost
+vpopmail_mysql_repl_slave_port     = 3306
 vpopmail_mysql_database            = vpopmail
 vpopmail_mysql_repl_user           = vpopmail
 vpopmail_mysql_repl_pass           = supersecretword

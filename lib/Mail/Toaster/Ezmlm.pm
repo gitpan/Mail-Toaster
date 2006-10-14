@@ -1,10 +1,8 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-
-
 #
-# $Id: Ezmlm.pm,v 4.12 2005/09/27 00:06:30 matt Exp $
+# $Id: Ezmlm.pm, matt Exp $
 #
 
 package Mail::Toaster::Ezmlm;
@@ -12,7 +10,7 @@ package Mail::Toaster::Ezmlm;
 #use Carp;
 use vars qw($VERSION $perl $utility);
 
-$VERSION = '5.00';
+$VERSION = '5.02';
 
 use lib "lib";
 
@@ -250,8 +248,8 @@ sub process_cgi {
     my $cgi = CGI->new;
 
     # get settings from HTML form submission
-    my $domain   = param('domain');
-    my $password = param('password');
+    my $domain   = param('domain')   || '';
+    my $password = param('password') || '';
     my $list_sel = param('list');
     my $action   = param('action');
 
@@ -264,7 +262,7 @@ sub process_cgi {
     $template->param( logo => $self->logo(conf=>$conf) );
     $template->param( head => 'Ezmlm Mailing List Import Tool' );
     $template->param(
-        domain => '<input name="domain"   type="text" value="' . $domain
+        domain => '<input name="domain" type="text" value="' . $domain
           . '" size="20">' );
     $template->param(
             password => '<input name="password" type="password" value="'
@@ -528,6 +526,10 @@ sub subs_list {
 1;
 __END__
 
+# =head1 ACKNOWLEDGEMENTS
+#
+# Funded by Sam Mayes (sam.mayes@sudhian.com) and donated to the toaster community
+# I'll add this back in if Sam ever pays up.
 
 =head1 NAME
 
@@ -545,6 +547,8 @@ Mail::Toaster::Ezmlm
 
 
 =head1 DESCRIPTION
+
+Ezmlm.cgi is a command line and CGI application that allows a domain administrator (ie, postmaster@example.com) to add, remove, and list batches of email addresses. You can use this utility to subscribe lists of email addresses, delete a list of addresses, or simply retrieve a list of subscribers. 
 
 
 =head1 DEPENDENCIES
@@ -638,10 +642,6 @@ Print out a list of subscribers to an Ezmlm mailing list.
 =head1 AUTHOR
 
 Matt Simerson (matt@tnpi.net)
-
-=head1 ACKNOWLEDGEMENTS
-
-Funded by Sam Mayes (sam.mayes@sudhian.com) and donated to the toaster community
 
 
 =head1 BUGS

@@ -3,13 +3,13 @@ use strict;
 use warnings;
 
 #
-# $Id: Setup.pm,v 4.69 2006/07/07 02:57:55 matt Exp $
+# $Id: Setup.pm, matt Exp $
 #
 
 package Mail::Toaster::Setup;
 
 use vars qw($VERSION $freebsd $darwin $err);
-$VERSION = '5.01';
+$VERSION = '5.02';
 
 use Carp;
 use Config;
@@ -32,8 +32,6 @@ elsif ( $OSNAME eq "darwin" ) {
     require Mail::Toaster::Darwin;
     $darwin = Mail::Toaster::Darwin->new;
 }
-
-1;
 
 sub new {
     my $class = shift;
@@ -117,8 +115,8 @@ sub apache {
     $apache->startup( conf=>$conf, debug=>$debug );
 }
 
-# makes a couple changes necessary for Apache to start while running in a jail
 sub apache_conf_fixup {
+# makes a couple changes necessary for Apache to start while running in a jail
 
     my $self  = shift;
     my $conf  = $self->{'conf'};
@@ -362,8 +360,8 @@ sub clamav {
     $self->clamav_start (  debug=>$debug );
 }
 
-# fix up the permissions of several clamav directories and files
 sub clamav_perms {
+# fix up the permissions of several clamav directories and files
 
     my $self  = shift;
     my $conf  = $self->{'conf'};
@@ -400,8 +398,8 @@ sub clamav_perms {
     }
 }
 
-# create a FreeBSD rc.d startup file
 sub clamav_run {
+# create a FreeBSD rc.d startup file
 
     my $self = shift;
     my $debug = $self->{'debug'};
@@ -462,8 +460,8 @@ EO_CLAM_RUN
     }
 }
 
-# get ClamAV running
 sub clamav_start {
+    # get ClamAV running
 
     my $self  = shift;
     my $conf  = $self->{'conf'};
@@ -607,7 +605,7 @@ sub config {
         warn "found: $file \n" if $debug;
     };
 
-    # refresh our $conf 
+    # refresh our $conf  (required for setup -s all) 
     $conf = $utility->parse_config(
         file  => $tw_conf,
         debug => $debug,
@@ -681,8 +679,8 @@ sub config {
             || $conf->{'vpopmail_mysql_repl_pass'} eq "supersecretword" )
         {
             $conf->{'vpopmail_mysql_repl_pass'} =
-              $utility->answer( question =>
-"Vpopmail needs access to a MySQL database. That connection should be password protected with a secure password. You MUST enter a non-default password here! Please choose a secure password now"
+              $utility->answer( question => "the password for securing vpopmails "
+                    . "database connection. You MUST enter a password here!",
               );
         }
         $utility->_formatted(
@@ -696,9 +694,12 @@ sub config {
 
     # country
     if ( $conf->{'ssl_country'} eq "SU" ) {
+        print "             SSL certificate defaults\n";
         $conf->{'ssl_country'} =
-          uc(
-            $utility->answer( q => "your 2 digit country code (for SSL cert)" )
+          uc(   $utility->answer( 
+                    question => "your 2 digit country code (US)",
+                    default  => "US",
+                )
           );
     }
     $utility->_formatted( "config: ssl_country",
@@ -707,7 +708,7 @@ sub config {
     # state
     if ( $conf->{'ssl_state'} eq "saxeT" ) {
         $conf->{'ssl_state'} =
-          $utility->answer( question => "your state name (non abbreviated)" );
+          $utility->answer( question => "the name (non abbreviated) of your state" );
     }
     $utility->_formatted( "config: ssl_state",
         "ok (" . $conf->{'ssl_state'} . ")" ) if $debug;
@@ -715,7 +716,7 @@ sub config {
     # locality (city)
     if ( $conf->{'ssl_locality'} eq "dnalraG" ) {
         $conf->{'ssl_locality'} =
-          $utility->answer( q => "your city (locality) name" );
+          $utility->answer( q => "the name of your locality/city" );
     }
     $utility->_formatted( "config: ssl_locality",
         "ok (" . $conf->{'ssl_locality'} . ")" ) if $debug;
@@ -723,7 +724,7 @@ sub config {
     # organization
     if ( $conf->{'ssl_organization'} eq "moc.elpmaxE" ) {
         $conf->{'ssl_organization'} =
-          $utility->answer( q => "your organization name" );
+          $utility->answer( q => "the name of your organization" );
     }
     $utility->_formatted( "config: ssl_organization",
         "ok (" . $conf->{'ssl_organization'} . ")" )
@@ -786,7 +787,7 @@ sub config {
             existing => $file,
             mode     => '0640',
             clean    => 1,
-            notify   => 1,
+            notify   => -e $file ? 1 : 0,
             debug    => 0,
             fatal    => $fatal,
     );
@@ -2352,10 +2353,9 @@ sub ezmlm {
         $self->ezmlm_makefile_fixup( );
 
         my $defs = "";
-        $defs .= "WITH_MYSQL=yes" if ( $conf->{'install_mysql'} );
+        $defs .= "WITH_MYSQL=yes" if ( $conf->{'install_ezmlm_mysql'} );
 
-        if (
-            $freebsd->port_install(
+        if ( $freebsd->port_install(
                 port  => "ezmlm-idx",
                 base  => "mail",
                 flags => $defs,
@@ -2556,7 +2556,7 @@ sub ezmlm_makefile_fixup {
     my $file = "/usr/ports/mail/ezmlm-idx/Makefile";
 
     # fix a problem in the ports Makefile (no longer necessary as of 7/21/06)
-    my $mysql = $conf->{'install_mysql'};
+    my $mysql = $conf->{'install_ezmlm_mysql'};
 
     return 1 if ( $mysql == 323 || $mysql == 3 );
     return 1 if ( ! `grep mysql323 $file`);
@@ -3908,7 +3908,9 @@ sub mysql {
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    unless ( $conf->{'install_mysql'} ) {
+    my $version = $conf->{'install_mysql'};
+
+    if ( ! $version ) {
         $utility->_formatted( "mysql: install not selected!",
             "skipping (disabled)" )
           if $debug;
@@ -3919,7 +3921,7 @@ sub mysql {
     my $mysql = Mail::Toaster::Mysql->new();
     $mysql->install(
         conf  => $conf,
-        ver   => $conf->{'install_mysql'},
+        ver   => $version,
         debug => $debug,
     );
 }
@@ -4399,7 +4401,7 @@ sub phpmyadmin {
 
     require Mail::Toaster::Mysql;
     my $mysql = Mail::Toaster::Mysql->new();
-    $mysql->phpmyadmin_install();
+    $mysql->phpmyadmin_install($conf);
 }
 
 sub ports {
@@ -5775,7 +5777,7 @@ The latter should only be done by those quite familiar with SNMP, and then you s
     }
     else {
         $utility->_formatted( "rrdutil_test: checking rrdutil.conf", "FAILED" );
-"\nWhere's your rrdutil.conf file? It should be in /usr/local/etc. You can install one by running 'make newconf' in the RRDutil source directory.\n";
+        print "\nWhere's your rrdutil.conf file? It should be in /usr/local/etc. You can install one by running 'make newconf' in the RRD util source directory.\n";
     }
 }
 
@@ -8135,20 +8137,30 @@ sub vpopmail {
         return;
     }
 
-    my ( $ans, $ddom, $ddb, $cflags, $my_write, $conf_args, $mysql );
+    my ( $ans, $ddom, $ddb, $cflags, $my_write, $conf_args );
 
     my $version = $conf->{'install_vpopmail'} || "5.4.13";
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    if ( $OSNAME eq "freebsd"
-        && !$freebsd->is_port_installed( port => "vpopmail", debug=>$debug ) )
+    if ( $OSNAME eq "freebsd" ) 
     {
-        # we install the port version regardless of whether it is selected.
-        # This is because later apps (like courier) that we want to install
-        # from ports require it to be registered in the ports db
+        if ( !$freebsd->is_port_installed( port => "vpopmail", debug=>$debug ) ) 
+        {
+            # we install the port version regardless of whether it is selected.
+            # This is because later apps (like courier) that we want to install
+            # from ports require it to be registered in the ports db
 
-        $self->vpopmail_install_freebsd_port();
+            $self->vpopmail_install_freebsd_port();
+        };
+
+        my $installed = $freebsd->is_port_installed( port=>"vpopmail", debug=>$debug);
+        if ( $installed) 
+        {
+             $utility->_formatted("install vpopmail ($version)", "ok ($installed)");
+        };
+
+        return 1 if $version eq "port";
     };
 
     my $package = "vpopmail-$version";
@@ -8164,7 +8176,7 @@ sub vpopmail {
     my $gid = getgrnam($vpgroup);
 
     # check installed version
-    if ( ! -x "$vpopdir/bin/vpasswd" ) {
+    if ( !-x "$vpopdir/bin/vpasswd" ) {
         print "vpopmail is not installed yet.\n";
     }
     else {
@@ -8187,22 +8199,8 @@ sub vpopmail {
         }
     }
 
-
-    # install vpopmail from sources
-    if ( !defined $conf->{'vpopmail_mysql'} || $conf->{'vpopmail_mysql'} == 0 )
-    {
-        print "authentication module: cdb\n";
-    }
-    else {
-        $mysql = 1;
-
-        if ( $self->is_newer( min => "5.3.30", cur => $version ) ) {
-            $conf_args = "--enable-auth-module=mysql ";
-        }
-        else { $conf_args = "--enable-mysql=y "; }
-
-        print "authentication module: mysql\n";
-    }
+    my $mysql = $self->vpopmail_use_mysql($version);
+    $conf_args = $mysql if $mysql;
 
     if ( !defined $conf->{'vpopmail_rebuild_tcpserver_file'}
         || $conf->{'vpopmail_rebuild_tcpserver_file'} == 1 )
@@ -8227,29 +8225,9 @@ sub vpopmail {
         }
     }
 
-    if ( !defined $conf->{'vpopmail_roaming_users'} ) {
-        print "roaming users: yes\n";
-        $conf_args .= " --enable-roaming-users=y";
-    }
-    else {
-        if ( !$conf->{'vpopmail_roaming_users'} ) {
-            print "roaming users: no\n";
-            $conf_args .= " --enable-roaming-users=n";
-        }
-        else {
-            print "roaming users: yes\n";
-            $conf_args .= " --enable-roaming-users=y";
+    $conf_args .= $self->vpopmail_roaming_users();
 
-            my $min = $conf->{'vpopmail_relay_clear_minutes'};
-            if ( $min && $min ne 180 ) {
-                $conf_args .= " --enable-relay-clear-minutes=$min";
-                print "roaming user minutes: $min\n";
-            }
-        }
-    }
-
-    if (   $OSNAME eq "darwin"
-        && !-d "/usr/local/mysql"
+    if ( $OSNAME eq "darwin" && !-d "/usr/local/mysql"
         && -d "/opt/local/include/mysql" )
     {
         $conf_args .= " --enable-incdir=/opt/local/include/mysql";
@@ -8274,164 +8252,30 @@ sub vpopmail {
     );
 
     if ( -d $package ) {
-        if (
-            !$utility->source_warning(
+        if ( !$utility->source_warning(
                 package => $package,
-                src     => "$src/mail"
-            )
-          )
+                src     => "$src/mail",
+            ) )
         {
             carp "vpopmail: OK then, skipping install.\n";
-            return 0;
+            return;
         }
     }
 
-    unless ( $utility->archive_expand( archive => $tarball, debug => $debug ) )
+    if ( !$utility->archive_expand( archive => $tarball, debug => $debug ) )
     {
         croak "Couldn't expand $tarball!\n";
     }
 
-    unless ( defined $conf->{'vpopmail_learn_passwords'}
-        && $conf->{'vpopmail_learn_passwords'} == 0 )
-    {
-        $conf_args = $conf_args . " --enable-learn-passwords=y";
-        print "learning passwords yes\n";
-    }
-    else {
-        if (
-            $utility->yes_or_no(
-                question => "Do you want password learning? (y) "
-            )
-          )
-        {
-            $conf_args = $conf_args . " --enable-learn-passwords=y";
-            print "password learning: yes\n";
-        }
-        else {
-            print "password learning: no\n";
-        }
-    }
-
-    unless ( defined $conf->{'vpopmail_logging'} ) {
-        if (
-            $utility->yes_or_no(
-                question => "Do you want logging enabled? (y) "
-            )
-          )
-        {
-            if (
-                $utility->yes_or_no(
-                    question => "Do you want verbose logging? (y) "
-                )
-              )
-            {
-                $conf_args = $conf_args . " --enable-logging=v";
-                print "logging: verbose\n";
-            }
-            else {
-                $conf_args = $conf_args . " --enable-logging=p";
-                print "logging: verbose with failed passwords\n";
-            }
-        }
-        else {
-            $conf_args .= " --enable-logging=p";
-        }
-    }
-    else {
-        if ( $conf->{'vpopmail_logging'} == 1 ) {
-            if ( $conf->{'vpopmail_logging_verbose'} == 1 ) {
-                $conf_args .= " --enable-logging=v";
-                print "logging: verbose with failed passwords\n";
-            }
-            else {
-                $conf_args .= " --enable-logging=y";
-                print "logging: everything\n";
-            }
-        }
-    }
-
-    unless ( defined $conf->{'vpopmail_default_domain'} ) {
-        if (
-            $utility->yes_or_no(
-                question => "Do you want to use a default domain? "
-            )
-          )
-        {
-            $ddom = $utility->answer( q => "your default domain" );
-
-            my @lines;
-            if ( $self->is_newer( min => "5.3.22", cur => $version ) ) {
-                $utility->file_write(
-                    file  => "$vpopdir/etc/defaultdomain",
-                    lines => [$ddom],
-                    debug => $debug,
-                );
-                chown( $uid, $gid, "$vpopdir/etc/defaultdomain" )
-                  or carp
-                  "Couldn't chown $vpopdir/etc/defaultdomain to $uid: $!\n";
-            }
-            else {
-                $conf_args .= " --enable-default-domain=$ddom";
-            }
-            print "default domain: $ddom\n";
-        }
-    }
-    else {
-        if ( $conf->{'vpopmail_default_domain'} ne 0 ) {
-            if ( $self->is_newer( min => "5.3.22", cur => $version ) ) {
-                $utility->file_write(
-                    file  => "$vpopdir/etc/defaultdomain",
-                    lines => [ $conf->{'vpopmail_default_domain'} ],
-                    debug => $debug,
-                );
-                chown( $uid, $gid, "$vpopdir/etc/defaultdomain" )
-                  or carp
-                  "Couldn't chown $vpopdir/etc/defaultdomain to $uid: $!\n";
-            }
-            else {
-                $conf_args .=
-                  " --enable-default-domain=$conf->{'vpopmail_default_domain'}";
-            }
-            print "default domain: $conf->{'vpopmail_default_domain'}\n";
-        }
-        else {
-            print "default domain: NONE SELECTED.\n";
-        }
-    }
-
-    unless ( defined $conf->{'vpopmail_etc_passwd'} ) {
-        print "\t\t CAUTION!!  CAUTION!!
-
-		The system users account is NOT compatible with qmail-smtpd-chkusr.
-		If you selected that option in the qmail build, you should not answer
-		yes here. If you are unsure, select (n).\n";
-
-        if (
-            $utility->yes_or_no(
-                question => "Do system users (/etc/passwd) get mail? (n) "
-            )
-          )
-        {
-            $conf_args .= " --enable-passwd";
-            print "system password accounts: yes\n";
-        }
-    }
-    else {
-        if ( $conf->{'vpopmail_etc_passwd'} ) {
-            $conf_args .= " --enable-passwd";
-            print "system password accounts: yes\n";
-        }
-        else {
-            print "system password accounts: no\n";
-        }
-    }
+    $conf_args .= $self->vpopmail_learn_passwords();
+    $conf_args .= $self->vpopmail_logging();
+    $conf_args .= $self->vpopmail_default_domain($version);
+    $conf_args .= $self->vpopmail_etc_passwd();
 
     unless ( defined $conf->{'vpopmail_valias'} ) {
-        if (
-            $utility->yes_or_no(
+        if ( $utility->yes_or_no(
                 question => "Do you use valias processing? (n) "
-            )
-          )
+            ))
         {
             $conf_args .= " --enable-valias=y";
             print "valias processing: yes\n";
@@ -8445,11 +8289,9 @@ sub vpopmail {
     }
 
     unless ( defined $conf->{'vpopmail_mysql_logging'} ) {
-        if (
-            $utility->yes_or_no(
+        if ( $utility->yes_or_no(
                 question => "Do you want mysql logging? (n) "
-            )
-          )
+            ))
         {
             $conf_args .= " --enable-mysql-logging=y";
             print "mysql logging: yes\n";
@@ -8480,102 +8322,12 @@ sub vpopmail {
         }
     }
 
-    if ($mysql) {
-        my ( $mysql_repl, $my_read, $my_user, $my_pass );
-
-        unless ( defined $conf->{'vpopmail_mysql_limits'} ) {
-            print
-"Qmailadmin supports limits via a .qmailadmin-limits file. It can\n";
-            print "also get these limits from a MySQL table. ";
-
-            if (
-                $utility->yes_or_no(
-                    question => "Do you want mysql limits? (n) "
-                )
-              )
-            {
-                $conf_args .= " --enable-mysql-limits=y";
-                print "mysql qmailadmin limits: yes\n";
-            }
-        }
-        else {
-            if ( $conf->{'vpopmail_mysql_limits'} ) {
-                $conf_args .= " --enable-mysql-limits=y";
-                print "mysql qmailadmin limits: yes\n";
-            }
-        }
-
-        if ( defined $conf->{'vpopmail_mysql_replication'} ) {
-            if ( $conf->{'vpopmail_mysql_replication'} ) {
-                $conf_args .= " --enable-mysql-replication=y";
-                $mysql_repl = 1;
-                $my_write   = $conf->{'vpopmail_mysql_repl_master'};
-                print "mysql replication: yes\n";
-                print
-"mysql replication master: $conf->{'vpopmail_mysql_repl_master'}\n";
-            }
-            else {
-                $mysql_repl = 0;
-                print "mysql server: $conf->{'vpopmail_mysql_repl_slave'}\n";
-            }
-            $my_read = $conf->{'vpopmail_mysql_repl_slave'};
-            $my_user = $conf->{'vpopmail_mysql_repl_user'};
-            $my_pass = $conf->{'vpopmail_mysql_repl_pass'};
-        }
-        else {
-            $mysql_repl =
-              $utility->yes_or_no(
-                question => "Do you want mysql replication enabled? (n) " );
-            if ($mysql_repl) {
-                $conf_args .= " --enable-mysql-replication=y";
-                if ($ddom) { $ddb = "db.$ddom"; }
-                else { $ddb = "db"; }
-                $my_write = $utility->answer(
-                    q       => "your MySQL master servers hostname",
-                    default => $ddb
-                );
-                $my_read = $utility->answer(
-                    q       => "your MySQL read server hostname",
-                    default => "localhost"
-                );
-                $my_user = $utility->answer(
-                    q       => "your MySQL user name",
-                    default => "vpopmail"
-                );
-                $my_pass = $utility->answer( q => "your MySQL password" );
-            }
-        }
-
-        if ( $conf->{'vpopmail_disable_many_domains'} ) {
-            $conf_args .= " --disable-many-domains";
-        }
-
-        chdir($package);
-        vpopmail_vmysql_h( $conf, $mysql_repl, $my_write, $my_read, $my_user,
-            $my_pass );
-    }
-
-    if ( !defined $conf->{'vpopmail_domain_quotas'} ) {
-        if (
-            $utility->yes_or_no(
-                question => "Do you want vpopmail's domain quotas? (n) "
-            )
-          )
-        {
-            $conf_args .= " --enable-domainquotas=y";
-        }
-    }
-    else {
-        if ( $conf->{'vpopmail_domain_quotas'} ) {
-            $conf_args .= " --enable-domainquotas=y";
-            print "domain quotas: yes\n";
-        }
-        else {
-            print "domain quotas: no\n";
-        }
-    }
-
     chdir($package);
+
+    $conf_args .= $self->vpopmail_mysql_options() if $mysql; 
+    $conf_args .= $self->vpopmail_domain_quotas();
+
+#    chdir($package);
     print "running configure with $conf_args\n\n";
 
     $utility->syscmd( command => "./configure $conf_args", debug => 0 );
@@ -8606,6 +8358,86 @@ sub vpopmail {
     print "vpopmail: complete.\n";
     return 1;
 }
+
+sub vpopmail_default_domain {
+    my $self = shift;
+    my $version = shift;
+
+    my $conf = $self->{'conf'};
+
+    my $default_domain;
+
+    if ( defined $conf->{'vpopmail_default_domain'} ) 
+    {
+        $default_domain = $conf->{'vpopmail_default_domain'};
+    } 
+    else {
+        if ( ! $utility->yes_or_no(
+                question => "Do you want to use a default domain? ", 
+            ) )
+        {
+            print "default domain: NONE SELECTED.\n";
+            return q{};
+        };
+
+        $default_domain = $utility->answer(q=>"your default domain");
+    };
+
+    if ( ! $default_domain ) 
+    {
+        print "default domain: NONE SELECTED.\n";
+        return q{};
+    };
+
+    if ( $self->is_newer( min => "5.3.22", cur => $version ) ) {
+        my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
+        $utility->file_write(
+            file  => "$vpopdir/etc/defaultdomain",
+            lines => [ $default_domain ],
+            debug => 0,
+        );
+
+        $utility->file_chown(
+            file => "$vpopdir/etc/defaultdomain",
+            uid  => $conf->{'vpopmail_user'}  || "vpopmail",
+            gid  => $conf->{'vpopmail_group'} || "vchkpw",
+            debug => 0,
+        );
+
+        return q{};
+    }
+
+    print "default domain: $default_domain\n";
+    return " --enable-default-domain=$default_domain";
+};
+
+sub vpopmail_domain_quotas {
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    # do not ever do this, regardless of what the user selects!
+    # domain quotas are badly broken in vpopmail.
+
+    if ( defined $conf->{'vpopmail_domain_quotas'} ) {
+        if ( $conf->{'vpopmail_domain_quotas'} ) {
+            print "domain quotas: no (OVERRIDDEN!)\n";
+            return q{};
+            #return " --enable-domainquotas=y";
+        }
+        print "domain quotas: no\n";
+        return q{};
+    };
+
+    if ( $utility->yes_or_no(
+            question => "Do you want vpopmail's domain quotas? (n) "
+        ))
+    {
+        print "domain quotas: no (OVERRIDDEN!)\n";
+        return q{};
+        #return " --enable-domainquotas=y";
+    }
+    return q{};
+};
 
 sub vpopmail_etc {
 
@@ -8646,6 +8478,36 @@ sub vpopmail_etc {
         $utility->syscmd( command => "$qmail_control cdb", debug => 0 );
     }
 }
+
+sub vpopmail_etc_passwd {
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    unless ( defined $conf->{'vpopmail_etc_passwd'} ) {
+        print "\t\t CAUTION!!  CAUTION!!
+
+    The system user account feature is NOT compatible with qmail-smtpd-chkusr.
+    If you selected that option in the qmail build, you should not answer
+    yes here. If you are unsure, select (n).\n";
+
+        if (
+            $utility->yes_or_no(
+                question => "Do system users (/etc/passwd) get mail? (n) "
+            )
+          )
+        {
+            print "system password accounts: yes\n";
+            return " --enable-passwd";
+        }
+    }
+
+    if ( $conf->{'vpopmail_etc_passwd'} ) {
+        print "system password accounts: yes\n";
+        return " --enable-passwd";
+    }
+
+    print "system password accounts: no\n";
+};
 
 sub vpopmail_install_freebsd_port {
 
@@ -8756,7 +8618,7 @@ sub vpopmail_install_default_tcp_smtp {
 
     my $qdir = $conf->{'qmail_dir'};
 
-    my @lines = <<'EO_TCP_SMTP';
+    my @lines = <<"EO_TCP_SMTP";
 # RELAYCLIENT="" means IP can relay
 # RBLSMTPD=""    means DNSBLs are ignored for this IP
 # QMAILQUEUE=""  is the qmail queue process, defaults to $qdir/bin/qmail-queue
@@ -8798,7 +8660,7 @@ relay through this host, enter their IP/netblocks here as well.\n\n"
     }
 
     #no Smart::Comments;
-    push @lines, <<'EO_QMAIL_SCANNER';
+    push @lines, <<"EO_QMAIL_SCANNER";
 ### BEGIN QMAIL SCANNER VIRUS ENTRIES ###
 ### END QMAIL SCANNER VIRUS ENTRIES ###
 #
@@ -8815,6 +8677,96 @@ EO_QMAIL_SCANNER
 
     $utility->file_write( file => "$etc_dir/tcp.smtp", lines => \@lines );
 }
+
+sub vpopmail_learn_passwords {
+
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    # if set, then we're done
+    if ( defined $conf->{'vpopmail_learn_passwords'}
+        && $conf->{'vpopmail_learn_passwords'} )
+    {
+        print "learning passwords yes\n";
+        return " --enable-learn-passwords=y";
+    }
+
+    if ( $utility->yes_or_no(
+            question => "Do you want password learning? (y) "
+        ))
+    {
+        print "password learning: yes\n";
+        return " --enable-learn-passwords=y";
+    }
+    print "password learning: no\n";
+    return " --enable-learn-passwords=n";
+}
+
+sub vpopmail_logging {
+
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    if ( defined $conf->{'vpopmail_logging'} ) 
+    {
+        if ( $conf->{'vpopmail_logging'} ) 
+        {
+            if ( $conf->{'vpopmail_logging_verbose'} ) 
+            {
+                print "logging: verbose with failed passwords\n";
+                return " --enable-logging=v";
+            }
+
+            print "logging: everything\n";
+            return " --enable-logging=y";
+        }
+    }
+
+    if ( ! $utility->yes_or_no(
+            question => "Do you want logging enabled? (y) "
+        ))
+    {
+        return " --enable-logging=p";
+    };
+
+    if ( $utility->yes_or_no(
+            question => "Do you want verbose logging? (y) "
+        ))
+    {
+        print "logging: verbose\n";
+        return " --enable-logging=v";
+    }
+
+    print "logging: verbose with failed passwords\n";
+    return " --enable-logging=p";
+};
+
+sub vpopmail_roaming_users {
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    my $roaming = $conf->{'vpopmail_roaming_users'};
+
+    if ( defined $roaming && !$roaming ) {
+        print "roaming users: no\n";
+        return " --enable-roaming-users=n";
+    }
+
+    # default to enabled
+    if ( !defined $conf->{'vpopmail_roaming_users'} ) {
+        print "roaming users: value not set?!\n";
+    }
+
+    print "roaming users: yes\n";
+
+    my $min = $conf->{'vpopmail_relay_clear_minutes'};
+    if ( $min && $min ne 180 ) {
+        print "roaming user minutes: $min\n";
+        return " --enable-roaming-users=y" .
+            " --enable-relay-clear-minutes=$min";
+    };
+    return " --enable-roaming-users=y";
+};
 
 sub vpopmail_test {
 
@@ -8941,9 +8893,34 @@ sub vpopmail_user {
     return 1;
 }
 
+sub vpopmail_use_mysql {
+    my $self    = shift;
+    my $version = shift;
+    my $conf = $self->{'conf'};
+
+    # install vpopmail from sources
+    if ( !defined $conf->{'vpopmail_mysql'} || $conf->{'vpopmail_mysql'} == 0 )
+    {
+        print "authentication module: cdb\n";
+        return 0;
+    };
+
+    print "authentication module: mysql\n";
+
+    return $self->is_newer( min => "5.3.30", cur => $version ) 
+        ? "--enable-auth-module=mysql "
+        : "--enable-mysql=y "; 
+};
+
 sub vpopmail_vmysql_h {
 
-    my ( $conf, $mysql_repl, $my_write, $my_read, $my_user, $my_pass, $debug ) = @_;
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    my ( $mysql_repl, 
+        $my_write, $my_write_port,
+        $my_read,  $my_read_port,
+        $my_user, $my_pass, $debug ) = @_;
 
     my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
 
@@ -8981,10 +8958,10 @@ sub vpopmail_vmysql_h {
 
     @lines = "$my_read|0|$my_user|$my_pass|vpopmail";
     if ($mysql_repl) {
-        push @lines, "$my_write|0|$my_user|$my_pass|vpopmail";
+        push @lines, "$my_write|$my_write_port|$my_user|$my_pass|vpopmail";
     }
     else {
-        push @lines, "$my_read|0|$my_user|$my_pass|vpopmail";
+        push @lines, "$my_read|$my_read_port|$my_user|$my_pass|vpopmail";
     }
 
     $utility->file_write(
@@ -8992,6 +8969,89 @@ sub vpopmail_vmysql_h {
         lines => \@lines, 
         debug => $debug,
     );
+}
+
+sub vpopmail_mysql_options {
+
+    my $self = shift;
+    my $conf = $self->{'conf'};
+
+    my ( $mysql_repl, $my_write, $my_write_port, $my_read, $my_read_port,
+         $my_user, $my_pass );
+
+    my $opts;
+
+    unless ( defined $conf->{'vpopmail_mysql_limits'} ) {
+        print "Qmailadmin supports limits via a .qmailadmin-limits " .
+            "file. It can also get these limits from a MySQL table. ";
+
+        if ( $utility->yes_or_no(
+                question => "Do you want mysql limits? (n) "
+            ))
+        {
+            print "mysql qmailadmin limits: yes\n";
+            $opts .= " --enable-mysql-limits=y";
+        }
+    }
+    else {
+        if ( $conf->{'vpopmail_mysql_limits'} ) {
+            print "mysql qmailadmin limits: yes\n";
+            $opts .= " --enable-mysql-limits=y";
+        }
+    }
+
+    if ( defined $conf->{'vpopmail_mysql_replication'} ) {
+
+        $my_read_port = $conf->{'vpopmail_mysql_repl_slave_port'};
+        $my_read = $conf->{'vpopmail_mysql_repl_slave'};
+        $my_user = $conf->{'vpopmail_mysql_repl_user'};
+        $my_pass = $conf->{'vpopmail_mysql_repl_pass'};
+
+        if ( $conf->{'vpopmail_mysql_replication'} ) {
+            $opts .= " --enable-mysql-replication=y";
+            $mysql_repl++;
+            $my_write  = $conf->{'vpopmail_mysql_repl_master'};
+            $my_write_port = $conf->{'vpopmail_mysql_repl_master_port'} || "3306";
+            print "mysql replication: yes\n";
+            print "      replication master: $my_write\n";
+        }
+        else {
+            $mysql_repl = 0;
+            print "mysql server: $my_read\n";
+        }
+    }
+    else {
+        $mysql_repl = $utility->yes_or_no(
+            question => "Do you want mysql replication enabled? (n) " );
+
+        if ($mysql_repl) {
+            $opts .= " --enable-mysql-replication=y";
+            $my_write = $utility->answer(
+                q       => "your MySQL master servers hostname" );
+            $my_read = $utility->answer(
+                q       => "your MySQL read server hostname",
+                default => "localhost"
+            );
+            $my_user = $utility->answer(
+                q       => "your MySQL user name",
+                default => "vpopmail"
+            );
+            $my_pass = $utility->answer( q => "your MySQL password" );
+        }
+    }
+
+    if ( $conf->{'vpopmail_disable_many_domains'} ) {
+        $opts .= " --disable-many-domains";
+    }
+
+    $self->vpopmail_vmysql_h( 
+        $mysql_repl, 
+        $my_write, $my_write_port, 
+        $my_read, $my_read_port, 
+        $my_user, $my_pass,
+    );
+
+    return $opts;
 }
 
 sub vpopmail_mysql_privs {
@@ -9169,10 +9229,14 @@ You are currently in " . Cwd::cwd;
     my @lines = $utility->file_read(file=>"cgi_files/mt-script.js");
     foreach my $line ( @lines ) {
         if ( $line =~ /\Avar mailhost / ) {
-            $line = qq{var mailhost = 'https://$hostname/'};
+            $line = qq{var mailhost = 'https://$hostname'};
         };
     }
-    $utility->file_write(file=>"cgi_files/mt-script.js", lines=>\@lines, debug=>$debug);
+    $utility->file_write(
+        file  => "cgi_files/mt-script.js", 
+        lines => \@lines, 
+        debug => $debug,
+    );
 
     my $htdocs = $conf->{'toaster_http_docs'};
     my $rsync = $utility->find_the_bin(bin=>"rsync",fatal=>0,debug=>0);

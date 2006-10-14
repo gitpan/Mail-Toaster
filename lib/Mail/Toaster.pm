@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 #
-# $Id: Toaster.pm,v 4.22 2006/03/18 03:32:53 matt Exp $
+# $Id: Toaster.pm, matt Exp $
 #
 
 package Mail::Toaster;
@@ -12,8 +12,9 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $INJECT);
-$VERSION = '5.01';
+$VERSION = '5.02';
 
+use lib "inc";
 use lib "lib";
 use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
@@ -1203,10 +1204,10 @@ sub get_toaster_cgibin {
     }
     
     # all else has failed, we must try to predict
-    return $OSNAME eq "freebsd" ? "/usr/local/www/cgi-bin"
-         : $OSNAME eq "linux"   ? "/var/www/cgi-bin"
-         : $OSNAME eq "darwin"  ? "/Library/WebServer/CGI-Executables"
-         : 0
+    return $OSNAME eq "linux"  ? "/var/www/cgi-bin"
+         : $OSNAME eq "darwin" ? "/Library/WebServer/CGI-Executables"
+         : $OSNAME eq "netbsd" ? "/var/apache/cgi-bin"
+         : "/usr/local/www/cgi-bin"   # last resort
          ;
 
 }
