@@ -1,48 +1,244 @@
-5.01 - 2006.09.22
-	¥	commented out v-webmail, roundcube, vqadmin, and ezmlm menu options. Those items are not installed by Mail::Toaster (yet).
-	¥	added help->vpopmail option to web interface
-	¥	added setup -s allspam option (enabled mail filtering for all users)
-	¥	added code in -s all target to refresh the $conf hashref after -s config target is run
-	¥	default ports update mechanism is now portsnap
-	¥	removed dependency on Net::DNS (using dig)
-	¥	moved $conf into the Setup.pm object. Significantly reduced the amount of passing $conf around from sub to sub.
-	¥	added options and explicit port install options for gnupg and Archive::Tar to surpress dialog boxes.
-	¥	timer was not working in yes_or_no due to typo in param validation block
-	¥	disabled ezmlm and vqadmin in webmail. Activate them by removing the comments in mt-top.html
-	¥	default cvsup_supfile_sources settings is now cvsup-sources (was cvsup-stable)
-	¥	tweaks so "make test" runs with fewer warnings
-	¥	toaster_setup -s sources now auto-builds cvsup-sources if missing. The location for it is /usr/local/etc now.
+Mail Toaster Changes
+  5.03rc1 - Oct 15, 2006
+    Packaging Updates
+        Moved Params::Validated into inc directory (prevent CPAN from
+        presumign I provide it), moved Changes back into doc/Changes.pod,
+        added include lib "inc" into all test files (forgot that with 5.02
+        release).
 
-5.00 - 2006.09.18
+        Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm,
+        Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm,
+        Perl.pm, and Toaster.pm.
 
-CODE QUALITY
-	¥	Parameter validation for nearly all subroutines using Params::Validate. Backwards compatability is now destroyed, but that should not affect anyone as all published software that uses these functions is included with the distribution. Params::Validate is included in MT distribution.
-	¥	Tests. Hundreds of new tests. In version 4, I added a plethora of tests, basically just making sure each sub and function would execute. Now most subs and functions have tests that verify inputs and results.
-	¥	Switched to Test::More for tests. Provides more and better options for writing tests, comparing results, and figuring out where the tests failed.
-	¥	Maillogs - a number of optimizations to make processing logs faster (shorter regexps, optimized ternaries to match common stuff first, removed POSIX requirement (lighten memory requirements), updated several of the counter functions to complain about unknown errors and values, more sanity checking in functions so they give up on errors instead of blithely charging ahead.
-	¥	instead of eval's strewn all over to test for certain modules, added $perl->has_module
-	¥	all objects are created with Class->new intead of new Class.
-	¥	all errors raise exceptions by default. This requires callers to take specific action to change.
-	¥	run tests early in subroutines, reduces giant if nests and makes it easier to read the code.
-MISC
-	¥	Added Build.PL for use with Module::Build fans.
-	¥	Greatly simplified Makefile.PL by moving "make cgi" and "make conf" logic into Setup.pm. Those functions are now accessed by toaster_setup targets.
-	¥	OpenSSL config files are now updated automatically. Auto-generated certs now have the accurate information in them. Courier-IMAP certs are also updated automatically.
-DOCUMENTATION
-	¥	Added three new test modules that test for: pod documentation for subs, pod formatting, and automatic checking of code to test for best practices.
-	¥	moved POD documentation from being strewn about the files to the end of each file.
-	¥	wrote and re-wrote significant portions of the documentation, as well as cleaned up formatting. Documentation is now easier to find as well.
-	¥	changed all tnpi.biz urls to tnpi.net
-	¥	shortened most tnpi.net urls to mail-toaster.org
-	¥	updated copyright notices to 2006
-	¥	moved usage() subs into pod docs and use pod2usage
-CODE FORMATTING & READABILITY
-	¥	Used perltidy to format most of the source code.
-	¥	Used perlcritic to identify and correct (almost) all instances where my code was not using best practices, as identified in Perl Best Practices.
-	¥	All subroutines now take named arguments, making it easier to read the code and understand what is being sent and returned.
-	¥	added "use English" pragma and replaced all the arcane $and $[ perl variables with their english name equivalents.
-WEB INTERFACE/CGI
-	¥	Completely new webmail/logon interface. Written entirely in HTML, CSS, and JavaScript.
-	¥	The format of toaster-watcher.conf is altered slightly. It is more consistent in the internal layout so that my programs can alter it reliably.
-	¥	removed httpd.conf patches in favor of installing a mail-toaster.conf file with all the requisite apache directives.
-	¥	Organized all the cgi related docs into cgi_files directory. They are now installed via the -s webmail target to toaster_setup.
+     toaster-watcher.conf
+       added install_roundcube option
+
+     Darwin.pm
+       updated $utility calls with MT 5 syntax updates
+       udpated test file to use Test::More
+
+     t/Utility.t
+        only attempt to chown_system if we are root, don't run get_my_ips on 
+        netbsd (until I figure out why it doesn't work
+
+     Changes
+       added file to distribution
+
+     bin/toaster_setup.pl
+       added RT URL to bug section for reporting
+
+     bin/sysadmin
+       updated for MT 5 syntax
+
+     Passwd.pm 
+        mt 5 syntax updates, add in warnings for failures
+
+     Qmail.pm
+       formatting cleanups, and added a few missing debug=>0 settings.
+
+     Provision.pm
+        mt 5 updates and rewrite. If values are missing and we are interactive,
+           prompt for the missing values.
+        pass debug and $conf variables in the $provision object (accomplish 
+           the same result with less code)
+
+     Utility.pm
+       answer sub now returns $default value (instead of 0) if not interactive
+       yes_or_no supports q shortcut for question argument
+
+  5.02 - 2006.10.11
+    toaster-watcher.conf
+        added options install_ezmlm_mysql, vpopmail_mysql_repl_master_port,
+        vpopmail_mysql_repl_slave_port
+
+    t/Toaster.pm
+        get_dir_files tests the file size to see if any domains are added
+        yet (more reliable test)
+
+    FreeBSD.pm
+         fixed a recursion bug in ports_update (portsnap)
+         install a default portsnap.conf if missing
+         FreeBSD version detection wasn't working
+
+    Apache.pm
+         added security options to mail-toaster.conf to harden Apache
+         added PHP AddType declarations
+         added directory block for phpmyadmin
+         only add phpmyadmin block if selected in toaster-watcher.conf
+
+    Setup.pm
+        ezmlm mysql support now depends on install_ezmlm_mysql setting
+        instead of install_mysql.
+
+        added support for vpopmail mysql database port number (thanks Erik!)
+
+        vpopmail_mysql_database setting is now honored.
+
+        busted huge vpopmail sub into a dozen smaller ones for easier
+        maintenance.
+
+        heredoc's used in creation of tcp.smtp used ' and needed "
+
+        logic for NO_SENDMAIL test was inverted causing it to be added to
+        /etc/make.conf more than once.
+
+  5.02b - 2006.09.28
+    index.cgi
+        defined debug (caused it to not work)
+
+    Apache.pm
+        test for toaster_apache_vhost
+
+        add alias for rrdutil, v-webmail, and roundcube to apache's vhost
+        config file(mail-toaster.conf)
+
+    Ezmlm.pm
+         define any missing cgi params to suppress errors messages
+         filled in pod description
+
+    FreeBSD.pm - detection of portsdb wasn't working
+        supress notification of new toaster-watcher.conf install if its
+        missing
+
+    Logs.pm - prettied up the yesterday report a little bit.
+         added checks to prevent warnings when logs are empty
+         log archiving was failing (invalid test)
+
+    Perl.pm
+         added pod doc for has_module
+
+    Setup.pm
+         phpmyadmin_install was not passing $conf 
+
+    Utility.pm
+        Fixed a bug in mailtoaster sub that prevented it from finding the
+        tw.conf file
+
+        added _progress_??? subs for providing status messages on the CLI
+
+        added pod documentation for several subs that had none
+
+  5.01 - 2006.09.22
+         added help->vpopmail option to web interface
+         added setup -s allspam option (enabled mail filtering for all users)
+         default ports update mechanism is now portsnap
+         removed dependency on Net::DNS (using dig)
+
+        commented out v-webmail, roundcube, vqadmin, and ezmlm menu options.
+        Those items are not installed by Mail::Toaster (yet).
+
+        added code in -s all target to refresh the $conf hashref after -s
+        config target is run
+
+        moved $conf into the Setup.pm object. Significantly reduced the
+        amount of passing $conf around from sub to sub.
+
+        added options and explicit port install options for gnupg and
+        Archive::Tar to surpress dialog boxes.
+
+        timer was not working in yes_or_no due to typo in param validation
+        block
+
+        disabled ezmlm and vqadmin in webmail. Activate them by removing the
+        comments in mt-top.html
+
+        default cvsup_supfile_sources settings is now cvsup-sources (was
+        cvsup-stable)
+
+        tweaks so "make test" runs with fewer warnings
+
+        toaster_setup -s sources now auto-builds cvsup-sources if missing.
+        The location for it is /usr/local/etc now.
+
+  5.00 - 2006.09.18
+    CODE QUALITY
+        * Parameter validation for nearly all subroutines using
+        Params::Validate. Backwards compatability is now destroyed, but that
+        should not affect anyone as all published software that uses these
+        functions is included with the distribution. Params::Validate is
+        included in MT distribution.
+
+        * Tests. Hundreds of new tests. In version 4, I added a plethora of
+        tests, basically just making sure each sub and function would
+        execute. Now most subs and functions have tests that verify inputs
+        and results.
+
+        * Switched to Test::More for tests. Provides more and better options
+        for writing tests, comparing results, and figuring out where the
+        tests failed.
+
+        * Maillogs - a number of optimizations to make processing logs
+        faster (shorter regexps, optimized ternaries to match common stuff
+        first, removed POSIX requirement (lighten memory requirements),
+        updated several of the counter functions to complain about unknown
+        errors and values, more sanity checking in functions so they give up
+        on errors instead of blithely charging ahead.
+
+        * instead of eval's strewn all over to test for certain modules,
+        added $perl->has_module
+
+        * all objects are created with Class->new intead of new Class.
+
+        * all errors raise exceptions by default. This requires callers to
+        take specific action to change.
+
+        * run tests early in subroutines, reduces giant if nests and makes
+        it easier to read the code.
+
+    MISC
+        * Added Build.PL for use with Module::Build fans.
+
+        * Greatly simplified Makefile.PL by moving "make cgi" and "make
+        conf" logic into Setup.pm. Those functions are now accessed by
+        toaster_setup targets.
+
+        * OpenSSL config files are now updated automatically. Auto-generated
+        certs now have the accurate information in them. Courier-IMAP certs
+        are also updated automatically.
+
+    DOCUMENTATION
+        * Added three new test modules that test for: pod documentation for
+        subs, pod formatting, and automatic checking of code to test for
+        best practices.
+
+        * moved POD documentation from being strewn about the files to the
+        end of each file.
+
+        * wrote and re-wrote significant portions of the documentation, as
+        well as cleaned up formatting. Documentation is now easier to find
+        as well.
+
+         changed all tnpi.biz urls to tnpi.net
+         shortened most tnpi.net urls to mail-toaster.org
+         updated copyright notices to 2006
+         moved usage() subs into pod docs and use pod2usage
+
+    CODE FORMATTING & READABILITY
+        * Used perltidy to format most of the source code.
+
+        * Used perlcritic to identify and correct (almost) all instances
+        where my code was not using best practices, as identified in Perl
+        Best Practices.
+
+        * All subroutines now take named arguments, making it easier to read
+        the code and understand what is being sent and returned.
+
+        * added "use English" pragma and replaced all the arcane $^ and $[
+        perl variables with their english name equivalents.
+
+    WEB INTERFACE/CGI
+        * Completely new webmail/logon interface. Written entirely in HTML,
+        CSS, and JavaScript.
+
+        * The format of toaster-watcher.conf is altered slightly. It is more
+        consistent in the internal layout so that my programs can alter it
+        reliably.
+
+        * removed httpd.conf patches in favor of installing a
+        mail-toaster.conf file with all the requisite apache directives.
+
+        * Organized all the cgi related docs into cgi_files directory. They
+        are now installed via the -s webmail target to toaster_setup.
+
+    See Also 4.x Changes <http://mail-toaster.org/changes/4.x-changes.html>
+

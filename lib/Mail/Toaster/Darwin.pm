@@ -1,8 +1,9 @@
 #!/usr/bin/perl
 use strict;
+use warnings;
 
 #
-# $Id: Darwin.pm,v 4.10 2005/05/10 02:28:43 matt Exp $
+# $Id: Darwin.pm, matt Exp $
 #
 
 package Mail::Toaster::Darwin;
@@ -11,9 +12,11 @@ use Carp;
 use Params::Validate qw(:all);
 
 use vars qw($VERSION);
-$VERSION = '5.00';
+$VERSION = '5.02';
 
+use lib "inc";
 use lib "lib";
+
 use Mail::Toaster::Utility 5;
 my $utility = Mail::Toaster::Utility->new();
 
@@ -73,7 +76,7 @@ sub ports_check_age {
 
 sub ports_update {
 
-    my $cvsbin = $utility->find_the_bin( bin => "cvs",fatal=>0 );
+    my $cvsbin = $utility->find_the_bin( bin => "cvs",fatal=>0, debug=>0 );
 
     unless ( -x $cvsbin ) {
         die "FATAL: could not find cvs, please install Developer Tools!\n";
@@ -94,16 +97,16 @@ sub ports_update {
     if ( -d $portsdir ) {
 
         print "\n\nports_update: You might want to update your ports tree!\n\n";
-        unless (
-            $utility->yes_or_no("\n\nWould you like me to do it for you?:") )
+        if ( ! $utility->yes_or_no(
+               question=>"\n\nWould you like me to do it for you?" ) )
         {
             print "ok then, skipping update.\n";
-            return 0;
+            return;
         }
 
         # the new way
-        my $bin = $utility->find_the_bin( bin => "port" );
-        $utility->syscmd( command => "$bin -d sync" );
+        my $bin = $utility->find_the_bin( bin => "port", debug=>0 );
+        $utility->syscmd( command => "$bin -d sync", debug=>0 );
 
         #	 the old way
         #chdir($portsdir);
@@ -121,56 +124,69 @@ sub ports_update {
         #	};
     }
     else {
-        print
-"WARNING! I expect to find your dports dir in /usr/ports/dports. Please install it there or add a symlink there pointing to where you have your Darwin ports installed.\n If you need to install DarwinPorts, please visit this URL for details: http://darwinports.opendarwin.org/getdp/ or the DarwinPorts guide: http://darwinports.opendarwin.org/docs/ch01s03.html.\n\n";
+        print <<'EO_NO_PORTS';
+   WARNING! I expect to find your dports dir in /usr/ports/dports. Please install 
+   it there or add a symlink there pointing to where you have your Darwin ports 
+   installed.
+   
+   If you need to install DarwinPorts, please visit this URL for details: 
+      http://darwinports.opendarwin.org/getdp/ 
+
+   or the DarwinPorts guide: 
+      http://darwinports.opendarwin.org/docs/ch01s03.html.
+
+EO_NO_PORTS
+;
 
         unless (
             $utility->yes_or_no(
-                "Do you want me to try and set up darwin ports for you?")
+                q=>"Do you want me to try and set up darwin ports for you?")
           )
         {
             print "ok, skipping install.\n";
             exit 0;
         }
 
-        $utility->chdir_source_dir( dir => "/usr" );
+        $utility->chdir_source_dir( dir => "/usr", debug=>0 );
 
         print
-          "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
+          "\n\nthe CVS password is blank, just hit return at the prompt\n\n";
 
         my $cmd =
 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-        $utility->syscmd( command => $cmd );
+        $utility->syscmd( command => $cmd, debug=>0 );
         
         $cmd =
 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P darwinports';
-        $utility->syscmd( command => $cmd );
+        $utility->syscmd( command => $cmd, debug=>0 );
         
         chdir("/usr");
-        $utility->syscmd( command => "mv darwinports dports" );
+        $utility->syscmd( command => "mv darwinports dports", debug=>0 );
         
         unless ( -d "/etc/ports" ) { mkdir( "/etc/ports", oct('0755') ) };
         
         $utility->syscmd(
-            command => "cp dports/base/doc/sources.conf /etc/ports/" );
+            command => "cp dports/base/doc/sources.conf /etc/ports/", debug=>0 );
             
         $utility->syscmd(
-            command => "cp dports/base/doc/ports.conf /etc/ports/" );
+            command => "cp dports/base/doc/ports.conf /etc/ports/", debug=>0 );
             
         $utility->file_write(
             file   => "/etc/ports/sources.conf",
             lines  => ["file:///usr/dports/dports"],
-            append => 1
+            append => 1,
+            debug  => 0,
         );
 
-        my $portindex = $utility->find_the_bin( bin => "portindex" );
+        my $portindex = $utility->find_the_bin( bin => "portindex",debug=>0 );
         unless ( -x $portindex ) {
             print "compiling darwin ports base.\n";
             chdir("/usr/dports/base");
-            $utility->syscmd( command => "./configure; make; make install" );
+            $utility->syscmd( command => "./configure; make; make install", debug=>0 );
         }
     }
 }
+
 
 1;
 __END__
@@ -178,17 +194,20 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Darwin
+Mail::Toaster::Darwin - Darwin specific Mail Toaster functions
+
 
 =head1 SYNOPSIS
 
 Mac OS X (Darwin) scripting functions
+
 
 =head1 DESCRIPTION
 
 functions I've written for perl scripts running on MacOS X (Darwin) systems.
 
 Usage examples for each subroutine are included.
+
 
 =head1 SUBROUTINES
 

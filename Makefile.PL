@@ -1,16 +1,18 @@
 #/usr/bin/perl
+use strict;
+use warnings;
 use 5.008;
-use English qw( -no_match_vars );
+
+#
+# $Id: $
+#
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
 use ExtUtils::MakeMaker;
+use English qw( -no_match_vars );
 
-#
-# $Id: Makefile.PL,v 5.00 2006/06/09 19:26:17 matt Exp $
-#
-
-$AUTOFLUSH++;
+$OUTPUT_AUTOFLUSH++;
 
 use lib "inc";
 use lib "lib";
@@ -61,6 +63,12 @@ conf:
 	install -m 0644 toaster.conf-dist $(CONFDIR)
 	install -m 0640 toaster-watcher.conf-dist $(CONFDIR)
 	echo make newconf is deprecated! Use: toaster_setup.pl -s config
+
+docs:
+	pod2text bin/toaster_setup.pl         > README
+	pod2text doc/Changes.pod              > Changes
+	pod2html --noindex bin/toaster_setup.pl > doc/README.html
+	pod2html --noindex doc/Changes.pod    > doc/Changes.html
 
 newconf:
 	install -m 0644 toaster.conf-dist $(CONFDIR)
@@ -131,7 +139,11 @@ WriteMakefile(
     PL_FILES          => {},
 #	MAN1PODS          => [],
     dist              => { COMPRESS => 'gzip -9f', },
-    clean             => {FILES => "t/trash"}
+    clean            => {
+                            FILES => [  "t/trash",
+                                        "pod2htm*",
+                                    ],
+                        },
 );
 
 sub set_conf_dir {   

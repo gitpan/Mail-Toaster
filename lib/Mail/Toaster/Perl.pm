@@ -469,11 +469,11 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Perl
+Mail::Toaster::Perl - Perl specific functions for Mail Toaster
 
 =head1 SYNOPSIS
 
-Perl functions for working with perl and loading modules.
+Perl functions for loading, installing and testing perl modules.
 
 
 =head1 DESCRIPTION

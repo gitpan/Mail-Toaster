@@ -9,6 +9,7 @@ use warnings;
 #      System Settings! Don't muck with anything below this line      #
 #######################################################################
 
+use lib "inc";
 use lib "lib";
 
 use English;

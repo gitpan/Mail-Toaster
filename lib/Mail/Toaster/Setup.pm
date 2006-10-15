@@ -9273,7 +9273,7 @@ __END__;
 
 =head1 NAME
 
-Mail::Toaster::Setup
+Mail::Toaster::Setup -  methods to configure and build all the components of a modern email server.
 
 
 =head1 DESCRIPTION

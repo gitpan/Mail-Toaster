@@ -533,7 +533,7 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Ezmlm
+Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists
 
 
 =head1 SYNOPSIS

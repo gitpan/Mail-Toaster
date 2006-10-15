@@ -1,13 +1,12 @@
 #!/usr/bin/perl
-#
 use strict;
 use warnings;
+
 use English qw( -no_match_vars );
-
-
 use Test::More 'no_plan';
 #use Smart::Comments;
 
+use lib "inc";
 use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::Utility' ); };

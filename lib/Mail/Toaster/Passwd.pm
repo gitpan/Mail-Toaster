@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: Passwd.pm,v 4.9 2005/05/10 02:28:43 matt Exp $
+# $Id: Passwd.pm, matt Exp $
 #
 
 package Mail::Toaster::Passwd;
@@ -10,7 +10,7 @@ package Mail::Toaster::Passwd;
 use Carp;
 
 use vars qw/$VERSION/;
-$VERSION = '5.00';
+$VERSION = '5.02';
 
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
@@ -21,11 +21,7 @@ my $utility = Mail::Toaster::Utility->new();
 use Mail::Toaster::Perl 5;
 my $perl = Mail::Toaster::Perl->new;
 
-#eval { use Mail::Toaster::Perl }; my $perl = Mail::Toaster::Perl->new;
-
 sub new {
-
-
     my ( $class, $name ) = @_;
     my $self = { name => $name };
     bless $self, $class;
@@ -407,7 +403,7 @@ sub user_add {
 
     my ( $r, $sudo );
 
-    my $user    = $vals->{'user'};
+    my $user    = $vals->{'username'};
     my $shell   = $vals->{'shell'};
     my $homedir = $vals->{'homedir'};
     my $debug   = $vals->{'debug'};
@@ -418,6 +414,7 @@ sub user_add {
 
     # make sure we got passed a username
     unless ($user) {
+        carp "user_add: no valid username!\n";
         return {
             'error_code' => 400,
             'error_desc' => "user_add: you must pass a username!"
@@ -426,7 +423,10 @@ sub user_add {
 
     print "testing username validity..." if $debug;
     $r = $self->user_sanity($user);
-    return $r unless ( $r->{'error_code'} == 200 );
+    if ( ! $r->{'error_code'} == 200 ) {
+        carp "user_add: username invalid!\n";
+        return $r;
+    }
     print "ok..." if $debug;
 
     # set a default shell
@@ -439,7 +439,7 @@ sub user_add {
 
         # use sudo if we're not running as root
         unless ( $< eq 0 ) {
-            $sudo = $utility->find_the_bin( bin => "sudo" );
+            $sudo = $utility->find_the_bin( bin => "sudo",debug=>0 );
             unless ( -x $sudo ) {
                 $r = {
                     'error_code' => 401,
@@ -454,7 +454,7 @@ sub user_add {
         # pw creates accounts using defaults from /etc/pw.conf
         # values passed to user_add will override the defaults
 
-        my $pw    = $utility->find_the_bin( bin => "pw" );
+        my $pw    = $utility->find_the_bin( bin => "pw",debug=>0 );
         my $pwcmd = "$sudo $pw useradd -n $user ";
 
         $pwcmd .= "-d $homedir "                    if $homedir;
@@ -487,7 +487,7 @@ sub user_add {
         }
         else {
             print "\npw command is: \n$pwcmd -h-\n" if $debug;
-            $utility->syscmd( command => "$pwcmd -h-" );
+            $utility->syscmd( command => "$pwcmd -h-",debug=>0 );
         }
 
         print "user_add: user add passed..." if $debug;
@@ -689,7 +689,8 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Passwd
+Mail::Toaster::Passwd - add/delete entries from Unix /etc/passwd database
+
 
 =head1 SYNOPSIS
 

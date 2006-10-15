@@ -9,6 +9,7 @@ use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
 my $deprecated = 0;    # run the deprecated tests.
+use lib "inc";
 use lib "lib";
 my $network = 1;       # run tests that require network
 my $r;

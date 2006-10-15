@@ -1521,12 +1521,12 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::FreeBSD
+Mail::Toaster::FreeBSD - FreeBSD specific Mail::Toaster functions.
 
 
 =head1 SYNOPSIS
 
-FreeBSD scripting functions for creating and managing jails, installing ports, packages, and other fun stuff.
+Primarily functions for working with FreeBSD ports (updating, installing, configuring with custom options, etc) but also includes a suite of methods for FreeBSD managing jails.
 
 
 =head1 DESCRIPTION

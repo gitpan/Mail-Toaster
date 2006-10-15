@@ -61,7 +61,7 @@ create_sys_user     = 0     #  by default, when in single uid mode this script w
 homedirtree         = 0     #  Using a homedir tree? (/usr/home/a/ab/abcuser instead of
                             #  /usr/home/abcuser)
 
-homedir_base        = u     # If using a system user account, where do we put their 
+homedir_base        = d     # If using a system user account, where do we put their 
                             # home dir? IE, is it based on user or domain name (u/d)
 
 

@@ -1678,17 +1678,17 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Apache
+Mail::Toaster::Apache - modules for installing, configuring and managing Apache
 
 =head1 SYNOPSIS
 
-Install Apache 1 or 2 based on settings in toaster-watcher.conf
+Modules for working with Apache. Some are specific to Mail Toaster while most are generic, such as provisioning vhosts for an Apache 2 server. Using just these subs, Apache will be installed, SSL certs generated, and serving.
+
 
 =head1 DESCRIPTION 
 
-Perl methods for working with Apache.
+Perl methods for working with Apache. See METHODS.
 
-Install section builds a high performance statically compiled web server with SSL, PHP, and Perl support.
 
 =head1 METHODS
 

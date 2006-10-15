@@ -65,7 +65,6 @@ sub heading {
 
 sub imp_submit {
 
-
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
 
@@ -117,7 +116,6 @@ sub imp_submit {
 
 sub vwebmail_submit {
 
-
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
 
@@ -162,7 +160,6 @@ sub vwebmail_submit {
 }
 
 sub qss_stats_submit {
-
 
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
@@ -233,7 +230,6 @@ sub isoqlog_submit {
 
 sub rrdutil_submit {
 
-
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
 
@@ -269,7 +265,6 @@ sub rrdutil_submit {
 
 sub cookies_expire {
 
-
     my ( $self, $cgi, $email, $ssl, $host ) = @_;
     my @cookies;
 
@@ -296,7 +291,6 @@ sub cookies_expire {
 }
 
 sub qmailadmin_submit {
-
 
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
@@ -342,7 +336,6 @@ sub qmailadmin_submit {
 }
 
 sub sqwebmail_submit {
-
 
     my ( $self, $conf, $ssl, $host ) = @_;
     my ($http);
@@ -397,7 +390,6 @@ sub sqwebmail_submit {
 
 sub squirrelmail_submit {
 
-
     my ( $self, $conf, $ssl, $host ) = @_;
     my $http;
 
@@ -440,7 +432,6 @@ sub squirrelmail_submit {
 }
 
 sub cookies_set {
-
 
     my ( $self, $cgi, $email, $ssl, $host ) = @_;
     my @cookies;
@@ -537,17 +528,17 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::CGI
+Mail::Toaster::CGI - a CGI application for logging into the various web components of a Mail Toaster.
 
 =head1 SYNOPSIS
-
-index.cgi - A pretty web interface that showcases the abundant features of a mail toaster.
-
-=head1 DESCRIPTION
 
 A cgi application and HTML template for a standard mail page.
 
 This module contains the subroutines that are used by index.cgi. They're named well so you should have no problems reading through index.cgi and understanding exactly what it's doing.
+
+=head1 DESCRIPTION
+
+see index.cgi for a more complete description. The web pages are fully customizable as the index.tmpl is an HTML::Template file, which is almost pure HTML.
 
 =head1 SUBROUTINES
 

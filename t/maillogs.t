@@ -1,24 +1,22 @@
 #!/usr/bin/perl
 #
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
-#
-#
-# $Id: Utility.t,v 4.3 2006/06/09 19:26:18 matt Exp $
+# $Id: $
 #
 use strict;
 use warnings;
 use English qw( -no_match_vars );
 
-use Test::More 'no_plan';
+use Test::More;
 
+use lib "inc";
 use lib "lib";
 
 my $mod = "Date::Parse";
 unless (eval "require $mod" && -w "/var/log/mail")
 {
-	exit;
+	Test::More::plan( skip_all => "skipping tests, maillogs not installed yet");
 }
+plan 'no_plan';
 
 BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
 require_ok( 'Mail::Toaster::Utility' );

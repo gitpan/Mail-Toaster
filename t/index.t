@@ -7,6 +7,7 @@ use strict;
 use warnings;
 use Test::More;
 
+use lib "inc";
 use lib "lib";
 
 eval "use HTML::Template";

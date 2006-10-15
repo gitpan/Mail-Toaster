@@ -8,6 +8,7 @@ use warnings;
 use Test::More 'no_plan';
 use English qw( -no_match_vars );
 
+use lib "inc";
 use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::DNS') };

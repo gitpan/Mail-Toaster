@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# $Id: Qmail.t,v 4.2 2005/05/18 14:46:38 matt Exp $
+# $Id: $
 #
 use strict;
 use warnings;
@@ -8,6 +8,7 @@ use English qw( -no_match_vars );
 
 use Test::More 'no_plan';
 
+use lib "inc";
 use lib "lib";
 
 BEGIN { 

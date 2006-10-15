@@ -2,6 +2,7 @@
 use strict;
 use warnings;
 
+use lib "inc";
 use lib "lib";
 
 use Test::More tests => 1;

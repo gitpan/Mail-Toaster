@@ -1,12 +1,13 @@
 #!/usr/bin/perl
 #
-# $Id: Provision.t,v 4.0 2004/11/16 20:57:31 matt Exp $
+# $Id: Provision.t, Exp $
 #
 use strict;
 use warnings;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
+use lib "inc";
 use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::Provision' ); }

@@ -26,10 +26,10 @@ requires           'Digest::MD5'      => 2;           # needed by files_diff
 # bundle CPAN dists
 #bundle              "Date::Parse",    '2.0';
 #bundle              "Test::More",         '0';
-bundle              "Params::Validate", '0.8';
+#bundle              "Params::Validate", '0.8';
 
 # same but with depencencies
-bundle_deps         "Params::Validate", '0.8';
+#bundle_deps         "Params::Validate", '0.8';
 #bundle_deps         "Digest::SHA1",     '0';
 #bundle_deps         "Net::DNS",         '0.5';
 

@@ -11,75 +11,45 @@ use lib "lib";
 use Mail::Toaster::Utility   5;  my $utility = Mail::Toaster::Utility->new();
 use Mail::Toaster::Provision 5;
 
-use vars qw/ $VERSION $iam $whoami $opt_v /;
+use vars qw/ $VERSION $iam $whoami /;
 
-$VERSION = "5.00";
+$VERSION = "5.02";
+
+my $conf = $utility->parse_config( file=>"sysadmin.conf", debug=>0 );
+
+# Redirect STDERR to STDOUT so we can see what's printed out in a die() call.
+#open(STDERR, ">&STDOUT");
+#select(STDERR); $|=1; select(STDOUT); $|=1;
+
+my $provision = Mail::Toaster::Provision->new();
+
+$iam = $provision->what_am_i();
+exit unless $provision->what_am_i_check($iam);
+
+$provision->{'iam'} = $iam;
+
+   $iam eq "dnsadmin"  ? $provision->dns () 
+ : $iam eq "mailadmin" ? $provision->mail()
+ : $iam eq "useradmin" ? $provision->user()
+ : $iam eq "webadmin"  ? $provision->web ()
+ : $provision->usage();
+
 
 =head1 NAME
 
-sysadmin
+sysadmin - a set of provisioning scripts used to manage users, email accounts and apache vhosts
 
 =head1 SYNOPSIS
 
-sysadmin is a handy script used to manage a unix system.
+
 
 =head1 DESCRIPTION
 
 sysadmin began as a provisioning agent maildomain, later renamed
 mailadmin, and finally evolving into sysadmin. It allows 
 non-root users to perform admin tasks on behalf of end users 
-(ie, for tech support personnel).
-
-=cut
-
-my $conf          = $utility->parse_config( file=>"sysadmin.conf", debug=>0 );
-
-# Redirect STDERR to STDOUT so we can see what's printed out in a die() call.
-#open(STDERR, ">&STDOUT");
-#select(STDERR); $|=1; select(STDOUT); $|=1;
-
-my $provision = Mail::Toaster::Provision->new($ARGV[0]);
-
-$iam = $provision->what_am_i();
-exit unless $provision->what_am_i_check($iam);
-
-$ENV{'GATEWAY_INTERFACE'} ? ProcessCGI($iam) : ProcessShell($iam);
-
-1;
-
-
-sub ProcessShell {
-
-	use Getopt::Std;
-	getopts('v');
-
-	my $debug = 0; $debug = 1 if ($opt_v);
-
-	print "ProcessShell...begin $iam. \n" if $debug;
-
-	unless ($ARGV[0]) { $provision->usage_action(); exit 0 };
-
-	my %vals = ( 
-		'action'  => $ARGV[0],
-		'user'    => $ARGV[1],
-		'debug'   => $opt_v,
-	);
-
-	#print "user should be $ARGV[1] \n";
-
-	if    ( $iam eq "dnsadmin"  ) { $provision->dns (vals=>\%vals, conf=>$conf) }
-	elsif ( $iam eq "mailadmin" ) { $provision->mail(vals=>\%vals, conf=>$conf) }
-	elsif ( $iam eq "useradmin" ) { $provision->user(vals=>\%vals, conf=>$conf) }
-	elsif ( $iam eq "webadmin"  ) { $provision->web (vals=>\%vals, conf=>$conf) }
-	else                          { $provision->usage(); exit 0;    };
-
-	print "ProcessShell...end\n" if $debug;
-};
-
-sub ProcessCGI
-{
-	print "$iam cgi processing\n";
-};
+(ie, for tech support personnel) and automated provisioning by a
+back office system. 
 
 
 =head1 Dependencies

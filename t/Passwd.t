@@ -1,42 +1,30 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl test.pl'
+#!/usr/bin/perl
+use strict;
+use warnings;
 
-######################### We start with some black magic to print on failure.
+use English qw( -no_match_vars );
+use Test::More 'no_plan';
 
-# Change 1..1 below to 1..last_test_to_print .
-# (It may become useful if the test is moved to ./t subdirectory.)
-
-BEGIN { $| = 1; print "1..7\n"; }
-END {print "not ok 1\n" unless $loaded;}
+use lib "inc";
 use lib "lib";
-use Mail::Toaster::Passwd;
-$loaded = 1;
-print "ok 1 - Mail::Toaster::Passwd\n";
 
-######################### End of black magic.
-
+BEGIN { use_ok('Mail::Toaster::Passwd'); }
+require_ok('Mail::Toaster::Passwd');
 
 my $passwd = Mail::Toaster::Passwd->new();
-$passwd ? print "ok 2 - new\n" : print "not ok 2 new\n";
+ok($passwd, 'passwd object');
 
-my $r = $passwd->user_sanity("test");
-$r->{'error_code'}==200 ? print "ok 3 - user sanity\n" : print "not ok 3 " . $r->{'error_desc'}."\n";
+ok( $passwd->user_sanity("test"), 'user sanity');
 
-$r = $passwd->sanity("testing", "test");
-$r->{'error_code'}==100 ? print "ok 4 - password sanity\n" : print "not ok 4 " . $r->{'error_desc'};
+ok( $passwd->sanity("testing", "test"), 'sanity');
 
-$r = $passwd->show( {user=>"int-testing", debug=>0} );
-$r->{'error_code'}==100 ? print "ok 5 - show\n" : print "not ok 5 " . $r->{'error_desc'};
+ok( $passwd->show( {user=>"int-testing", debug=>0} ), 'show');
 
-$r = $passwd->exist("nobody");
-$r ? print "ok 6 - exist\n" : print "not ok 6 " . "exist\n";
+ok( $passwd->exist("nobody"), 'exist');
 
 my $mod = "Crypt::PasswdMD5";
 if (eval "require $mod")
 {
-	$r = $passwd->encrypt("secret");
-	$r ? print "ok 7 - encrypt\n" : print "not ok 7 " . "encrypt\n";
-} else {
-	print "ok 7 - encrypt\n";
+	ok( $passwd->encrypt("secret"), 'encrypt');
 }
 

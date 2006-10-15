@@ -2111,7 +2111,6 @@ sub netqmail_darwin_fixups {
 
 sub netqmail_virgin {
 
-
     my $self = shift;
 
     # parameter validation
@@ -2401,7 +2400,6 @@ sub restart {
 }
 
 sub send_start {
-
 
     my $self = shift;
 
@@ -2828,6 +2826,7 @@ sub supervise_dir_get {
     print "supervise_dir_get: using $dir for $prot \n" if $debug;
     return $dir;
 }
+
 sub svscan_dir_exists {
 
     my $self = shift;
@@ -2976,7 +2975,7 @@ sub UpdateVirusBlocks {
         if ($debug) {
             foreach my $line (@lines) { print "$line\n"; }
         }
-        $utility->file_write( file => $relay, lines => \@lines );
+        $utility->file_write( file => $relay, lines => \@lines, debug=>$debug );
     }
     else {
         print
@@ -2991,7 +2990,8 @@ sub UpdateVirusBlocks {
     my $tcprules = $utility->find_the_bin( bin => "tcprules", debug=>$debug );
     $utility->syscmd( 
         command => "$tcprules $vpdir/etc/tcp.smtp.cdb $vpdir/etc/tcp.smtp.tmp "
-            . "< $vpdir/etc/tcp.smtp"
+            . "< $vpdir/etc/tcp.smtp",
+		  debug   => $debug,
     );
     chmod oct('0644'), "$vpdir/etc/tcp.smtp*";
 }
@@ -3004,14 +3004,11 @@ sub _memory_explanation {
         $perconnection, $connectmsg, $connections
     );
 
-    carp "\nbuild_" . $prot
-      . "_run: your "
-      . $prot
-      . "_max_memory_per_connection and "
-      . $prot
-      . "_max_connections settings in toaster-watcher.conf have exceeded your "
-      . $prot
-      . "_max_memory setting. I have reduced the maximum concurrent connections to $maxcon to compensate. You should fix your settings.\n\n";
+    carp "\nbuild_${prot}_run: your "
+      . "${prot}_max_memory_per_connection and "
+      . "${prot}_max_connections settings in toaster-watcher.conf have exceeded your "
+      . "${prot}_max_memory setting. I have reduced the maximum concurrent connections "
+      . "to $maxcon to compensate. You should fix your settings.\n\n";
 
     if ( $OSNAME eq "freebsd" ) {
         $sysmb = int( substr( `/sbin/sysctl hw.physmem`, 12 ) / 1024 / 1024 );
@@ -3076,7 +3073,6 @@ become unusable until the services are stopped.
 EOMAXMEM
 
 }
-
 
 sub _test_smtpd_config_values {
 

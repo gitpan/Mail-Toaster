@@ -8,7 +8,9 @@ use Cwd;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
+use lib "inc";
 use lib "lib";
+
 my $network++;
 my $deprecated = 0;    # run the deprecated tests.
 my $r;

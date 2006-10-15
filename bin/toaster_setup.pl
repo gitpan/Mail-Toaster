@@ -3,16 +3,17 @@ use strict;
 use warnings;
 
 #
-# $Id: toaster_setup.pl,v 5.00 matt Exp $
+# $Id: $
 #
 
 use vars qw( $VERSION $debug );
-$VERSION = "5.00";
+$VERSION = "5.03";
 
 use English qw( -no_match_vars );
 use Getopt::Long;
 use Pod::Usage;
 
+use lib "inc";
 use lib "lib";
 
 use Mail::Toaster          5; my $toaster = Mail::Toaster->new;

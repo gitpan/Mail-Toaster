@@ -57,9 +57,9 @@ sub answer {
     }
     
     # only propmpt if we are running interactively
-    unless ( $self->is_interactive ) {
+    unless ( $self->is_interactive() ) {
         warn "     not interactive, can not prompt!\n";
-        return;
+        return $default;
     }
 
     # some basic input validation
@@ -2149,29 +2149,33 @@ sub is_hashref {
 }
 
 sub is_interactive {
+
     ## no critic
-    # Sorry Damien, I don't want to require IO::Interactive
-    # just to pass this test
+    # shamelessly stolen from IO::Interactive
+    my $self = shift;
+    my ($out_handle) = (@_, select);    # Default to default output handle
 
     # Not interactive if output is not to terminal...
-    return 0 if not -t *STDOUT;
- 
+    return 0 if not -t $out_handle;
+
     # If *ARGV is opened, we're interactive if...
     if (openhandle *ARGV) {
         # ...it's currently opened to the magic '-' file
-        return -t *STDIN if $ARGV eq '-';
- 
+        return -t *STDIN if defined $ARGV && $ARGV eq '-';
+
         # ...it's at end-of-file and the next file is the magic '-' file
         return @ARGV>0 && $ARGV[0] eq '-' && -t *STDIN if eof *ARGV;
- 
+
         # ...it's directly attached to the terminal 
         return -t *ARGV;
     }
- 
+
     # If *ARGV isn't opened, it will be interactive if *STDIN is attached 
     # to a terminal and either there are no files specified on the command line
-    # or if there are one or more files and the first is the magic '-' file
-    return -t *STDIN && (@ARGV==0 || $ARGV[0] eq '-');
+    # or if there are files and the first is the magic '-' file
+    else {
+        return -t *STDIN && (@ARGV==0 || $ARGV[0] eq '-');
+    }
 }
 
 sub is_process_running {
@@ -3270,7 +3274,8 @@ sub yes_or_no {
 
     # parameter validation here
     my %p = validate( @_, {
-            'question' => { type=>SCALAR },
+            'question' => { type=>SCALAR, optional=>1 },
+            'q'        => { type=>SCALAR, optional=>1 },
             'timeout'  => { type=>SCALAR, optional=>1 },
             'fatal'    => { type=>BOOLEAN, optional=>1, default=>1 },
             'debug'    => { type=>BOOLEAN, optional=>1, default=>1 },
@@ -3279,6 +3284,14 @@ sub yes_or_no {
 
     my ( $question, $timer ) = ( $p{'question'}, $p{'timeout'} );
 
+    # q is an alias for question
+    if ( !defined $question && defined $p{'q'} ) { $question = $p{'q'}; }
+
+    # this sub is useless without a question.
+    unless ($question) {
+        croak "question called incorrectly. RTFM. \n";
+    };
+ 
     # for 'make test' testing
     return 1 if ( $question eq "test" );
 
@@ -3423,6 +3436,11 @@ sub _formatted {
     #print "$mess $dots $result\n";
 }
 
+sub _progress {
+    my ($self, $mess) = @_;
+    print {*STDERR} "$mess.\n";
+    return;
+};
 sub _progress_begin {
     my ($self, $phase) = @_;
     print {*STDERR} "$phase...";

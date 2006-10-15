@@ -3,14 +3,15 @@ use strict;
 use warnings;
 
 #
-# $Id: Provision.pm,v 4.7 2005/05/10 02:28:43 matt Exp $
+# $Id: Provision.pm, matt Exp $
 #
 
 package Mail::Toaster::Provision;
 
-use vars qw($VERSION); $VERSION = '5.00';
+use vars qw($VERSION); $VERSION = '5.03';
 
 use Carp;
+use English;
 use Getopt::Long;
 use Params::Validate qw( :all );
 
@@ -18,7 +19,6 @@ use lib "lib";
 
 use Mail::Toaster::Passwd  5; my $password = Mail::Toaster::Passwd->new;
 use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
-
 
 sub new {
 	my ($class, $action) = @_;
@@ -131,48 +131,38 @@ sub quota_set {
 
 sub user {
 
+	my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
 
-	my $self = shift;
-
-	# parameter validation here
-    my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, optional=>1, },
-            'vals'    => { type=>HASHREF,  },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-	my ($conf, $vals, $fatal, $debug)
-        = ( $p{'conf'}, $p{'vals'}, $p{'fatal'}, $p{'debug'} );
-
-	print "user: begin...\n" if $debug;
+	warn "user: begin...\n" if $debug;
 
 	my $r;
 
-	# what are we going to do?
-
-	my $user   = $vals->{'user'};
-	my $action = $vals->{'action'};
-	
-	unless ($user) {
-		$self->user_usage( { action=>$action, user=>$user } );
-		$utility->graceful_exit(400, "No username passed!");
-	};
-
-	print "user: user is set.\n" if $debug;
+    my $vals   = $self->user_options;
+	my $action = $vals->{'action'} || die "no action!\n";
 
 	if ( $action eq "create" || $action eq "disable" || $action eq "enable" )
 	{
-		$utility->file_archive( file=>"/etc/master.passwd" );
+        if ( $OSNAME eq "freebsd" ) {
+            my $bak = $utility->file_archive( 
+                file  => "/etc/master.passwd",
+                fatal => 0,
+                debug => 0,
+            );
+            warn "user: backed up master.passwd database ($bak).\n" if $debug;
+        };
 #		$password->BackupMasterPasswd();
 	};
 
-	if    ( $action eq "create"  ) { 
-		my $vals = $self->user_options( vals=>$vals, conf=>$conf );
+    $self->user_usage($action, $vals );
+    return unless $utility->yes_or_no(q=>"continue");
+
+	if ( $action eq "create"  ) { 
 		$r = $password->user_add($vals)
 	}
 	elsif ( $action eq "destroy" ) {
+        my $user = $vals->{'username'};
 		$password->user_archive($user, $debug) if ( $conf->{'delete_user_archive'} );
 		$password->BackupMasterPasswd();
 		$r = $password->delete($vals);
@@ -212,49 +202,57 @@ sub user {
 
 sub user_usage {
 
+    my $self = shift;
+    my $debug = $self->{'debug'};
 
-	my ($self, $vals) = @_;
+	my ($action, $vals, $missing) = @_;
 
-	print <<EOUSER;
+    my $username = $vals->{'username'} || q{};
+    my $password = $vals->{'password'} || q{};
+    my $shell    = $vals->{'shell'}    || q{};
+    my $homedir  = $vals->{'homedir'}  || q{};
+    my $domain   = $vals->{'domain'}   || q{};
+    my $quota    = $vals->{'quota'}    || q{};
+    my $comment  = $vals->{'gecos'}    || q{};
+    my $expire   = $vals->{'expire'}   || q{};
+    my $uid      = $vals->{'uid'}      || q{};
+    my $gid      = $vals->{'gid'}      || q{};
 
-	$0 $vals->{'action'} username
+	print <<"EOUSER";
+Usage:
+	useradmin -a $action -username <example>
 
     required values:
 
-       -username      
+       -username      $username
 
     optional values:
 
-       -password
-       -shell
-       -homedir
-       -comment
-       -quota
-       -uid
-       -gid
-       -expire date
-       -domain
+       -password      $password
+       -shell         $shell
+       -homedir       $homedir
+       -domain        $domain
+       -comment       $comment
+       -quota         $quota
+       -uid           $uid
+       -gid           $gid
+       -expire date   $expire
 
 EOUSER
 ;
+
+    return if ! $missing;
+
+    warn "missing: $missing \n" if $debug;
+    return $utility->answer(q=>$missing);
 };
 
 sub user_options {
 
-
-	my $self = shift;
-
-	# parameter validation here
-    my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, optional=>1, },
-            'vals'    => { type=>HASHREF,  },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-	my ($conf, $vals, $fatal, $debug)
-        = ( $p{'conf'}, $p{'vals'}, $p{'fatal'}, $p{'debug'} );
+	my $self  = shift;
+    my $vals  = shift;
+    my $debug = $self->{'debug'};
+    my $conf  = $self->{'conf'};
 
 	print "user_options: begin...\n" if $debug;
 
@@ -264,37 +262,64 @@ sub user_options {
 		return 1;
 	}
 
-	my $user = $vals->{'user'};
-	
-	# get command line options
-	GetOptions (
-			"password=s" => \$vals->{'pass'},
-			"username=s" => \$vals->{'user'},
-			"homedir=s"  => \$vals->{'homedir'},
-			"shell=s"    => \$vals->{'shell'},
-			"comment=s"  => \$vals->{'gecos'},
-			"quota=s"    => \$vals->{'quota'},
-			"uid=s"      => \$vals->{'uid'},
-			"gid=s"      => \$vals->{'gid'},
-			"domain=s"   => \$vals->{'domain'},
-			"expire=s"   => \$vals->{'expire'},
-			"verbose"    => \$vals->{'debug'}
-		);
 
-	$user ||= $vals->{'user'} || $utility->answer(q=>'user');
-	print "user: $vals->{'user'}\n";
+	# get command line options
+	die "erorr parsing command line options" unless
+        GetOptions (
+            'action=s'   => \my $action,
+            'comment=s'  => \$vals->{'gecos'},
+            'domain=s'   => \$vals->{'domain'},
+            'expire=s'   => \$vals->{'expire'},
+            'gid=s'      => \$vals->{'gid'},
+            'homedir=s'  => \$vals->{'homedir'},
+            'password=s' => \$vals->{'password'},
+            'quota=s'    => \$vals->{'quota'},
+            'shell=s'    => \$vals->{'shell'},
+            'uid=s'      => \$vals->{'uid'},
+            'username=s' => \my $user,
+            'verbose'    => \my $verbose,
+        );
+
+    $debug += $verbose if $verbose;
+    $vals->{'debug'} = $debug;
+
+    my %valid_actions = (
+        'create'  => 1, 'delete' => 1,
+        'disable' => 1, 'enable' => 1,
+#        'repair'  => 1, 'test'   => 1,
+#        'show'    => 1,
+    );
+
+    $action ||= $self->usage_action();
+    $action || exit 0;
+
+    if ( ! $valid_actions{$action} ) {
+        $utility->graceful_exit(400, "Invalid action specified! ($action)");
+    };
+    $vals->{'action'} = $action;
+
+	$user ||= $self->user_usage($action, $vals, "username");
+    $user || $utility->graceful_exit(400, "Invalid user specified! ($user)");
+    $vals->{'username'} = $user;
 	
-	if ( $vals->{'action'} eq "create" ) {
+	if ( $action eq "create" ) {
 
 		$vals->{'domain'}  ||= $utility->answer(q=>'domain');
 
-		my $homedir = $vals->{'domain'}    || $vals->{'user'};
-		my $home    = $conf->{'admin_home'}  || '/home';
-		   $homedir = "$home/$homedir";
-		my $shell   = $conf->{'shell_default'} || "/sbin/nologin";
-		my $quota   = $conf->{'quota_default'} || '250';
+        if ( ! $vals->{'homedir'} ) 
+        {
+            my $homedir = $vals->{'domain'} || $vals->{'user'};
+            $homedir = $user if ( $conf->{'homedir_base'} eq "u" );
 
-		$vals->{'homedir'} ||= $utility->answer(q=>'homedir', default=>$homedir);
+            my $home_base = $conf->{'admin_home'}  || '/home';
+            $homedir   = "$home_base/$homedir";
+
+            $vals->{'homedir'} = $utility->answer(q=>'homedir', default=>$homedir);
+        };
+
+		my $shell     = $conf->{'shell_default'} || "/sbin/nologin";
+		my $quota     = $conf->{'quota_default'} || '250';
+
 		$vals->{'shell'}   ||= $utility->answer(q=>'shell',   default=>$shell  );
 		$vals->{'quota'}   ||= $utility->answer(q=>'quota',   default=>$quota  );
 	}
@@ -304,7 +329,6 @@ sub user_options {
 };
 
 sub usage {
-
 
 	print <<EOCHECK;
 
@@ -327,14 +351,14 @@ and then execute the dnsadmin link.
 EOCHECK
 ;
 
+    exit;
 };
 
 sub usage_action {
 
-
 	print <<EOACTION;
-
-  usage $0 action [params]
+Usage:
+ $0 action [params]
 
 	action is one of:
 
@@ -351,29 +375,18 @@ sub usage_action {
 
 EOACTION
 ;
+
+    return $utility->answer(q=>"action");
 };
 
 sub web {
 
-
-    my $self = shift;
-
-	# parameter validation here
-    my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, optional=>1, },
-            'vals'    => { type=>HASHREF,  },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-	my ($conf, $vals, $fatal, $debug)
-        = ( $p{'conf'}, $p{'vals'}, $p{'fatal'}, $p{'debug'} );
-
-
-	print "web: begin..." if $vals->{'debug'};
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
 
 	if ( $debug ) {
+	    print "web: begin...";
 #		use Data::Dumper;
 #		print Dumper($self);
 	};
@@ -383,18 +396,14 @@ sub web {
 	require Mail::Toaster::Apache;
 	my $apache = Mail::Toaster::Apache->new();
 
-	$vals = $self->web_get_options($vals, $conf);
+	my $vals = $self->web_get_options();
+    my $action = $vals->{'action'} or croak "missing action!";
+    my $vhost = $vals->{'vhost'} or croak "missing vhost";
 
-	$vals->{'vhost'} ||=  $ARGV[1];  # set to command line if unset
-	unless ($vals->{'vhost'}) {
-		$self->web_usage();
-		$utility->graceful_exit(400, "No web virtual host passed!");
-	};
-
-	$r = $self->web_check_setup($conf);
-	unless ( $r->{'error_code'} == 200 ) { $utility->graceful_exit($r->{'error_code'}, $r->{'error_desc'}) };
-
-	my $action = $vals->{'action'};
+	$r = $self->web_check_setup();
+	unless ( $r->{'error_code'} == 200 ) { 
+        $utility->graceful_exit($r->{'error_code'}, $r->{'error_desc'});
+    };
 
 	if    ( $action eq "create"  ) { $r = $apache->vhost_create ($vals, $conf) }
 	elsif ( $action eq "destroy" ) { $r = $apache->vhost_delete ($vals, $conf) }
@@ -414,8 +423,8 @@ sub web {
 
 sub web_check_setup {
 
-
-	my ($self, $conf) = @_;
+    my $self = shift;
+    my $conf = $self->{'conf'};
 
 	my %r;
 
@@ -428,7 +437,7 @@ sub web_check_setup {
 
 	# make sure apache vhost setting exists
 	$dir = $conf->{'apache_dir_vhosts'};
-	#unless ( $dir && (-d $dir || -f $dir) ) {  # can also be a fnmatch pattern!
+	#unless ( $dir && (-d $dir || -f $dir) )  # can also be a fnmatch pattern!
 	unless ( $dir ) {
 		return { 'error_code' => 401,
 			'error_desc' => 'web_check_setup: cannot find Apache\'s vhost file/dir! Please set apache_dir_vhosts in sysadmin.conf.\n' };
@@ -439,44 +448,13 @@ sub web_check_setup {
 		'error_desc' => 'web_check_setup: all tests pass!\n' };
 };
 
-sub web_usage {
-
-
-	print <<EOWEBUSE;
-
-	$0 action -vhost [vhost name]
-
-    required values:
-
-       -vhost         
-
-    optional values:
-
-       -ip             - IP address to listen on (default *)
-       -serveralias    - comma separated list of aliases
-       -serveradmin    - email of server admin
-       -documentroot   - path to html files
-       -redirect       - url to redirect site to
-       -options        - server options ex. FollowSymLinks MultiViews Indexes ExecCGI Includes
-       -ssl            - ssl enabled ? 
-       -sslcert        - path to ssl certificate
-       -sslkey         - path to ssl key
-       -cgi            - basic | advanced | custom
-       -customlog      - custom logging directive
-       -customerror    - custom error logging directive
-
-       -awstats        - include alias for awstats
-       -phpmyadmin     - include alias for phpMyAdmin
-       
-
-EOWEBUSE
-;
-};
-
 sub web_get_options {
 
+    my $self  = shift;
+	my $vals  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
 
-	my ($self, $vals, $conf) = @_;
 	print "\nweb_get_options: begin..." if $vals->{'debug'};
 
 	if ( $ENV{'GATEWAY_INTERFACE'} ) 
@@ -485,11 +463,10 @@ sub web_get_options {
 		return;
 	}
 
-	my $vhost = $vals->{'vhost'};
-	
 	# get command line options
 	GetOptions (
-		"vhost=s"       => \$vals->{'vhost'}, 
+        'action=s'      => \my $action,
+		"vhost=s"       => \my $vhost,
 		"verbose"       => \$vals->{'debug'},
 		"ip=s"          => \$vals->{'ip'},
 		"serveralias=s" => \$vals->{'serveralias'},
@@ -507,7 +484,12 @@ sub web_get_options {
 		"phpmyadmin"    => \$vals->{'phpmyadmin'},
 	);
 
-	$vhost ||= $vals->{'vhost'} || $utility->answer(q=>'vhost');
+    $action = $self->usage_action() if ! $action;
+    $action || $utility->graceful_exit(400, "Invalid action!");
+    $vals->{'action'} = $action;
+
+	$vhost ||= $self->web_usage($action, $vals, "vhost");
+	$vhost || $utility->graceful_exit(400, "No web virtual host passed!");
 	$vals->{'vhost'} = $vhost; print "vhost: $vhost\n";
 	
 	if ( $vals->{'action'} eq "create" ) {
@@ -516,7 +498,7 @@ sub web_get_options {
 		$vals->{'serveralias'} ||= $utility->answer(q=>'serveralias', default=>"www.$vhost");
 		
 		my $htdocs = $conf->{'admin_home'} || "/home";
-		my $docroot = "$htdocs/$vhost";
+		my $docroot = "$htdocs/$vhost/html";
 		$vals->{'documentroot'} ||= $utility->answer(q=>'documentroot', default=>$docroot);
 
 		$vals->{'ssl'} ||= $utility->answer(q=>'ssl');
@@ -549,8 +531,61 @@ sub web_get_options {
 	return $vals;
 };
 
-sub what_am_i_check {
+sub web_usage {
 
+    my $self = shift;
+    my $debug = $self->{'debug'};
+
+	my ($action, $vals, $missing) = @_;
+
+    my $vhost       = $vals->{'vhost'}       || q{};
+    my $serveralias = $vals->{'serveralias'} || q{};
+    my $serveradmin = $vals->{'serveradmin'} || q{};
+    my $documentroot= $vals->{'documentroot'} || q{};
+    my $redirect    = $vals->{'redirect'}    || q{};
+    my $options     = $vals->{'options'}     || q{};
+    my $ssl         = $vals->{'ssl'}         || q{};
+    my $cgi         = $vals->{'cgi'}         || q{};
+    my $awstats     = $vals->{'awstats'}     || q{};
+
+	print <<"EOWEBUSE";
+Usage:
+
+	webadmin $action -vhost [vhost name]
+
+    required values:
+
+       -vhost          $vhost        
+
+    optional values:
+
+       -ip             - IP address to listen on (default *)
+       -serveralias    - comma separated list of aliases
+       -serveradmin    - email of server admin
+       -documentroot   - path to html files
+       -redirect       - url to redirect site to
+       -options        - server options ex. FollowSymLinks MultiViews Indexes ExecCGI Includes
+       -ssl            - ssl enabled ? 
+       -sslcert        - path to ssl certificate
+       -sslkey         - path to ssl key
+       -cgi            - basic | advanced | custom
+       -customlog      - custom logging directive
+       -customerror    - custom error logging directive
+
+       -awstats        - include alias for awstats
+       -phpmyadmin     - include alias for phpMyAdmin
+       
+
+EOWEBUSE
+;
+
+    return if ! $missing;
+
+    warn "missing: $missing \n" if $debug;
+    return $utility->answer(q=>$missing);
+};
+
+sub what_am_i_check {
 
 	my ($self, $iam) = @_;
 
@@ -567,8 +602,8 @@ sub what_am_i_check {
 
 sub what_am_i {
 
-
-	my ($self, $debug) = @_;
+    my $self = shift;
+    my $debug = $self->{'debug'};
 
 	print "what_am_i: $0 \n" if $debug;
 	$0 =~ /([a-zA-Z0-9]*)$/;
@@ -583,12 +618,12 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Provision
+Mail::Toaster::Provision - a rudimentary provisioning agent
 
 
 =head1 SYNOPSIS
 
-Account provisioning methods.
+Account provisioning methods. Not terribly complete, only the ones I use regularly have been coded.
 
 
 =head1 DESCRIPTION
@@ -784,7 +819,7 @@ Collects web account settings from the command line arguments or a HTML form.
 
 =item what_am_i
 
-	$prov->what_am_i($debug)
+	$prov->what_am_i()
 
 Determine what the filename of this program is.
 

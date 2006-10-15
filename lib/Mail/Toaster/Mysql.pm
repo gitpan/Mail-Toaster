@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 #
-# $Id: Mysql.pm,v 4.20 2006/03/18 15:00:44 matt Exp $
+# $Id: Mysql.pm, matt Exp $
 #
 
 package Mail::Toaster::Mysql;
@@ -15,7 +15,7 @@ use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use vars qw($VERSION $darwin $freebsd);
-$VERSION = '5.00';
+$VERSION = '5.02';
 
 use lib "lib";
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
@@ -944,7 +944,7 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::Mysql
+Mail::Toaster::Mysql - so much more than just installing mysql
 
 head1 SYNOPSIS
 

@@ -4,13 +4,11 @@ use warnings;
 use Cwd;
 use Test::More 'no_plan';
 
-# Before 'make install' is performed this script should be runnable with
-# 'make test'. After 'make install' it should work as 'perl test.pl'
-
 #
-# $Id: Setup.t,v 4.20 2004/11/16 20:57:31 matt Exp $
+# $Id: $
 #
 
+use lib "inc";
 use lib "lib";
 
 BEGIN {

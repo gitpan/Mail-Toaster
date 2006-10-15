@@ -296,12 +296,12 @@ __END__
 
 =head1 NAME
 
-Mail::Toaster::DNS
+Mail::Toaster::DNS - DNS functions, primarily to test RBLs
 
 
 =head1 SYNOPSIS
 
-Common DNS functions
+A set of subroutines for testing rbls to verify that they are functioning properly. If Net::DNS is installed it will be used but we can also test using dig. 
 
 
 =head1 DESCRIPTION
