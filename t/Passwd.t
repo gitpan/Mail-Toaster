@@ -20,7 +20,9 @@ ok( $passwd->sanity("testing", "test"), 'sanity');
 
 ok( $passwd->show( {user=>"int-testing", debug=>0} ), 'show');
 
-ok( $passwd->exist("nobody"), 'exist');
+if ( $OSNAME !~ /cygwin/ ) {
+    ok( $passwd->exist("nobody"), 'exist');
+};
 
 my $mod = "Crypt::PasswdMD5";
 if (eval "require $mod")

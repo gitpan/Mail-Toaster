@@ -1031,7 +1031,7 @@ sub qms_count {
     my $count_ref = $self->counter_read( file=>$countfile );
 
     my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
-    if ( @$logfiles[0] eq "" ) {
+    if ( !$logfiles || @$logfiles[0] eq "" ) {
         carp "    qms_count: ERROR: no logfiles!";
         return 1;
     }
@@ -1277,6 +1277,7 @@ sub check_log_files {
     my @exists;
 
     foreach my $file ( @$check ) {
+        next if !$file;
         if ( -e $file ) { push @exists, $file; };
     };
 
@@ -1620,7 +1621,7 @@ sub count_send_line {
         $count_ref->{'message_bounce'}++;
     }
     else {
-        print "other: $activity\n";
+        #warn "other: $activity";
         $count_ref->{'other'}++;
     }
 
@@ -1813,18 +1814,15 @@ sub syslog_locate {
         print "syslog_locate: using $log\n" if $debug;
         return "$log";
     }
-    elsif ( $OSNAME eq "darwin" ) {
-        $log = "/var/log/mail.log";
 
-        if ( -e $log ) {
-            print "syslog_locate: Darwin detected...using $log\n" if $debug;
-            return $log;
-        }
+    $log = "/var/log/mail.log";
+    if ( -e $log ) {
+        print "syslog_locate: Darwin detected...using $log\n" if $debug;
+        return $log;
     }
-    else {
-        $log = "/var/log/mail.log";
-        return $log = -e $log;
-    }
+
+    $log = "/var/log/messages";
+    return $log if -e $log;
 
     croak "syslog_locate: can't find your syslog mail log\n";
 }

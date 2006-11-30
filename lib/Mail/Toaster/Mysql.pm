@@ -15,7 +15,7 @@ use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use vars qw($VERSION $darwin $freebsd);
-$VERSION = '5.02';
+$VERSION = '5.04';
 
 use lib "lib";
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
@@ -400,9 +400,9 @@ sub install_darwin {
     };
 
     if ( -d "/usr/ports/dports" || "/usr/dports" || "/usr/darwinports" ) {
-        $darwin->port_install( port => "mysql4", debug=>$debug );
-        $darwin->port_install( port => "p5-dbi", debug=>$debug );
-        $darwin->port_install( port => "p5-dbd-mysql", debug=>$debug );
+        $darwin->port_install( port_name => "mysql4", debug=>$debug );
+        $darwin->port_install( port_name => "p5-dbi", debug=>$debug );
+        $darwin->port_install( port_name => "p5-dbd-mysql", debug=>$debug );
         return 1;
     }
 
@@ -555,7 +555,7 @@ sub phpmyadmin_install {
 
         print
 "NOTICE: the port install of phpmyadmin requires that Apache be installed in ports!\n";
-        $darwin->port_install( port => "phpmyadmin" );
+        $darwin->port_install( port_name => "phpmyadmin" );
         $dir = "/Library/Webserver/Documents/phpmyadmin";
     }
 

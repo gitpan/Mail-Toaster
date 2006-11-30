@@ -1,10 +1,8 @@
-<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail Toaster Changes</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@intellimac.local" />
+<link rev="made" href="mailto:root@b14.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -18,6 +16,7 @@
 	<li><a href="#mail_toaster_changes">Mail Toaster Changes</a></li>
 	<ul>
 
+		<li><a href="#5_03__nov_8__2006">5.03 - Nov 8, 2006</a></li>
 		<li><a href="#5_03rc1__oct_15__2006">5.03rc1 - Oct 15, 2006</a></li>
 		<li><a href="#5_02__2006_10_11">5.02 - 2006.10.11</a></li>
 		<li><a href="#5_02b__2006_09_28">5.02b - 2006.09.28</a></li>
@@ -34,18 +33,40 @@
 <h1><a name="mail_toaster_changes">Mail Toaster Changes</a></h1>
 <p>
 </p>
+<h2><a name="5_03__nov_8__2006">5.03 - Nov 8, 2006</a></h2>
+<pre>
+ Logs.pm - comment out a print statement that caused a snmp counting error in maillogs</pre>
+<pre>
+ Setup.pm - install Params-Validate port on FreeBSD &amp; Darwin</pre>
+<pre>
+ t/maillogs - return a more specific error message if Date::Parse not installed</pre>
+<pre>
+ added examples/ and 4 jpeg screenshots</pre>
+<p>
+</p>
 <h2><a name="5_03rc1__oct_15__2006">5.03rc1 - Oct 15, 2006</a></h2>
 <dl>
-<dt><strong><a name="item_packaging_updates">Packaging Updates</a></strong>
-
+<dt><strong><a name="item_packaging_updates">Packaging Updates</a></strong><br />
+</dt>
 <dd>
-<p>Moved Params::Validated into inc directory (prevent CPAN from presumign I provide it), moved Changes back into doc/Changes.pod, added include lib ``inc'' into all test files (forgot that with 5.02 release).</p>
+Moved Params::Validate into inc directory (prevent CPAN from presuming I provide it), moved Changes back into doc/Changes.pod, added include lib ``inc'' into all test files (forgot that with 5.02 release).
 </dd>
 <dd>
-<p>Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm, Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm, Perl.pm, and Toaster.pm.</p>
+<p>Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm, Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm, Perl.pm, and Toaster.pm. Updated META.yml to include license.</p>
 </dd>
-</li>
-</dl>
+<p></p>
+<dt><strong><a name="item_freebsd_port_preparations">FreeBSD Port preparations</a></strong><br />
+</dt>
+<dd>
+Default htdocs directory is now /usr/local/www/toaster.
+</dd>
+<p></p>
+<dt><strong><a name="item_cpan_test_tweaks">CPAN test tweaks</a></strong><br />
+</dt>
+<dd>
+Don't do passwd test on cygwin. Don't do network tests on Cygwin
+</dd>
+<p></p></dl>
 <pre>
  toaster-watcher.conf
    added install_roundcube option</pre>
@@ -86,28 +107,28 @@
 </p>
 <h2><a name="5_02__2006_10_11">5.02 - 2006.10.11</a></h2>
 <dl>
-<dt><strong><a name="item_toaster_2dwatcher_2econf">toaster-watcher.conf</a></strong>
-
+<dt><strong><a name="item_toaster_2dwatcher_2econf">toaster-watcher.conf</a></strong><br />
+</dt>
 <dd>
-<p>added options install_ezmlm_mysql, vpopmail_mysql_repl_master_port, vpopmail_mysql_repl_slave_port</p>
+added options install_ezmlm_mysql, vpopmail_mysql_repl_master_port, vpopmail_mysql_repl_slave_port
 </dd>
-</li>
-<dt><strong><a name="item_t_2ftoaster_2epm">t/Toaster.pm</a></strong>
-
+<p></p>
+<dt><strong><a name="item_t_2ftoaster_2epm">t/Toaster.pm</a></strong><br />
+</dt>
 <dd>
-<p>get_dir_files tests the file size to see if any domains are added yet (more reliable test)</p>
+get_dir_files tests the file size to see if any domains are added yet (more reliable test)
 </dd>
-</li>
-<dt><strong><a name="item_freebsd_2epm">FreeBSD.pm</a></strong>
-
+<p></p>
+<dt><strong><a name="item_freebsd_2epm">FreeBSD.pm</a></strong><br />
+</dt>
 <dd>
 <pre>
  fixed a recursion bug in ports_update (portsnap)
  install a default portsnap.conf if missing
  FreeBSD version detection wasn't working</pre>
 </dd>
-<dt><strong><a name="item_apache_2epm">Apache.pm</a></strong>
-
+<dt><strong><a name="item_apache_2epm">Apache.pm</a></strong><br />
+</dt>
 <dd>
 <pre>
  added security options to mail-toaster.conf to harden Apache
@@ -115,10 +136,10 @@
  added directory block for phpmyadmin
  only add phpmyadmin block if selected in toaster-watcher.conf</pre>
 </dd>
-<dt><strong><a name="item_setup_2epm">Setup.pm</a></strong>
-
+<dt><strong><a name="item_setup_2epm">Setup.pm</a></strong><br />
+</dt>
 <dd>
-<p>ezmlm mysql support now depends on install_ezmlm_mysql setting instead of install_mysql.</p>
+ezmlm mysql support now depends on install_ezmlm_mysql setting instead of install_mysql.
 </dd>
 <dd>
 <p>added support for vpopmail mysql database port number (thanks Erik!)</p>
@@ -135,63 +156,62 @@
 <dd>
 <p>logic for NO_SENDMAIL test was inverted causing it to be added to /etc/make.conf more than once.</p>
 </dd>
-</li>
-</dl>
+<p></p></dl>
 <p>
 </p>
 <h2><a name="5_02b__2006_09_28">5.02b - 2006.09.28</a></h2>
 <dl>
-<dt><strong><a name="item_index_2ecgi">index.cgi</a></strong>
-
+<dt><strong><a name="item_index_2ecgi">index.cgi</a></strong><br />
+</dt>
 <dd>
-<p>defined debug (caused it to not work)</p>
+defined debug (caused it to not work)
 </dd>
-</li>
-<dt><strong>Apache.pm</strong>
-
+<p></p>
+<dt><strong>Apache.pm</strong><br />
+</dt>
 <dd>
-<p>test for toaster_apache_vhost</p>
+test for toaster_apache_vhost
 </dd>
 <dd>
 <p>add alias for rrdutil, v-webmail, and roundcube to apache's vhost config <code>file(mail-toaster.conf)</code></p>
 </dd>
-</li>
-<dt><strong><a name="item_ezmlm_2epm">Ezmlm.pm</a></strong>
-
+<p></p>
+<dt><strong><a name="item_ezmlm_2epm">Ezmlm.pm</a></strong><br />
+</dt>
 <dd>
 <pre>
  define any missing cgi params to suppress errors messages
  filled in pod description</pre>
 </dd>
-<dt><strong><a name="item_freebsd_2epm__2d_detection_of_portsdb_wasn_27t_wor">FreeBSD.pm - detection of portsdb wasn't working</a></strong>
-
+<dt><strong><a name="item_freebsd_2epm__2d_detection_of_portsdb_wasn_27t_wor">FreeBSD.pm - detection of portsdb wasn't working</a></strong><br />
+</dt>
 <dd>
-<p>supress notification of new toaster-watcher.conf install if its missing</p>
+supress notification of new toaster-watcher.conf install if its missing
 </dd>
-</li>
-<dt><strong><a name="item_logs_2epm__2d_prettied_up_the_yesterday_report_a_l">Logs.pm - prettied up the yesterday report a little bit.</a></strong>
-
+<p></p>
+<dt><strong><a name="item_logs_2epm__2d_prettied_up_the_yesterday_report_a_l">Logs.pm - prettied up the yesterday report a little bit.</a></strong><br />
+</dt>
 <dd>
 <pre>
  added checks to prevent warnings when logs are empty
  log archiving was failing (invalid test)</pre>
 </dd>
-<dt><strong><a name="item_perl_2epm">Perl.pm</a></strong>
-
+<dt><strong><a name="item_perl_2epm">Perl.pm</a></strong><br />
+</dt>
 <dd>
 <pre>
  added pod doc for has_module</pre>
 </dd>
-<dt><strong>Setup.pm</strong>
-
+<dt><strong>Setup.pm</strong><br />
+</dt>
 <dd>
 <pre>
  phpmyadmin_install was not passing $conf</pre>
 </dd>
-<dt><strong><a name="item_utility_2epm">Utility.pm</a></strong>
-
+<dt><strong><a name="item_utility_2epm">Utility.pm</a></strong><br />
+</dt>
 <dd>
-<p>Fixed a bug in mailtoaster sub that prevented it from finding the tw.conf file</p>
+Fixed a bug in mailtoaster sub that prevented it from finding the tw.conf file
 </dd>
 <dd>
 <p>added _progress_??? subs for providing status messages on the CLI</p>
@@ -199,8 +219,7 @@
 <dd>
 <p>added pod documentation for several subs that had none</p>
 </dd>
-</li>
-</dl>
+<p></p></dl>
 <p>
 </p>
 <h2><a name="5_01__2006_09_22">5.01 - 2006.09.22</a></h2>
@@ -222,10 +241,10 @@
 </p>
 <h2><a name="5_00__2006_09_18">5.00 - 2006.09.18</a></h2>
 <dl>
-<dt><strong><a name="item_code_quality">CODE QUALITY</a></strong>
-
+<dt><strong><a name="item_code_quality">CODE QUALITY</a></strong><br />
+</dt>
 <dd>
-<p>* Parameter validation for nearly all subroutines using Params::Validate. Backwards compatability is now destroyed, but that should not affect anyone as all published software that uses these functions is included with the distribution. Params::Validate is included in MT distribution.</p>
+* Parameter validation for nearly all subroutines using Params::Validate. Backwards compatability is now destroyed, but that should not affect anyone as all published software that uses these functions is included with the distribution. Params::Validate is included in MT distribution.
 </dd>
 <dd>
 <p>* Tests. Hundreds of new tests. In version 4, I added a plethora of tests, basically just making sure each sub and function would execute. Now most subs and functions have tests that verify inputs and results.</p>
@@ -248,11 +267,11 @@
 <dd>
 <p>* run tests early in subroutines, reduces giant if nests and makes it easier to read the code.</p>
 </dd>
-</li>
-<dt><strong><a name="item_misc">MISC</a></strong>
-
+<p></p>
+<dt><strong><a name="item_misc">MISC</a></strong><br />
+</dt>
 <dd>
-<p>* Added Build.PL for use with Module::Build fans.</p>
+* Added Build.PL for use with Module::Build fans.
 </dd>
 <dd>
 <p>* Greatly simplified Makefile.PL by moving ``make cgi'' and ``make conf'' logic into Setup.pm. Those functions are now accessed by toaster_setup targets.</p>
@@ -260,11 +279,11 @@
 <dd>
 <p>* OpenSSL config files are now updated automatically. Auto-generated certs now have the accurate information in them. Courier-IMAP certs are also updated automatically.</p>
 </dd>
-</li>
-<dt><strong><a name="item_documentation">DOCUMENTATION</a></strong>
-
+<p></p>
+<dt><strong><a name="item_documentation">DOCUMENTATION</a></strong><br />
+</dt>
 <dd>
-<p>* Added three new test modules that test for: pod documentation for subs, pod formatting, and  automatic checking of code to test for best practices.</p>
+* Added three new test modules that test for: pod documentation for subs, pod formatting, and  automatic checking of code to test for best practices.
 </dd>
 <dd>
 <p>* moved POD documentation from being strewn about the files to the end of each file.</p>
@@ -279,11 +298,11 @@
  updated copyright notices to 2006
  moved usage() subs into pod docs and use pod2usage</pre>
 </dd>
-</li>
-<dt><strong><a name="item_code_formatting__26_readability">CODE FORMATTING &amp; READABILITY</a></strong>
-
+<p></p>
+<dt><strong><a name="item_code_formatting__26_readability">CODE FORMATTING &amp; READABILITY</a></strong><br />
+</dt>
 <dd>
-<p>* Used perltidy to format most of the source code.</p>
+* Used perltidy to format most of the source code.
 </dd>
 <dd>
 <p>* Used perlcritic to identify and correct (almost) all instances where my code was not using best practices, as identified in Perl Best Practices.</p>
@@ -294,11 +313,11 @@
 <dd>
 <p>* added ``use English'' pragma and replaced all the arcane $^ and $[ perl variables with their english name equivalents.</p>
 </dd>
-</li>
-<dt><strong><a name="item_web_interface_2fcgi">WEB INTERFACE/CGI</a></strong>
-
+<p></p>
+<dt><strong><a name="item_web_interface_2fcgi">WEB INTERFACE/CGI</a></strong><br />
+</dt>
 <dd>
-<p>* Completely new webmail/logon interface. Written entirely in HTML, CSS, and JavaScript.</p>
+* Completely new webmail/logon interface. Written entirely in HTML, CSS, and JavaScript.
 </dd>
 <dd>
 <p>* The format of toaster-watcher.conf is altered slightly. It is more consistent in the internal layout so that my programs can alter it reliably.</p>
@@ -309,8 +328,7 @@
 <dd>
 <p>* Organized all the cgi related docs into cgi_files directory. They are now installed via the -s webmail target to toaster_setup.</p>
 </dd>
-</li>
-</dl>
+<p></p></dl>
 <p>See Also 4.x Changes <a href="http://mail-toaster.org/changes/4.x-changes.html">http://mail-toaster.org/changes/4.x-changes.html</a></p>
 
 </body>

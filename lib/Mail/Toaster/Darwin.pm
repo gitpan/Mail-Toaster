@@ -12,7 +12,7 @@ use Carp;
 use Params::Validate qw(:all);
 
 use vars qw($VERSION);
-$VERSION = '5.02';
+$VERSION = '5.04';
 
 use lib "inc";
 use lib "lib";
@@ -187,7 +187,6 @@ EO_NO_PORTS
     }
 }
 
-
 1;
 __END__
 
@@ -228,7 +227,7 @@ Updates the Darwin Ports tree (/usr/ports/dports/).
 
 =item port_install
 
-	$darwin->port_install( port=>"openldap2" );
+	$darwin->port_install( port_name => "openldap2" );
 
 That's it. Really. Honest. Nothing more. 
 

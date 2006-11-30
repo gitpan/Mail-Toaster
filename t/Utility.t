@@ -12,6 +12,7 @@ my $deprecated = 0;    # run the deprecated tests.
 use lib "inc";
 use lib "lib";
 my $network = 1;       # run tests that require network
+$network = 0 if $OSNAME =~ /cygwin/;
 my $r;
 
 BEGIN { use_ok('Mail::Toaster::Utility'); }

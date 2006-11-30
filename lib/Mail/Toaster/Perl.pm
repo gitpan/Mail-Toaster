@@ -14,7 +14,7 @@ use Params::Validate qw( :all);
 
 use vars qw($VERSION $err);
 
-$VERSION = '5.02';
+$VERSION = '5.04';
 
 use lib "inc";
 use lib "lib";
@@ -363,8 +363,8 @@ sub perl_install {
             $self->module_load( module => "Mail::Toaster::Darwin" );
             my $darwin = Mail::Toaster::Darwin->new();
             
-            $darwin->port_install(port=>"perl5.8");
-            $darwin->port_install(port=>"p5-compress-zlib");
+            $darwin->port_install(port_name => "perl5.8" );
+            $darwin->port_install(port_name => "p5-compress-zlib" );
             return 1;
         }
 

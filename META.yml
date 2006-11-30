@@ -1,12 +1,10 @@
 ---
 name: Mail-Toaster
-version: 5.03rc1
+version: 5.04
 author:
-  - Matt Simerson (matt@tnpi.net)
-abstract: 'turns a computer into a secure, full-featured, high-performance mail server.'
+  - "Matt Simerson (matt@tnpi.net)"
+abstract: turns a computer into a secure, full-featured, high-performance mail server.
 license: bsd
-resources:
-  license: http://www.opensource.org/licenses/bsd-license.php
 requires:
   Date::Parse: 2.0
   Digest::HMAC_MD5: 1
@@ -17,10 +15,17 @@ requires:
   Params::Validate: 0.8
 build_requires:
   Test::More: 0
+no_index:
+  directory:
+    - contrib
+generated_by: Module::Build version 0.2805
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.2.html
+  version: 1.2
 provides:
   Mail::Toaster:
     file: lib/Mail/Toaster.pm
-    version: 5.03rc1
+    version: 5.04
   Mail::Toaster::Apache:
     file: lib/Mail/Toaster/Apache.pm
     version: 5.02
@@ -32,7 +37,7 @@ provides:
     version: 5.01
   Mail::Toaster::Darwin:
     file: lib/Mail/Toaster/Darwin.pm
-    version: 5.02
+    version: 5.04
   Mail::Toaster::Ezmlm:
     file: lib/Mail/Toaster/Ezmlm.pm
     version: 5.02
@@ -44,29 +49,24 @@ provides:
     version: 5.02
   Mail::Toaster::Mysql:
     file: lib/Mail/Toaster/Mysql.pm
-    version: 5.02
+    version: 5.04
   Mail::Toaster::Passwd:
     file: lib/Mail/Toaster/Passwd.pm
     version: 5.02
   Mail::Toaster::Perl:
     file: lib/Mail/Toaster/Perl.pm
-    version: 5.02
+    version: 5.04
   Mail::Toaster::Provision:
     file: lib/Mail/Toaster/Provision.pm
     version: 5.03
   Mail::Toaster::Qmail:
     file: lib/Mail/Toaster/Qmail.pm
-    version: 5.02
+    version: 5.03
   Mail::Toaster::Setup:
     file: lib/Mail/Toaster/Setup.pm
-    version: 5.02
+    version: 5.04
   Mail::Toaster::Utility:
     file: lib/Mail/Toaster/Utility.pm
     version: 5.02
-no_index:
-  directory:
-    - contrib
-generated_by: Module::Build version 0.2801
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+resources:
+  license: http://www.opensource.org/licenses/bsd-license.php

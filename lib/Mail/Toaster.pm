@@ -12,7 +12,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $INJECT);
-$VERSION = '5.03rc1';
+$VERSION = '5.04';
 
 use lib "inc";
 use lib "lib";

@@ -461,7 +461,7 @@ sub apache2_fixups {
     my ( $self, $conf, $ports_dir ) = @_;
 
     my $prefix = $conf->{'toaster_prefix'}    || "/usr/local";
-    my $htdocs = $conf->{'toaster_http_docs'} || "/usr/local/www/data";
+    my $htdocs = $conf->{'toaster_http_docs'} || "/usr/local/www/toaster";
     my $cgibin = $conf->{'toaster_cgi_bin'}   || "/usr/local/www/cgi-bin";
     my $ver    = $conf->{'install_apache'};
 
@@ -519,6 +519,7 @@ sub apache2_fixups {
     if ( ! $dns->resolve(type=>"A", record=>$hostname) ) {
         $redirect_host = $local_ip;
     };
+
     print $MT_CONF <<"EO_MAIL_TOASTER_CONF";
 #
 # Mail-Toaster specific Apache configuration file additions. 
@@ -570,7 +571,7 @@ NameVirtualHost $local_ip:443
 </IfDefine>
 
 # these is an override for the default htdocs
-# the only difference is having ExecCGI enabled
+# the main difference is having ExecCGI enabled
 
 <Directory "$htdocs">
     Options Indexes FollowSymLinks ExecCGI
@@ -674,8 +675,7 @@ Alias /roundcube "/usr/local/www/roundcube/"
     };
 
     print $MT_CONF '
-# if you install these, comment out these entries
-#Alias /v-webmail/ "/usr/local/www/mail/v-webmail/htdocs/"
+Alias /v-webmail/ "/usr/local/www/v-webmail/htdocs/"
 ';
 
 #    if ($conf->{'install_apache'} == 22 ) {

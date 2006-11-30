@@ -12,9 +12,13 @@ use lib "inc";
 use lib "lib";
 
 my $mod = "Date::Parse";
-unless (eval "require $mod" && -w "/var/log/mail")
+unless (eval "require $mod" )
 {
-	Test::More::plan( skip_all => "skipping tests, maillogs not installed yet");
+	Test::More::plan( skip_all => "skipping tests, Date::Parse not installed yet");
+}
+unless (-w "/var/log/mail")
+{
+	Test::More::plan( skip_all => "skipping tests, /var/log/mail not writable");
 }
 plan 'no_plan';
 

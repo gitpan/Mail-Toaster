@@ -2,15 +2,41 @@
 
 =head1 Mail Toaster Changes
 
+=head2 5.04 - Nov 25, 2006
+
+ Setup.pm - mailfilter generation code generated an invalid filter
+      file if filtering_spamassassin_method was not = site.
+    - installing phpmyadmin attempted to install php4-gd
+      despite install_php = 5.
+ *.pm - updated calls to darwin->port_install to reflect an internal
+      API change. 
+
+
+=head2 5.03 - Nov 8, 2006
+
+ Logs.pm - comment out a print statement that caused a snmp counting error in maillogs
+
+ Setup.pm - install Params-Validate port on FreeBSD & Darwin
+
+ t/maillogs - return a more specific error message if Date::Parse not installed
+
 =head2 5.03rc1 - Oct 15, 2006
 
 =over
 
 =item Packaging Updates
 
-Moved Params::Validated into inc directory (prevent CPAN from presumign I provide it), moved Changes back into doc/Changes.pod, added include lib "inc" into all test files (forgot that with 5.02 release). 
+Moved Params::Validate into inc directory (prevent CPAN from presuming I provide it), moved Changes back into doc/Changes.pod, added include lib "inc" into all test files (forgot that with 5.02 release). 
 
-Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm, Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm, Perl.pm, and Toaster.pm.
+Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm, Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm, Perl.pm, and Toaster.pm. Updated META.yml to include license.
+
+=item FreeBSD Port preparations
+
+Default htdocs directory is now /usr/local/www/toaster.
+
+=item CPAN test tweaks
+
+Don't do passwd test on cygwin. Don't do network tests on Cygwin
 
 =back
 

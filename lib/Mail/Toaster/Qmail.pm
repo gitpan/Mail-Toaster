@@ -14,15 +14,13 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $err);
-$VERSION = '5.02';
+$VERSION = '5.03';
 
 use lib "lib";
 
 require Mail::Toaster;          my $toaster = Mail::Toaster->new();
 require Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new();
 require Mail::Toaster::Perl;    my $perl = Mail::Toaster::Perl->new();
-
-1;
 
 sub new {
     my $class = shift;
@@ -149,7 +147,9 @@ sub build_send_run {
         return;
     }
 
-    if ( !-d $qsupervise ) { $utility->mkdir_system( dir => $qsupervise, debug=>$debug ); }
+    if ( !-d $qsupervise ) { 
+        $utility->mkdir_system( dir => $qsupervise, debug=>$debug ); 
+    };
 
     my $mailbox  = $conf->{'send_mailbox_string'} || "./Maildir/";
     my $send_log = $conf->{'send_log_method'}     || "syslog";
@@ -795,7 +795,7 @@ sub control_create {
     else {
         print "control_create: creating $qmaildir/rc.\n" if $debug;
         my $file = "/tmp/toaster-watcher-send-runfile";
-        if ( $self->build_send_run( conf => $conf, file => $file ) ) {
+        if ( $self->build_send_run( conf => $conf, file => $file, debug=>$debug ) ) {
             $self->install_supervise_run(
                 tmpfile     => $file,
                 destination => "$qmaildir/rc",
@@ -3157,7 +3157,8 @@ if [ ! -f $qdir/control/rcpthosts ]; then
 	echo \"No $qdir/control/rcpthosts!\"
 	echo \"Refusing to start SMTP listener because it'll create an open relay\"
 	exit 1
-fi\n";
+fi
+";
 
 }
 

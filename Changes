@@ -1,14 +1,29 @@
 Mail Toaster Changes
+  5.03 - Nov 8, 2006
+     Logs.pm - comment out a print statement that caused a snmp counting error in maillogs
+
+     Setup.pm - install Params-Validate port on FreeBSD & Darwin
+
+     t/maillogs - return a more specific error message if Date::Parse not installed
+
+     added examples/ and 4 jpeg screenshots
+
   5.03rc1 - Oct 15, 2006
     Packaging Updates
-        Moved Params::Validated into inc directory (prevent CPAN from
-        presumign I provide it), moved Changes back into doc/Changes.pod,
+        Moved Params::Validate into inc directory (prevent CPAN from
+        presuming I provide it), moved Changes back into doc/Changes.pod,
         added include lib "inc" into all test files (forgot that with 5.02
         release).
 
         Better pod descriptions for FreeBSD.pm, Mysql.pm, Apache.pm,
         Ezmlm.pm, Darwin.pm, DNS.pm, Provision.pm, Setup.pm, Passwd.pm,
-        Perl.pm, and Toaster.pm.
+        Perl.pm, and Toaster.pm. Updated META.yml to include license.
+
+    FreeBSD Port preparations
+        Default htdocs directory is now /usr/local/www/toaster.
+
+    CPAN test tweaks
+        Don't do passwd test on cygwin. Don't do network tests on Cygwin
 
      toaster-watcher.conf
        added install_roundcube option

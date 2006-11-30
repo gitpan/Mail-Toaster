@@ -76,7 +76,6 @@ contrib/qmail-tap.diff
 contrib/services.sh
 doc/Changes.html
 doc/Changes.pod
-doc/README.html
 doc/mailadmin.html
 doc/modules/Apache.html
 doc/modules/CGI.html
@@ -93,10 +92,15 @@ doc/modules/Qmail.html
 doc/modules/Setup.html
 doc/modules/Toaster.html
 doc/modules/Utility.html
+doc/README.html
 doc/toaster-watcher.conf
 doc/toaster-watcher.conf.html
 doc/toaster.conf
 doc/toaster.conf.html
+examples/admin.jpg
+examples/roundcube.jpg
+examples/squirrelmail.jpg
+examples/statistics.jpg
 inc/Module/AutoInstall.pm
 inc/Module/Install.pm
 inc/Module/Install/AutoInstall.pm

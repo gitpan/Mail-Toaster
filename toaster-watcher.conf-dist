@@ -37,7 +37,7 @@ system_config_dir                  = /usr/local/etc
 toaster_prefix                     = /usr/local
 toaster_src_dir                    = /usr/local/src
 toaster_http_base                  = /usr/local/www
-toaster_http_docs                  = /usr/local/www/data
+toaster_http_docs                  = /usr/local/www/toaster
 toaster_cgi_bin                    = /usr/local/www/cgi-bin
 toaster_tmp_dir                    = /tmp
 toaster_watcher_log                = /var/log/mail/watcher.log
@@ -123,6 +123,7 @@ install_aspell                     = 0
 install_ispell                     = 1
 install_quota_tools                = 0
 install_roundcube                  = 0       # feature not available yet
+install_roundcube_db_pass          = To4st3dR0ndc@be
 
 
 ######################################

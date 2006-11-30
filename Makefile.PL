@@ -62,7 +62,7 @@ MT		=	Mail::Toaster
 conf:
 	install -m 0644 toaster.conf-dist $(CONFDIR)
 	install -m 0640 toaster-watcher.conf-dist $(CONFDIR)
-	echo make newconf is deprecated! Use: toaster_setup.pl -s config
+	echo make conf is deprecated! Use: toaster_setup.pl -s config
 
 docs:
 	pod2text bin/toaster_setup.pl         > README

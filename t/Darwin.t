@@ -12,6 +12,8 @@ Test::More::plan(
 use lib "inc";
 use lib "lib";
 
+plan 'no_plan';
+
 BEGIN { use_ok('Mail::Toaster::Darwin'); }
 require_ok('Mail::Toaster::Darwin');
 
