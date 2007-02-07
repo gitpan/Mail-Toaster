@@ -1,12 +1,78 @@
 Mail Toaster Changes
+  5.05 -
+     Extensive updates for Darwin and Linux platforms
+     Support for Yahoo DomainKeys
+     Fixed -s allspam target (thanks Georg) 
+     Support for dovecot IMAP/POP3 server
+
+     toaster-watcher.conf
+       - added install_gnupg option
+       - added install_dovecot option (alternative to courier-imap)
+       - added qmail_domainkeys option
+       - added smtpd_verbose, pop3_verbose, submit_verbose options (adds -v flag
+          to tcpserver in */run files)
+       - replaced sbl_xbl.spamhaus.org with zen.spamhaus.org
+
+     Apache.pm
+       - added DirectoryIndex index.php declaration to PHP webmail apps in
+         apache/Includes/mail-toaster.conf
+       - added v-webmail Alias and Directory declarations
+       - enable v-webmail Alias by default in apache include
+
+     Darwin.pm
+       - turned debugging off in syscmd call in port install sub
+
+     FreeBSD.pm
+       - port location of portupgrade updated (sysutils->ports-mgmt)
+       - report how old ports tree is
+
+     Mysql.pm
+       - instead of looking for the dports dir on Darwin, look for the "port"
+         binary to detect if DarwinPorts is configured
+       - offer to install the mysql package instead of port (to save time)
+
+     Passwd.pm
+       - new user sub, $vals->{'username'} needed to be $vals->{'user'}
+
+     Qmail.pm
+       - on FreeBSD, be smarter about disabling sendmail and enabling qmail
+
+     Setup.pm - 
+       - Georg von Itzenplitz - allspam target created an empty .qmail with
+         invalid ownership, sent patch.
+       - fix for installing phpMyAdmin with php5
+       - the squirrelmail sub does a better job of setting up squirrelmail with
+         mysql prefs (no guarantees yet).
+       - added sub for installing roundcube, domainkeys, and dovecot
+       - RRDutil was not fetching dist properly
+       - autorespond failed to build on darwin due to quoting error
+       - if $config_dir ($prefix/etc)  is missing, create it
+       - added vpopmail_valias to Darwin config tweaks
+       - added an entire section of Linux config tweaks
+       - search for gmake is no longer fatal (on Linux, gmake is installed as make)
+       - isoqlog source build now works again (patches needed to be an arrayref)
+       - added port_ options for Apache2-SOAP perl module
+       - added download addresses for NicTool installs
+       - added WITH_DATABASE to squirrelmail installs (so pear-DB will be installed)
+       - suppress build time prompt if vpopmail_learn_passwords is disabled
+       - updated vpopmail creategroup syntax, it now creates user/groups on
+         Linux/Darwin again.
+       - only check for service/pop3 symlink if pop3_daemon = qpop3d
+
+  5.04 - Nov 25, 2006
+     Setup.pm - mailfilter generation code generated an invalid filter
+          file if filtering_spamassassin_method was not = site.
+        - installing phpmyadmin attempted to install php4-gd
+          despite install_php = 5.
+     *.pm - updated calls to darwin->port_install to reflect an internal
+          API change. 
+
   5.03 - Nov 8, 2006
      Logs.pm - comment out a print statement that caused a snmp counting error in maillogs
 
      Setup.pm - install Params-Validate port on FreeBSD & Darwin
 
      t/maillogs - return a more specific error message if Date::Parse not installed
-
-     added examples/ and 4 jpeg screenshots
 
   5.03rc1 - Oct 15, 2006
     Packaging Updates

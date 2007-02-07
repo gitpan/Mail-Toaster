@@ -14,7 +14,7 @@ use Params::Validate qw( :all);
 
 use vars qw($VERSION $err);
 
-$VERSION = '5.04';
+$VERSION = '5.05';
 
 use lib "inc";
 use lib "lib";
@@ -111,9 +111,8 @@ sub module_install {
         },
     );
 
-    my ( $conf, $module, $archive, $site, $url, 
-         $src, $targets, $fatal, $debug )
-        = ( $p{'conf'}, $p{'module'}, $p{'archive'}, $p{'site'}, $p{'url'}, 
+    my ( $conf, $module, $site, $url, $src, $targets, $fatal, $debug )
+        = ( $p{'conf'}, $p{'module'}, $p{'site'}, $p{'url'}, 
             $p{'src'}, $p{'targets'}, $p{'fatal'}, $p{'debug'} );
 
 
@@ -139,7 +138,7 @@ sub module_install {
         conf    => $conf,
         site    => $site,
         url     => $url,
-        package => $module,
+        package => $p{'archive'} || $module,
         debug   => $debug,
     );
 

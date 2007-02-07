@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail Toaster Changes</title>
-<link rev="made" href="mailto:root@b14.apple.com" />
+<link rev="made" href="mailto:root@b01.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -16,6 +16,8 @@
 	<li><a href="#mail_toaster_changes">Mail Toaster Changes</a></li>
 	<ul>
 
+		<li><a href="#5_05_">5.05 -</a></li>
+		<li><a href="#5_04__nov_25__2006">5.04 - Nov 25, 2006</a></li>
 		<li><a href="#5_03__nov_8__2006">5.03 - Nov 8, 2006</a></li>
 		<li><a href="#5_03rc1__oct_15__2006">5.03rc1 - Oct 15, 2006</a></li>
 		<li><a href="#5_02__2006_10_11">5.02 - 2006.10.11</a></li>
@@ -33,6 +35,78 @@
 <h1><a name="mail_toaster_changes">Mail Toaster Changes</a></h1>
 <p>
 </p>
+<h2><a name="5_05_">5.05 -</a></h2>
+<pre>
+ Extensive updates for Darwin and Linux platforms
+ Support for Yahoo DomainKeys
+ Fixed -s allspam target (thanks Georg) 
+ Support for dovecot IMAP/POP3 server</pre>
+<pre>
+ toaster-watcher.conf
+   - added install_gnupg option
+   - added install_dovecot option (alternative to courier-imap)
+   - added qmail_domainkeys option
+   - added smtpd_verbose, pop3_verbose, submit_verbose options (adds -v flag
+      to tcpserver in */run files)
+   - replaced sbl_xbl.spamhaus.org with zen.spamhaus.org</pre>
+<pre>
+ Apache.pm
+   - added DirectoryIndex index.php declaration to PHP webmail apps in
+     apache/Includes/mail-toaster.conf
+   - added v-webmail Alias and Directory declarations
+   - enable v-webmail Alias by default in apache include</pre>
+<pre>
+ Darwin.pm
+   - turned debugging off in syscmd call in port install sub</pre>
+<pre>
+ FreeBSD.pm
+   - port location of portupgrade updated (sysutils-&gt;ports-mgmt)
+   - report how old ports tree is</pre>
+<pre>
+ Mysql.pm
+   - instead of looking for the dports dir on Darwin, look for the &quot;port&quot;
+     binary to detect if DarwinPorts is configured
+   - offer to install the mysql package instead of port (to save time)</pre>
+<pre>
+ Passwd.pm
+   - new user sub, $vals-&gt;{'username'} needed to be $vals-&gt;{'user'}</pre>
+<pre>
+ Qmail.pm
+   - on FreeBSD, be smarter about disabling sendmail and enabling qmail</pre>
+<pre>
+ Setup.pm - 
+   - Georg von Itzenplitz - allspam target created an empty .qmail with
+     invalid ownership, sent patch.
+   - fix for installing phpMyAdmin with php5
+   - the squirrelmail sub does a better job of setting up squirrelmail with
+     mysql prefs (no guarantees yet).
+   - added sub for installing roundcube, domainkeys, and dovecot
+   - RRDutil was not fetching dist properly
+   - autorespond failed to build on darwin due to quoting error
+   - if $config_dir ($prefix/etc)  is missing, create it
+   - added vpopmail_valias to Darwin config tweaks
+   - added an entire section of Linux config tweaks
+   - search for gmake is no longer fatal (on Linux, gmake is installed as make)
+   - isoqlog source build now works again (patches needed to be an arrayref)
+   - added port_ options for Apache2-SOAP perl module
+   - added download addresses for NicTool installs
+   - added WITH_DATABASE to squirrelmail installs (so pear-DB will be installed)
+   - suppress build time prompt if vpopmail_learn_passwords is disabled
+   - updated vpopmail creategroup syntax, it now creates user/groups on
+     Linux/Darwin again.
+   - only check for service/pop3 symlink if pop3_daemon = qpop3d</pre>
+<p>
+</p>
+<h2><a name="5_04__nov_25__2006">5.04 - Nov 25, 2006</a></h2>
+<pre>
+ Setup.pm - mailfilter generation code generated an invalid filter
+      file if filtering_spamassassin_method was not = site.
+    - installing phpmyadmin attempted to install php4-gd
+      despite install_php = 5.
+ *.pm - updated calls to darwin-&gt;port_install to reflect an internal
+      API change.</pre>
+<p>
+</p>
 <h2><a name="5_03__nov_8__2006">5.03 - Nov 8, 2006</a></h2>
 <pre>
  Logs.pm - comment out a print statement that caused a snmp counting error in maillogs</pre>
@@ -40,8 +114,6 @@
  Setup.pm - install Params-Validate port on FreeBSD &amp; Darwin</pre>
 <pre>
  t/maillogs - return a more specific error message if Date::Parse not installed</pre>
-<pre>
- added examples/ and 4 jpeg screenshots</pre>
 <p>
 </p>
 <h2><a name="5_03rc1__oct_15__2006">5.03rc1 - Oct 15, 2006</a></h2>

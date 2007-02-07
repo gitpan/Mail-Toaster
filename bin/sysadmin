@@ -13,7 +13,7 @@ use Mail::Toaster::Provision 5;
 
 use vars qw/ $VERSION $iam $whoami /;
 
-$VERSION = "5.03";
+$VERSION = "5.05";
 
 my $conf = $utility->parse_config( file=>"sysadmin.conf", debug=>0 );
 
@@ -22,6 +22,8 @@ my $conf = $utility->parse_config( file=>"sysadmin.conf", debug=>0 );
 #select(STDERR); $|=1; select(STDOUT); $|=1;
 
 my $provision = Mail::Toaster::Provision->new();
+
+$provision->{'conf'} = $conf;
 
 $iam = $provision->what_am_i();
 exit unless $provision->what_am_i_check($iam);

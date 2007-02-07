@@ -120,6 +120,8 @@ my $setup = Mail::Toaster::Setup->new(conf=>$conf);
 : $section eq "netqmailmac"? $qmail->netqmail_virgin  (conf=>$conf, debug=>$debug )
 : $section eq "djbdns"     ? $setup->djbdns           ( )
 
+# mail servers
+: $section eq "dovecot"    ? $setup->dovecot          ( )
 : $section eq "courier"    ? $setup->courier_imap     ( )
 : $section eq "courierconf"? $setup->courier_config   ( )
 
@@ -127,6 +129,7 @@ my $setup = Mail::Toaster::Setup->new(conf=>$conf);
 : $section eq "qmailadmin"  ? $setup->qmailadmin       ( )
 : $section eq "sqwebmail"   ? $setup->sqwebmail        ( )
 : $section eq "squirrelmail"? $setup->squirrelmail     ( )
+: $section eq "roundcube"   ? $setup->roundcube        ( )
 
 #  Mail Filtering
 : $section eq "filter"      ? $setup->filtering        ( )
@@ -185,7 +188,7 @@ sub all {
 	$setup->ports         ( );
 	$setup->mysql         ( ); 
 	$setup->apache        ( ver=>2 );
-	$setup->webmail       ( );
+	$setup->webmail       ( fatal=>0 );
 	$setup->phpmyadmin    ( );
 	$setup->ucspi_tcp     ( );
 	$setup->ezmlm         ( );
@@ -195,8 +198,10 @@ sub all {
 	$setup->qmailadmin    ( );
 	$qmail->netqmail      (conf=>$conf, debug=>$debug );
 	$setup->courier_imap  ( );
+	$setup->dovecot       ( );
 	$setup->sqwebmail     ( );
 	$setup->squirrelmail  ( );
+	$setup->roundcube     ( );
 	$setup->filtering     ( );
 	$setup->maillogs      ( );
 	$setup->supervise     ( );
@@ -296,6 +301,7 @@ A complete set of instructions for building a mail toaster are on the toaster in
      qmailadmin - installs qmailadmin
       sqwebmail - installs sqwebmail (webmail app)
    squirrelmail - installs squirrelmail (webmail app)
+      roundcube - installs Roundcube (webmail app)
 
                      Mail Filtering
          filter - installs SpamAssassin, ClamAV, DCC, razor, and more

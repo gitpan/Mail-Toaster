@@ -12,7 +12,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $INJECT);
-$VERSION = '5.04';
+$VERSION = '5.05';
 
 use lib "inc";
 use lib "lib";
@@ -95,7 +95,7 @@ sub learn_mailboxes {
 
     my $days = $conf->{'maildir_learn_interval'};
     unless ($days) {
-        warn "maildir_learn_interval not set in \$conf!";
+        warn "email spam/ham learning is disabled because maildir_learn_interval is not set in \$conf!";
         return 0;
     }
 
@@ -125,11 +125,17 @@ sub learn_mailboxes {
         }
     }
 
-    unless ( -M $log > $days ) {
-        print "learn_mailboxes: skipping, $log is less than $days old\n"
-          if $debug;
-        return 1;
+    if ( $OSNAME eq "freebsd" ) {
+        # let periodic trigger the message learning if possible
+
     }
+    else {
+    }
+        unless ( -M $log > $days ) {
+            print "learn_mailboxes: skipping, $log is less than $days old\n"
+                if $debug;
+            return 1;
+        }
     
     $utility->logfile_append(
         file  => $log,
@@ -1263,6 +1269,93 @@ sub get_toaster_conf {
 	     
 }
 
+sub service_symlinks {
+
+    my $self = shift;
+    
+    my %p = validate( @_, {
+            'conf'    => { type=>HASHREF, },
+            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
+            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
+        },
+    );
+
+    my $conf  = $p{'conf'};
+    my $debug = $p{'debug'};
+    my $fatal = $p{'fatal'};
+
+    require Mail::Toaster::Qmail;
+    my $qmail = Mail::Toaster::Qmail->new();
+
+    my $pop_service_dir =
+      $qmail->service_dir_get( conf => $conf, prot => "pop3", debug => $debug );
+
+    my $pop_supervise_dir = $qmail->supervise_dir_get(
+        conf  => $conf,
+        prot  => "pop3",
+        debug => $debug
+    );
+
+    if ( $conf->{'pop3_daemon'} ne "qpop3d" ) {
+        if ( -e $pop_service_dir ) {
+            print "Deleting $pop_service_dir because we aren't using qpop3d!\n"
+              if $debug;
+            unlink($pop_service_dir);
+        }
+        else {
+            print "NOTICE: Not enabled due to configuration settings.\n";
+        }
+    }
+    else {
+        if ( -e $pop_service_dir ) {
+            print "service_symlinks: $pop_service_dir already exists.\n"
+              if $debug;
+        }
+        else {
+            if ( -d $pop_supervise_dir ) {
+                print "service_symlinks: creating symlink from $pop_supervise_dir"
+                . " to $pop_service_dir\n"
+                if $debug;
+                symlink( $pop_supervise_dir, $pop_service_dir )
+                   or croak "couldn't symlink $pop_supervise_dir: $!";
+            }
+            else {
+                print "service_symlinks: skipping symlink to $pop_service_dir because target $pop_supervise_dir doesn't exist.\n";
+            }
+        }
+    }
+
+    foreach my $prot ( "smtp", "send", "submit" ) {
+
+        my $svcdir = $qmail->service_dir_get(
+            conf  => $conf,
+            prot  => $prot,
+            debug => $debug,
+        );
+        my $supdir = $qmail->supervise_dir_get(
+            conf  => $conf,
+            prot  => $prot,
+            debug => $debug,
+        );
+
+        if ( -d $supdir ) {
+            if ( -e $svcdir ) {
+                print "service_symlinks: $svcdir already exists.\n" if $debug;
+            }
+            else {
+                print
+                "service_symlinks: creating symlink from $supdir to $svcdir\n";
+                symlink( $supdir, $svcdir ) or croak "couldn't symlink $supdir: $!";
+            }
+        }
+        else {
+            print "service_symlinks: skipping symlink to $svcdir because target $supdir doesn't exist.\n";
+        };
+    }
+
+    return 1;
+}
+
 sub supervised_do_not_edit_notice {
 
     my $self = shift;
@@ -1523,6 +1616,7 @@ sub supervised_tcpserver {
     $exec .= "-H " if $conf->{ $prot . '_lookup_tcpremotehost' } == 0;
     $exec .= "-R " if $conf->{ $prot . '_lookup_tcpremoteinfo' } == 0;
     $exec .= "-p " if $conf->{ $prot . '_dns_paranoia' } == 1;
+    $exec .= "-v " if (defined $conf->{$prot . '_verbose'} && $conf->{ $prot . '_verbose' } == 1);
 
     my $maxcon = $conf->{ $prot . '_max_connections' } || 40;
     my $maxmem = $conf->{ $prot . '_max_memory' };
@@ -1958,6 +2052,20 @@ Makes sure the service directory is set up properly
 	$toaster->service_dir_test(conf=>$conf);
 
 Also sets the permissions to 775.
+
+
+=item service_symlinks
+
+Sets up the supervised mail services for Mail::Toaster
+
+    $toaster->service_symlinks(conf=>$conf, );
+
+This populates the supervised service directory (default: /var/service) with symlinks to the supervise control directories (typically /var/qmail/supervise/). Creates and sets permissions on the following directories and files:
+
+    /var/service/pop3
+    /var/service/smtp
+    /var/service/send
+    /var/service/submit
 
 
 =item supervise_dirs_create

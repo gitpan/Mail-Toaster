@@ -13,7 +13,7 @@ use Carp;
 use Params::Validate qw( :all );;
 
 use vars qw($VERSION $err);
-$VERSION = '5.03';
+$VERSION = '5.05';
 
 use lib "lib";
 
@@ -290,7 +290,7 @@ sub install_portupgrade {
 
     $self->port_install(
         port => "portupgrade",
-        base => "sysutils",
+        base => -d "/usr/ports/ports-mgmt" ? "ports-mgmt" : "sysutils",
         debug => 0,
         fatal => $fatal,
     );
@@ -805,7 +805,7 @@ sub package_install {
     $ENV{"PACKAGESITE"} = $pkg_url if $pkg_url;
 
     my $pkg_add = $utility->find_the_bin( bin => "pkg_add", debug=>$debug, fatal=>$fatal );
-    if ( ! $pkg_add || -x $pkg_add ) {
+    if ( ! $pkg_add || ! -x $pkg_add ) {
         carp "couldn't find pkg_add, giving up.";
         return;
     };
@@ -1201,7 +1201,8 @@ sub ports_update {
         return;
     };
 
-    print "\n\nUpdatePorts: You should keep your ports tree up to date.\n";
+    my $days_old = int( (-M "/usr/ports") + 0.5);
+    print "\n\nports_update: Your ports tree has not been updated in $days_old days.";
     unless (
         $utility->yes_or_no(
             timeout  => 60,

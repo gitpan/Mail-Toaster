@@ -14,7 +14,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $err);
-$VERSION = '5.03';
+$VERSION = '5.05';
 
 use lib "lib";
 
@@ -636,48 +636,48 @@ sub config {
         }
     }
 
-    return 1 unless ( $OSNAME eq "freebsd" );
+    if ( $OSNAME eq "freebsd" ) {
 
-    # disable sendmail
-    require Mail::Toaster::FreeBSD;
-    my $freebsd  = Mail::Toaster::FreeBSD->new;
-    my $sendmail = `grep sendmail_enable /etc/rc.conf`;
+        # disable sendmail
+        require Mail::Toaster::FreeBSD;
+        my $freebsd  = Mail::Toaster::FreeBSD->new;
+        my $sendmail = `grep sendmail_enable /etc/rc.conf`;
 
-    $freebsd->rc_dot_conf_check( 
-        check=>"sendmail_enable", 
-        line=>'sendmail_enable="NONE"', 
-        debug=>$debug,
-      ) unless $sendmail;
+        $freebsd->rc_dot_conf_check( 
+            check=>"sendmail_enable", 
+            line=>'sendmail_enable="NONE"', 
+            debug=>$debug,
+        ) unless $sendmail;
 
-    # if sendmail is set to anything except NONE 
-    unless ( $sendmail && $sendmail =~ /NONE/ ) {
-        my @lines = $utility->file_read( file => "/etc/rc.conf", debug=>$debug );
-        foreach (@lines) {
-            if ( $_ =~ /^sendmail_enable/ ) { $_ = 'sendmail_enable="NONE"'; }
+        # if sendmail is set to anything except NONE 
+        unless ( $sendmail && $sendmail =~ /NONE/ ) {
+            my @lines = $utility->file_read( file => "/etc/rc.conf", debug=>$debug );
+            foreach (@lines) {
+                if ( $_ =~ /^sendmail_enable/ ) { $_ = 'sendmail_enable="NONE"'; }
+            }
+            $utility->file_write( 
+                file   => "/etc/rc.conf", 
+                lines  => \@lines, 
+                debug  => $debug 
+            );
         }
-        $utility->file_write( 
-            file   => "/etc/rc.conf", 
-            lines  => \@lines, 
-            debug  => $debug 
-        );
-    }
 
-    # don't install sendmail when we rebuild the world
-    if ( ! `grep NO_SENDMAIL /etc/make.conf` ) {
-        $utility->file_write(
-            file   => "/etc/make.conf",
-            lines  => ["NO_SENDMAIL=true"],
-            append => 1,
-            debug  => $debug,
-        );
-    }
+        # don't install sendmail when we rebuild the world
+        if ( ! `grep NO_SENDMAIL /etc/make.conf` ) {
+            $utility->file_write(
+                file   => "/etc/make.conf",
+                lines  => ["NO_SENDMAIL=true"],
+                append => 1,
+                debug  => $debug,
+            );
+        }
 
-    # make sure mailer.conf is set up for qmail
-    my $tmp_mailer_conf = "$tmp/mailer.conf";
-    open my $MAILER_CONF, ">", $tmp_mailer_conf 
-        or carp "control_write: FAILED to open $tmp_mailer_conf: $!\n";
+        # make sure mailer.conf is set up for qmail
+        my $tmp_mailer_conf = "$tmp/mailer.conf";
+        open my $MAILER_CONF, ">", $tmp_mailer_conf 
+            or carp "control_write: FAILED to open $tmp_mailer_conf: $!\n";
 
-    print $MAILER_CONF '
+        print $MAILER_CONF '
 # \$FreeBSD: src/etc/mail/mailer.conf,v 1.3 2002/04/05 04:25:12 gshapiro Exp \$
 #
 sendmail        /var/qmail/bin/sendmail
@@ -699,14 +699,15 @@ purgestat       /var/qmail/bin/qmail-tcpok
 
 ';
 
-    $utility->install_if_changed(
-        newfile  => $tmp_mailer_conf,
-        existing => "/etc/mail/mailer.conf",
-        notify   => 1,
-        clean    => 1,
-        debug    => $debug,
-    );
-    close $MAILER_CONF;
+        $utility->install_if_changed(
+            newfile  => $tmp_mailer_conf,
+            existing => "/etc/mail/mailer.conf",
+            notify   => 1,
+            clean    => 1,
+            debug    => $debug,
+        );
+        close $MAILER_CONF;
+    };
 
     # no need to run the rest of the tests every 5 minutes
     return 1 if ! $p{'first_time'};
@@ -1321,10 +1322,13 @@ don't exist in vpopmail. It is not compatible with system user mailboxes. \n\n";
         $self->send_stop( conf => $conf );
     }
 
-    $utility->syscmd( command => "make setup", debug=>$debug );
+    my $make = $utility->find_the_bin( bin => "gmake", fatal => 0, debug=>$debug );
+    $make  ||= $utility->find_the_bin( bin => "make", debug=>$debug );
+
+    $utility->syscmd( command => "$make setup", debug=>$debug );
 
     unless ( -f "$qmaildir/control/servercert.pem" ) {
-        $utility->syscmd( command => "gmake cert", debug=>$debug );
+        $utility->syscmd( command => "$make cert", debug=>$debug );
     }
 
     if ($chkusr) {
@@ -1794,6 +1798,7 @@ sub netqmail {
     my $dl_url     = $conf->{'toaster_dl_url'}    || "/internet/mail/toaster";
     my $toaster_url = "$dl_site$dl_url";
     my $vhome       = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
+    my $domainkeys = $conf->{'qmail_domainkeys'};
 
     # we do not want to try installing anything during "make test"
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
@@ -1801,22 +1806,8 @@ sub netqmail {
     # install the groups and users required by qmail
     $self->install_qmail_groups_users( conf => $conf, debug => $debug );
 
-    # check to see if qmail-smtpd has vpopmail support already
-    if ( -x "/var/qmail/bin/qmail-smtpd"
-        && `strings /var/qmail/bin/qmail-smtpd | grep vpopmail` ) {
-        if (
-            !$utility->yes_or_no(
-                {
-                    question =>
-"toasterized qmail is already installed, do you want to reinstall",
-                    timeout => 30,
-                }
-            )
-          )
-        {
-            return 0;
-        }
-    }
+    # check to see if qmail-smtpd already has vpopmail support
+    return 0 unless netqmail_rebuild();
 
     $utility->chdir_source_dir( dir => "$src/mail" );
 
@@ -1859,25 +1850,24 @@ sub netqmail {
         }
     }
 
-    unless ( -e $patch ) {
-        $utility->file_get( url => "$toaster_url/patches/$patch", debug=>$debug );
-        unless ( -e $patch ) {
-            carp "\n\nfailed to fetch patch $patch!\n\n";
-            croak if $fatal;
-            return;
-        }
-    }
+    my @get_patches = $patch;
 
     my $smtp_rej_patch = "$package-smtp_reject-3.0.patch";
+    push @get_patches, $smtp_rej_patch if $smtp_reject;
 
-    unless ( -e $smtp_rej_patch ) {
-        $utility->file_get( url => "$toaster_url/patches/$smtp_rej_patch", debug=>$debug );
-        unless ( -e $smtp_rej_patch ) {
-            $err = "\n\nfailed to fetch patch $smtp_rej_patch!\n\n";
-            croak $err if $fatal;
-            carp $err;
-            return;
+    my $dk_patch = "$package-toaster-3.1-dk.patch";
+    push @get_patches, $dk_patch if $domainkeys;
+
+    foreach my $get_patch (@get_patches) {
+      unless ( -e $get_patch ) {
+        $utility->file_get( url => "$toaster_url/patches/$get_patch", debug=>$debug );
+        unless ( -e $get_patch ) {
+          $err = "\n\nfailed to fetch patch $get_patch!\n\n";
+          croak $err if $fatal;
+          carp $err;
+          return;
         }
+      }
     }
 
     unless ( $utility->archive_expand( archive => "$package.tar.gz", debug=>$debug ) ) {
@@ -1899,10 +1889,11 @@ sub netqmail {
     my $patchbin = $utility->find_the_bin( bin => "patch", debug=>$debug );
 
     # apply our custom patches
-    print "netqmail: applying $patch\n";
-    $utility->syscmd( command => "$patchbin < $src/mail/$patch", debug=>$debug );
-    $utility->syscmd( command => "$patchbin < $src/mail/$smtp_rej_patch", debug=>$debug )
-      if $smtp_reject;
+    foreach my $apply_patch (@get_patches) {
+      print "\nnetqmail: applying $apply_patch\n\n";
+      sleep 1;
+      $utility->syscmd( command => "$patchbin < $src/mail/$apply_patch", debug=>$debug );
+    };
 
     # make any localizations
     print "netqmail: fixing up conf-qmail\n";
@@ -1921,12 +1912,10 @@ sub netqmail {
     my $prefix = $conf->{'toaster_prefix'} || "/usr/local/";
     my $ssl_lib = "$prefix/lib";
     if ( !-e "$ssl_lib/libcrypto.a" ) {
-        if ( -e "/opt/local/lib/libcrypto.a" ) { $ssl_lib = "/opt/local/lib"; }
-        elsif ( -e "/usr/local/lib/libcrypto.a" ) {
-            $ssl_lib = "/usr/local/lib";
-        }
-        elsif ( -e "/opt/lib/libcrypto.a" ) { $ssl_lib = "/opt/lib"; }
-        elsif ( -e "/usr/lib/libcrypto.a" ) { $ssl_lib = "/usr/lib"; }
+        if    ( -e "/opt/local/lib/libcrypto.a" ) { $ssl_lib = "/opt/local/lib"; }
+        elsif ( -e "/usr/local/lib/libcrypto.a" ) { $ssl_lib = "/usr/local/lib"; }
+        elsif ( -e "/opt/lib/libcrypto.a"       ) { $ssl_lib = "/opt/lib"; }
+        elsif ( -e "/usr/lib/libcrypto.a"       ) { $ssl_lib = "/usr/lib"; }
     }
 
     my @lines = $utility->file_read( file => "Makefile", debug=>$debug );
@@ -1986,10 +1975,11 @@ sub netqmail {
         $self->netqmail_darwin_fixups();
     }
 
-    # add in the -I (include) dir for OpenSSL headers
+    # make changes to conf-cc
     print "netqmail: fixing up conf-cc\n";
     my $cmd = "cc -O2 -DTLS=20060104 -I$vpopdir/include";
 
+    # add in the -I (include) dir for OpenSSL headers
     if ( -d "/opt/local/include/openssl" ) {
         print "netqmail: building against /opt/local/include/openssl.\n";
         $cmd .= " -I/opt/local/include/openssl";
@@ -2014,6 +2004,18 @@ sub netqmail {
 "netqmail: WARNING: I couldn't find your OpenSSL libraries. This might cause problems!\n";
         }
     }
+
+    # add in the include directory for libdomainkeys
+    if ( $domainkeys ) {
+        # make sure libdomainkeys is installed
+        if ( ! -e "/usr/local/include/domainkeys.h" ) {
+            require Mail::Toaster::Setup;
+            my $setup = Mail::Toaster::Setup->new(conf=>$conf);
+            $setup->domainkeys();
+        };
+        $cmd .= " -I/usr/local/include";
+    };
+
     $utility->file_write( file => "conf-cc", lines => [$cmd], debug=>$debug )
       or croak "couldn't write to conf-cc: $!";
 
@@ -2031,8 +2033,8 @@ sub netqmail {
         $utility->syscmd( command => "$servicectl stop", debug=>$debug );
     }
 
-    my $make = $utility->find_the_bin( bin => "gmake", fatal => 0, debug=>$debug )
-      or $utility->find_the_bin( bin => "make", debug=>$debug );
+    my $make = $utility->find_the_bin( bin => "gmake", fatal => 0, debug=>$debug );
+    $make  ||= $utility->find_the_bin( bin => "make", debug=>$debug );
 
     $utility->syscmd( command => "$make setup", debug=>$debug );
 
@@ -2109,6 +2111,27 @@ sub netqmail_darwin_fixups {
     move( "SENDMAIL", "SENDMAIL.txt" );
 }
 
+sub netqmail_rebuild {
+
+    # check to see if qmail-smtpd has vpopmail support already
+    if ( -x "/var/qmail/bin/qmail-smtpd"
+        && `strings /var/qmail/bin/qmail-smtpd | grep vpopmail` ) {
+        if (
+            !$utility->yes_or_no(
+                {
+                    question =>
+"toasterized qmail is already installed, do you want to reinstall",
+                    timeout => 30,
+                }
+            )
+          )
+        {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 sub netqmail_virgin {
 
     my $self = shift;
@@ -2145,7 +2168,7 @@ sub netqmail_virgin {
 
     $utility->chdir_source_dir( dir => "$src/mail" );
 
-    unless ( $utility->source_warning( package=>$package, src=>$src ) ) {
+    unless ( $utility->source_warning( package=>$package, src=>"$src/mail" ) ) {
         carp "\nnetqmail: OK then, skipping install.\n\n";
         return;
     }
@@ -2209,8 +2232,8 @@ sub netqmail_virgin {
         $utility->syscmd( command => "$servicectl stop", debug=>$debug );
     }
 
-    my $make = $utility->find_the_bin( bin => "gmake", fatal => 0 )
-      or $utility->find_the_bin( bin => "make", debug=>$debug );
+    my $make = $utility->find_the_bin( bin => "gmake", fatal => 0, debug=>$debug );
+    $make  ||= $utility->find_the_bin( bin => "make", debug=>$debug );
 
     $utility->syscmd( command => "$make setup", debug=>$debug );
 

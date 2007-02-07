@@ -18,7 +18,7 @@ use Scalar::Util qw( openhandle );
 #use Smart::Comments;
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.02';
+$VERSION = '5.05';
 
 use lib "inc";
 use lib "lib";
@@ -2636,11 +2636,16 @@ sub pidfile_check {
     use File::stat;
     my $age = time() - stat($pidfile)->mtime;
 
-    # if less than 1 hour old
-    if ( $age < 3600 ) {
+    if ( $age < 1200 ) {      # less than 20 minutes old
         carp "\nWARNING! pidfile_check: $pidfile is " . $age / 60
-          . " minutes old and might still be running. If this is not "
-          . "the case, please remove it. \n"
+          . " minutes old and might still be running. If it is not running,"
+          . " please remove the pidfile (rm $pidfile). \n" if $debug;
+        return;
+    } 
+    elsif ( $age < 3600 ) {   # 1 hour
+        carp "\nWARNING! pidfile_check: $pidfile is " . $age / 60
+          . " minutes old and might still be running. If it is not running,"
+          . " please remote the pidfile. (rm $pidfile)\n"
           ; #if $debug;
 
         return;
@@ -2850,7 +2855,7 @@ sub source_warning {
         print "
 	$package sources are already present, indicating that you've already
 	installed $package. If you want to reinstall it, remove the existing
-	sources (rm -r $src/mail/$package) and re-run this script\n\n";
+	sources (rm -r $src/$package) and re-run this script\n\n";
         return 0 unless $clean;
     }
 
@@ -3012,7 +3017,7 @@ sub syscmd {
         }
     }
 
-    $status_message = "syscmd: bin is <$bin>";
+    $status_message = "syscmd: bin is <$bin>" if $bin;
     $status_message .= " (safe)" if  $is_safe;
     
     $self->_formatted($status_message) if $debug;
@@ -3279,10 +3284,12 @@ sub yes_or_no {
             'timeout'  => { type=>SCALAR, optional=>1 },
             'fatal'    => { type=>BOOLEAN, optional=>1, default=>1 },
             'debug'    => { type=>BOOLEAN, optional=>1, default=>1 },
+            'force'    => { type=>BOOLEAN, optional=>1, default=>0 },
         },
     );
 
-    my ( $question, $timer ) = ( $p{'question'}, $p{'timeout'} );
+    # force is if interactivity testing isn't working properly.
+    my ( $question, $timer, $force) = ( $p{'question'}, $p{'timeout'}, $p{'force'} );
 
     # q is an alias for question
     if ( !defined $question && defined $p{'q'} ) { $question = $p{'q'}; }
@@ -3295,7 +3302,7 @@ sub yes_or_no {
     # for 'make test' testing
     return 1 if ( $question eq "test" );
 
-    unless ( $self->is_interactive ) {
+    if ( ! $force && ! $self->is_interactive ) {
         carp "not running interactively, can't prompt!";
         return;
     }
@@ -4086,6 +4093,8 @@ Downloads and installs Mail::Toaster.
 A good idea, poorly implemented.
 
 =item mkdir_system
+
+   $utility->mkdir_system( dir => $dir, debug=>$debug );
 
 creates a directory using the system mkdir binary. Can also make levels of directories (-p) and utilize sudo if necessary to escalate.
 

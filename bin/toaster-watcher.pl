@@ -8,7 +8,7 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = "5.00";
+$VERSION = "5.05";
 
 use lib "lib";  
 
@@ -24,7 +24,7 @@ getopts('dv');
 
 $|++;
 
-# this script requires root
+# this script must be run as root
 if ( $UID != 0 ) { 
     croak "Thou shalt have root to proceed!\n"; 
 };
@@ -37,7 +37,6 @@ if ( ! $utility->pidfile_check( pidfile => $pidfile, fatal=>0, debug=>0 ) ) {
 
 my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
 my $debug = $conf->{'toaster_debug'} || $opt_d || 0;
-
 
 if ($opt_v) { $debug = 1; print "$0 v$VERSION\n"; }
 
@@ -65,13 +64,13 @@ $qmail->config(
     debug      => $debug,
 );
 
+print "generating send/run..." if $debug;
 $utility->logfile_append(
     file  => $logfile,
     prog  => "watcher",
     lines => ["Building send/run"],
     debug => 0,
 )                              if $logfile;
-print "generating send/run..." if $debug;
 
 $file = "/tmp/toaster-watcher-send-runfile";
 if ( $qmail->build_send_run( conf => $conf, file => $file, debug => $debug ) ) {
@@ -90,7 +89,9 @@ if ( $qmail->build_send_run( conf => $conf, file => $file, debug => $debug ) ) {
 }
 else { print "FAILED.\n" if $debug; }
 
+# if qpop3d is our selected pop3 daemon ...
 if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
+    print "generating pop3/run..." if $debug;
     $utility->logfile_append(
         file  => $logfile,
         prog  => "watcher",
@@ -99,7 +100,6 @@ if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
     ) if $logfile;
 
     $file = "/tmp/toaster-watcher-pop3-runfile";
-    print "generating pop3/run..." if $debug;
     if ( $qmail->build_pop3_run( conf => $conf, file => $file, debug => $debug )
       )
     {
@@ -113,7 +113,6 @@ if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
     }
     else { print "FAILED.\n" if $debug; }
 }
-
 
 print "generating smtp/run..." if $debug;
 $utility->logfile_append(
@@ -180,7 +179,7 @@ if ( $conf->{'submit_enable'} ) {
 }
 
 $toaster->toaster_check( conf=>$conf, debug=>$debug );
-
+$toaster->service_symlinks( conf=>$conf, debug=>$debug );
 
 if ( $conf->{'vpopmail_roaming_users'} ) {
     my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
@@ -194,7 +193,6 @@ if ( $conf->{'vpopmail_roaming_users'} ) {
     }
 }
 
-
 if ( $conf->{'install_isoqlog'} ) {
     my $isoqlog = $utility->find_the_bin( bin => "isoqlog", debug=>0 );
     if ( -x $isoqlog ) {
@@ -207,7 +205,6 @@ if ( $conf->{'install_rrdutil'} ) {
 
     # must test this a bit first
 }
-
 
 if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} ) {
     print "checking qmail-scanner quarantine.\n" if $debug;
@@ -231,9 +228,7 @@ if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} ) {
     if ( $conf->{'qs_block_virus_senders'} ) {
         $qmail->UpdateVirusBlocks( conf => $conf, ips => \@list );
     }
-
 }
-
 
 if ( $conf->{'maildir_clean_interval'} ) {
     print "cleaning mailbox messages..." if ($debug);
@@ -261,6 +256,7 @@ if ( $conf->{'maildir_learn_interval'} ) {
     print "done.\n" if ($debug);
 }
 
+# rebuild ssl temp keys for qmail
 $utility->logfile_append(
     file  => $logfile,
     prog  => "watcher",
@@ -269,21 +265,20 @@ $utility->logfile_append(
 ) if $logfile;
 $qmail->rebuild_ssl_temp_keys( conf => $conf, debug => 0 );
 
-unlink $pidfile;
-
-$utility->logfile_append(
-    file  => $logfile,
-    prog  => "watcher",
-    lines => ["Exiting\n"],
-    debug => 0,
-) if $logfile;
-
 if ( -x "/var/qmail/bin/simscanmk" ) {
 
     # this needs to be done, but quietly
     #	$utility->syscmd( command=>"/var/qmail/bin/simscanmk" );
     #	$utility->syscmd( command=>"/var/qmail/bin/simscanmk -g" );
 }
+
+unlink $pidfile;
+$utility->logfile_append(
+    file  => $logfile,
+    prog  => "watcher",
+    lines => ["Exiting\n"],
+    debug => 0,
+) if $logfile;
 
 exit 0;
 
@@ -409,7 +404,7 @@ Thanks to Randy Ricker, Anton Zavrin, Randy Jordan, Arie Gerszt, Joe Kletch, and
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
+Copyright (c) 2004-2007, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

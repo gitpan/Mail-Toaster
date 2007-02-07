@@ -157,6 +157,6 @@ if ( $toaster->supervised_dir_test( conf => $conf, prot => "smtp", debug => 0 ) 
 
 ok( $setup->startup_script( debug => 0, test_ok=>1 ), 'startup_script' );
 
-ok( $setup->service_symlinks( debug=>0 ), 'service_symlinks' );
+ok( $toaster->service_symlinks( conf=>$conf, debug=>0 ), 'service_symlinks' );
 
 ok( chdir($initial_working_directory), 'reset working directory' );

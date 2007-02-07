@@ -20,7 +20,7 @@ use English qw( -no_match_vars );
 use Pod::Usage;
 
 use vars qw( $VERSION $spam_ref $count_ref );
-$VERSION = "5.02";
+$VERSION = "5.05";
 
 use lib "lib";
 
@@ -600,6 +600,9 @@ sub imap_count {
     }
 
     unless ( $lines ) {
+        $count_ref->{'imap_success'} ||= 0;   # hush those "uninitialized value" errors
+        $count_ref->{'imap_ssl_success'} ||= 0;
+
         print "imap_success:$count_ref->{'imap_success'}"
             . ":imap_ssl_success:$count_ref->{'imap_ssl_success'}\n";
         carp "imap_count: no log entries to process. I'm done!" if $debug;

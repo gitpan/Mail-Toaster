@@ -124,9 +124,10 @@ WriteMakefile(
                         ],
 	'INSTALLSCRIPT'  => '/usr/local/sbin',
 	'PREREQ_PM'      => { 
-			'DBI'           => 1, 
-			'Date::Parse'   => 1, 
-			'Test::Simple'  => 0,
+			'DBI'             => 1, 
+			'Date::Parse'     => 1, 
+			'Test::Simple'    => 0,
+			'Params::Validate' => .7,
 #			'Net::DNS'      => 0.20, 
 #			'Quota'         => 0,
 #			'vpopmail'      => 0, 

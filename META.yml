@@ -1,6 +1,6 @@
 ---
 name: Mail-Toaster
-version: 5.04
+version: 5.05
 author:
   - "Matt Simerson (matt@tnpi.net)"
 abstract: turns a computer into a secure, full-featured, high-performance mail server.
@@ -25,10 +25,10 @@ meta-spec:
 provides:
   Mail::Toaster:
     file: lib/Mail/Toaster.pm
-    version: 5.04
+    version: 5.05
   Mail::Toaster::Apache:
     file: lib/Mail/Toaster/Apache.pm
-    version: 5.02
+    version: 5.05
   Mail::Toaster::CGI:
     file: lib/Mail/Toaster/CGI.pm
     version: 5.01
@@ -43,30 +43,30 @@ provides:
     version: 5.02
   Mail::Toaster::FreeBSD:
     file: lib/Mail/Toaster/FreeBSD.pm
-    version: 5.03
+    version: 5.05
   Mail::Toaster::Logs:
     file: lib/Mail/Toaster/Logs.pm
-    version: 5.02
+    version: 5.05
   Mail::Toaster::Mysql:
     file: lib/Mail/Toaster/Mysql.pm
-    version: 5.04
+    version: 5.05
   Mail::Toaster::Passwd:
     file: lib/Mail/Toaster/Passwd.pm
-    version: 5.02
+    version: 5.05
   Mail::Toaster::Perl:
     file: lib/Mail/Toaster/Perl.pm
-    version: 5.04
+    version: 5.05
   Mail::Toaster::Provision:
     file: lib/Mail/Toaster/Provision.pm
-    version: 5.03
+    version: 5.05
   Mail::Toaster::Qmail:
     file: lib/Mail/Toaster/Qmail.pm
-    version: 5.03
+    version: 5.05
   Mail::Toaster::Setup:
     file: lib/Mail/Toaster/Setup.pm
-    version: 5.04
+    version: 5.05
   Mail::Toaster::Utility:
     file: lib/Mail/Toaster/Utility.pm
-    version: 5.02
+    version: 5.05
 resources:
   license: http://www.opensource.org/licenses/bsd-license.php

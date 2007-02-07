@@ -10,16 +10,14 @@ package Mail::Toaster::Passwd;
 use Carp;
 
 use vars qw/$VERSION/;
-$VERSION = '5.02';
+$VERSION = '5.05';
 
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use lib "lib";
-use Mail::Toaster::Utility 5;
-my $utility = Mail::Toaster::Utility->new();
-use Mail::Toaster::Perl 5;
-my $perl = Mail::Toaster::Perl->new;
+use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Perl 5;    my $perl = Mail::Toaster::Perl->new;
 
 sub new {
     my ( $class, $name ) = @_;
@@ -403,7 +401,7 @@ sub user_add {
 
     my ( $r, $sudo );
 
-    my $user    = $vals->{'username'};
+    my $user    = $vals->{'user'};
     my $shell   = $vals->{'shell'};
     my $homedir = $vals->{'homedir'};
     my $debug   = $vals->{'debug'};
@@ -682,6 +680,7 @@ sub _formatted {
     }
     print "$mess $dots $result\n";
 }
+
 
 1;
 __END__

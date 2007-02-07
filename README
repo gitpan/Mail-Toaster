@@ -89,6 +89,7 @@ OPTIONS AND ARGUMENTS
          qmailadmin - installs qmailadmin
           sqwebmail - installs sqwebmail (webmail app)
        squirrelmail - installs squirrelmail (webmail app)
+          roundcube - installs Roundcube (webmail app)
 
                          Mail Filtering
              filter - installs SpamAssassin, ClamAV, DCC, razor, and more

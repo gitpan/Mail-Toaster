@@ -8,7 +8,7 @@ use warnings;
 
 package Mail::Toaster::Provision;
 
-use vars qw($VERSION); $VERSION = '5.03';
+use vars qw($VERSION); $VERSION = '5.05';
 
 use Carp;
 use English;
@@ -551,7 +551,7 @@ sub web_usage {
 	print <<"EOWEBUSE";
 Usage:
 
-	webadmin $action -vhost [vhost name]
+	webadmin -action $action -vhost [vhost name]
 
     required values:
 
@@ -842,7 +842,7 @@ This simply checks to make sure a valid one has been invoked.
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 
 =head1 BUGS

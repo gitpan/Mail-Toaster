@@ -57,7 +57,7 @@ sub port_install {
     my $cmd = "$port_bin install $port_name";
     $cmd .= " $opts" if (defined $opts && $opts);
     
-    return $utility->syscmd( command => $cmd );
+    return $utility->syscmd( command => $cmd , debug=>0 );
 }
 
 sub ports_check_age {

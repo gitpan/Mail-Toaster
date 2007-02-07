@@ -15,7 +15,7 @@ use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use vars qw($VERSION $darwin $freebsd);
-$VERSION = '5.04';
+$VERSION = '5.05';
 
 use lib "lib";
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
@@ -276,6 +276,7 @@ sub install {
     }
 
     if ( $OSNAME eq "darwin" ) {
+        print "detected OS " . $OSNAME . ", installing for Darwin.\n";
         return $self->install_darwin($mysql, $site, $debug);
     };
 
@@ -296,14 +297,26 @@ sub install {
     };
 
     # try to speed things up by installing the package
-    if ( $ver == 1 && !$installed ) {
+    my $package_install = 0;
+    $package_install ++ if ( $ver == 1 && !$installed);
 
-        $freebsd->package_install( port => "mysql50-server", debug=>$debug );
+    $package_install ++ if ( $utility->answer( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+
+    if ( $package_install ) {
+
+        my $package_name = $ver eq "51" ? "mysql51-server" 
+                         : $ver eq "50" ? "mysql50-server"
+                         : $ver eq "41" ? "mysql41-server"
+                         : $ver eq "40" ? "mysql40-server"
+                         : $ver eq  "4" ? "mysql41-server"
+                         : "mysql50-server";
+
+        $freebsd->package_install( port => $package_name, debug=>$debug );
 
         $installed = $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
 
         if (! $installed) {
-            # use this for really old freebsd ports tree
+            # try this for really old freebsd ports tree
             $freebsd->package_install( port => "mysql-server", debug=>$debug );
             $installed =
                 $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
@@ -399,7 +412,8 @@ sub install_darwin {
         croak "you are calling this incorrectly!\n";
     };
 
-    if ( -d "/usr/ports/dports" || "/usr/dports" || "/usr/darwinports" ) {
+#    if ( -d "/usr/ports/dports" || "/usr/dports" || "/usr/darwinports" ) {
+    if ( $utility->find_the_bin( bin=>"port", debug=>0) ) {
         $darwin->port_install( port_name => "mysql4", debug=>$debug );
         $darwin->port_install( port_name => "p5-dbi", debug=>$debug );
         $darwin->port_install( port_name => "p5-dbd-mysql", debug=>$debug );
