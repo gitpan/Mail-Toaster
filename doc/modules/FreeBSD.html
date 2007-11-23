@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::FreeBSD</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -28,12 +30,12 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::FreeBSD</p>
+<p>Mail::Toaster::FreeBSD - FreeBSD specific Mail::Toaster functions.</p>
 <p>
 </p>
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p>FreeBSD scripting functions for creating and managing jails, installing ports, packages, and other fun stuff.</p>
+<p>Primarily functions for working with FreeBSD ports (updating, installing, configuring with custom options, etc) but also includes a suite of methods for FreeBSD managing jails.</p>
 <p>
 </p>
 <hr />
@@ -44,17 +46,17 @@
 <hr />
 <h1><a name="subroutines">SUBROUTINES</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::FreeBSD;
         my $fbsd = Mail::Toaster::FreeBSD-&gt;new;</pre>
 </dd>
-<dt><strong><a name="item_cvsup_select_host">cvsup_select_host</a></strong><br />
-</dt>
+<dt><strong><a name="item_cvsup_select_host">cvsup_select_host</a></strong>
+
 <dd>
-Selects a host to cvsup port updates from. If you pass $conf to it, it will detect your country automatically. If fastest_cvsup is installed, it will detect it and use it to pick the fastest host in your country. If it is not installed and the hostname is set to ``fastest'', it will try to install fastest_cvsup from ports.
+<p>Selects a host to cvsup port updates from. If you pass $conf to it, it will detect your country automatically. If fastest_cvsup is installed, it will detect it and use it to pick the fastest host in your country. If it is not installed and the hostname is set to ``fastest'', it will try to install fastest_cvsup from ports.</p>
 </dd>
 <dd>
 <pre>
@@ -66,11 +68,11 @@ Selects a host to cvsup port updates from. If you pass $conf to it, it will dete
  result:
     a hostname to grab cvsup sources from</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_is_port_installed">is_port_installed</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_is_port_installed">is_port_installed</a></strong>
+
 <dd>
-Checks to see if a port is installed.
+<p>Checks to see if a port is installed.</p>
 </dd>
 <dd>
 <pre>
@@ -92,9 +94,9 @@ Checks to see if a port is installed.
    0 - not installed
    1 - if installed</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_jail_create">jail_create</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_jail_create">jail_create</a></strong>
+
 <dd>
 <pre>
     $fbsd-&gt;jail_create( );</pre>
@@ -163,10 +165,10 @@ and access the jail directly.</p>
 <p>Read the jail man pages for more details. Read the perl code
 to see what else it does.</p>
 </dd>
-<dt><strong><a name="item_jail_delete">jail_delete</a></strong><br />
-</dt>
+<dt><strong><a name="item_jail_delete">jail_delete</a></strong>
+
 <dd>
-Delete a jail.
+<p>Delete a jail.</p>
 </dd>
 <dd>
 <pre>
@@ -178,11 +180,11 @@ Delete a jail.
 <dd>
 <p>It would be a good idea to shut down any processes in the jail first.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_jail_start">jail_start</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_jail_start">jail_start</a></strong>
+
 <dd>
-Starts up a FreeBSD jail.
+<p>Starts up a FreeBSD jail.</p>
 </dd>
 <dd>
 <pre>
@@ -277,9 +279,9 @@ looked up. Otherwise, the hostname defaults to ``jail''.</p>
 <dd>
 <p>#1 - On rare occasion, a port will get installed as a name other than the ports name. Of course, that wreaks all sorts of havoc so when one of them nasties is found, you can optionally pass along a fourth parameter which can be used as the port installation name to check with.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_package_install">package_install</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_package_install">package_install</a></strong>
+
 <dd>
 <pre>
         $fbsd-&gt;package_install( port=&gt;&quot;ispell&quot; );</pre>
@@ -313,10 +315,10 @@ looked up. Otherwise, the hostname defaults to ``jail''.</p>
 <dd>
 <p>See the pkg_add man page for more details on using an alternate URL.</p>
 </dd>
-<dt><strong><a name="item_ports_check_age">ports_check_age</a></strong><br />
-</dt>
+<dt><strong><a name="item_ports_check_age">ports_check_age</a></strong>
+
 <dd>
-Checks how long it's been since you've updated your ports tree. Since the ports tree can be a roaming target, by making sure it's current before installing ports we can increase the liklihood of success.
+<p>Checks how long it's been since you've updated your ports tree. Since the ports tree can be a roaming target, by making sure it's current before installing ports we can increase the liklihood of success.</p>
 </dd>
 <dd>
 <pre>
@@ -335,11 +337,11 @@ Checks how long it's been since you've updated your ports tree. Since the ports 
  arguments optional:
    url - where to fetch the cvsup-ports file.</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_ports_update">ports_update</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_ports_update">ports_update</a></strong>
+
 <dd>
-Updates the FreeBSD ports tree (/usr/ports/).
+<p>Updates the FreeBSD ports tree (/usr/ports/).</p>
 </dd>
 <dd>
 <pre>
@@ -352,9 +354,9 @@ Updates the FreeBSD ports tree (/usr/ports/).
  
 See the docs for toaster-watcher.conf for complete details.</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_rc_dot_conf_check">rc_dot_conf_check</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_rc_dot_conf_check">rc_dot_conf_check</a></strong>
+
 <dd>
 <pre>
     $fbsd-&gt;rc_dot_conf_check(check=&gt;&quot;snmpd_enable&quot;, line=&gt;&quot;snmpd_enable=\&quot;YES\&quot;&quot;);</pre>
@@ -362,10 +364,10 @@ See the docs for toaster-watcher.conf for complete details.</pre>
 <dd>
 <p>The above example is for snmpd. This checks to verify that an snmpd_enable line exists in /etc/rc.conf. If it doesn't, then it will add it by appending the second argument to the file.</p>
 </dd>
-<dt><strong><a name="item_source_update">source_update</a></strong><br />
-</dt>
+<dt><strong><a name="item_source_update">source_update</a></strong>
+
 <dd>
-Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh FreeBSD world.
+<p>Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh FreeBSD world.</p>
 </dd>
 <dd>
 <pre>
@@ -388,12 +390,13 @@ Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh Free
 <dd>
 <p>See the docs for toaster-watcher.conf for complete details.</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />
@@ -416,12 +419,12 @@ Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh Free
  toaster-watcher.conf</pre>
 <pre>
  <a href="http://mail-toaster.org/">http://mail-toaster.org/</a>
- <a href="http://www.tnpi.biz/computing/freebsd/">http://www.tnpi.biz/computing/freebsd/</a></pre>
+ <a href="http://www.tnpi.net/computing/freebsd/">http://www.tnpi.net/computing/freebsd/</a></pre>
 <p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright 2003-2006, The Network People, Inc. All Rights Reserved.</p>
+<p>Copyright 2003-2007, The Network People, Inc. All Rights Reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>

@@ -46,7 +46,6 @@ sub autocommit {
         return $dot->{'autocommit'};    #	SetAutocommit
     }
     else {
-
         return 1;                       #  Default to autocommit.
     }
 }
@@ -282,8 +281,8 @@ sub install {
 
     # we only install using FreeBSD ports and DarwinPorts at this time
     if ( ! $OSNAME eq "freebsd" ) {
-        print "skipping MySQL, build support on $OSNAME is not available."
-            . "Please install MySQL manually.";
+        print "\nskipping MySQL, build support on $OSNAME is not available."
+            . "Please install MySQL manually.\n";
         return;
     };
 
@@ -300,7 +299,9 @@ sub install {
     my $package_install = 0;
     $package_install ++ if ( $ver == 1 && !$installed);
 
-    $package_install ++ if ( $utility->answer( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+    if ( ! $package_install ) {
+        $package_install ++ if ( $utility->answer( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+    };
 
     if ( $package_install ) {
 
@@ -1155,7 +1156,7 @@ In order to use this module, you must have DBI.pm and DBD::Mysql installed. If t
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 =head1 BUGS
 

@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Darwin</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -28,7 +30,7 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::Darwin</p>
+<p>Mail::Toaster::Darwin - Darwin specific Mail Toaster functions</p>
 <p>
 </p>
 <hr />
@@ -45,28 +47,28 @@
 <hr />
 <h1><a name="subroutines">SUBROUTINES</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
 <pre>
     use Mail::Toaster::Darwin;
         my $darwin = Mail::Toaster::Darwin-&gt;new;</pre>
 </dd>
-<dt><strong><a name="item_ports_update">ports_update</a></strong><br />
-</dt>
+<dt><strong><a name="item_ports_update">ports_update</a></strong>
+
 <dd>
-Updates the Darwin Ports tree (/usr/ports/dports/).
+<p>Updates the Darwin Ports tree (/usr/ports/dports/).</p>
 </dd>
 <dd>
 <pre>
         $darwin-&gt;ports_update();</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_port_install">port_install</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_port_install">port_install</a></strong>
+
 <dd>
 <pre>
-        $darwin-&gt;port_install( port=&gt;&quot;openldap2&quot; );</pre>
+        $darwin-&gt;port_install( port_name =&gt; &quot;openldap2&quot; );</pre>
 </dd>
 <dd>
 <p>That's it. Really. Honest. Nothing more.</p>
@@ -87,7 +89,7 @@ Updates the Darwin Ports tree (/usr/ports/dports/).
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />

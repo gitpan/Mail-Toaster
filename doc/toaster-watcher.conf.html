@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<title>watcher.conf</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<title>Mail::Toaster watcher.conf</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -31,25 +33,25 @@
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
 <p>Most settings in this file pertain to toaster_setup.pl and toaster-watcher.pl scripts, both of which are run as root. Other settings needed by scripts that do not run with root privileges are in toaster.conf.</p>
-<p>A current copy of toaster-watcher.conf is posted on the Mail::Toaster web site at <a href="http://www.tnpi.biz/internet/mail/toaster/etc/toaster-watcher.conf">http://www.tnpi.biz/internet/mail/toaster/etc/toaster-watcher.conf</a></p>
+<p>A current copy of toaster-watcher.conf is posted on the Mail::Toaster web site at <a href="http://mail-toaster.org/etc/toaster-watcher.conf">http://mail-toaster.org/etc/toaster-watcher.conf</a></p>
 <p>
 </p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>toaster-watcher.conf The contents of that file control options relating to:</p>
 <ul>
-<li><strong><a name="item_where_files_are_kept_on_your_particular_server">where files are kept on your particular server</a></strong><br />
-</li>
-<li><strong><a name="item_settings_related_to_how_the_toaster_is_built">settings related to how the toaster is built</a></strong><br />
-</li>
-<li><strong><a name="item_what_programs_and_options_are_installed">what programs and options are installed</a></strong><br />
-</li>
-<li><strong><a name="item_where_programs_and_run_files_are_installed">where programs and run files are installed</a></strong><br />
-</li>
-<li><strong><a name="item_run_time_parameters_used_to_configure_daemons">run time parameters used to configure daemons</a></strong><br />
-</li>
-<li><strong><a name="item_how_the_toaster_27s_logs_should_be_processed_2e">how the toaster's logs should be processed.</a></strong><br />
-</li>
+<li><strong><a name="item_where_files_are_kept_on_your_particular_server">where files are kept on your particular server</a></strong>
+
+<li><strong><a name="item_settings_related_to_how_the_toaster_is_built">settings related to how the toaster is built</a></strong>
+
+<li><strong><a name="item_what_programs_and_options_are_installed">what programs and options are installed</a></strong>
+
+<li><strong><a name="item_where_programs_and_run_files_are_installed">where programs and run files are installed</a></strong>
+
+<li><strong><a name="item_run_time_parameters_used_to_configure_daemons">run time parameters used to configure daemons</a></strong>
+
+<li><strong><a name="item_how_the_toaster_27s_logs_should_be_processed_2e">how the toaster's logs should be processed.</a></strong>
+
 </ul>
 <p>This document provides details on what all them nifty settings do.</p>
 <pre>
@@ -68,7 +70,7 @@
   toaster_pkg_site               = <a href="ftp://ftp.freebsd.org">ftp://ftp.freebsd.org</a>
   toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
   toaster_os_release             = 4-stable
-  toaster_dl_site                = <a href="http://www.tnpi.biz">http://www.tnpi.biz</a>   # or a mirror</pre>
+  toaster_dl_site                = <a href="http://www.tnpi.net">http://www.tnpi.net</a>   # or a mirror</pre>
 <p>You can alternately use a mirror to fetch the Mail::Toaster files from. The atl and sea mirrors are updated nightly. All other mirrors are updated only after major releases. If you want the last major update you can refer to a mirror.</p>
 <pre>
   toaster_dl_url                 = /internet/mail/toaster</pre>
@@ -143,7 +145,7 @@
   41, 4.1 - 4.1.x  from ports
   5, 50   - 5.0.x  from ports</pre>
 <p>There is more information about using MySQL with the mail toaster here:</p>
-<p><a href="http://www.tnpi.biz/internet/mail/toaster/faq/programs/mysql.shtml">http://www.tnpi.biz/internet/mail/toaster/faq/programs/mysql.shtml</a></p>
+<p><a href="http://mail-toaster.org/faq/programs/mysql.shtml">http://mail-toaster.org/faq/programs/mysql.shtml</a></p>
 <pre>
   install_mysql_ssl              = 1
   install_mysql_linuxthreads     = 0
@@ -341,16 +343,16 @@
   send_log_method                = multilog</pre>
 <p>You have several choices for qmail-send logging:</p>
 <dl>
-<dt><strong><a name="item_syslog"><strong>syslog</strong> - logs to syslog (normally /var/log/maillog on FreeBSD). This is generally not recommended, but it may be handy for sendmail refugees.</a></strong><br />
-</dt>
-<dt><strong><a name="item_multilog__2d_logs_via_multilog_to_the_location_spe"><strong>multilog</strong> - logs via multilog to the location specified under ``Qmail Settings.'' - This is required for maillogs &amp; RRDutil, and is the recommended logging method for qmail and the toaster.</a></strong><br />
-</dt>
-<dt><strong><a name="item_converation"><strong>debug</strong> - enables full debugging, records entire SMTP converation (and also logs via multilog).</a></strong><br />
-</dt>
-<dt><strong><a name="item_lines"><strong>stats</strong> - only logs stats lines (via multilog).</a></strong><br />
-</dt>
-<dt><strong><a name="item_disabled__2d_silently_discards_all_logs"><strong>disabled</strong> - silently discards all logs</a></strong><br />
-</dt>
+<dt><strong><a name="item_syslog"><strong>syslog</strong> - logs to syslog (normally /var/log/maillog on FreeBSD). This is generally not recommended, but it may be handy for sendmail refugees.</a></strong>
+
+<dt><strong><a name="item_multilog__2d_logs_via_multilog_to_the_location_spe"><strong>multilog</strong> - logs via multilog to the location specified under ``Qmail Settings.'' - This is required for maillogs &amp; RRDutil, and is the recommended logging method for qmail and the toaster.</a></strong>
+
+<dt><strong><a name="item_converation"><strong>debug</strong> - enables full debugging, records entire SMTP converation (and also logs via multilog).</a></strong>
+
+<dt><strong><a name="item_lines"><strong>stats</strong> - only logs stats lines (via multilog).</a></strong>
+
+<dt><strong><a name="item_disabled__2d_silently_discards_all_logs"><strong>disabled</strong> - silently discards all logs</a></strong>
+
 </dl>
 <pre>
   send_log_postprocessor         = maillogs   # maillogs | none</pre>
@@ -402,7 +404,7 @@ Anything else is considered to be a hostname.</p>
 <pre>
   smtpd_use_mysql_relay_table     = 1</pre>
 <p>Set this to zero if you are not using the patched version of tcpserver built by the toaster install.</p>
-<p>For more information, see <a href="http://www.tnpi.biz/internet/mail/toaster/patches/tcpserver-mysql.shtml">http://www.tnpi.biz/internet/mail/toaster/patches/tcpserver-mysql.shtml</a></p>
+<p>For more information, see http:///mail-toaster.org/patches/tcpserver-mysql.shtml</p>
 <pre>
   smtpd_lookup_tcpremotehost      = 0
   smtpd_lookup_tcpremoteinfo      = 0

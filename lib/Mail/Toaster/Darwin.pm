@@ -64,7 +64,7 @@ sub ports_check_age {
 
     my ( $self, $age, $url ) = @_;
 
-    $url ||= "http://www.tnpi.biz/internet/mail/toaster";
+    $url ||= "http://mail-toaster.org";
 
     if ( -M "/usr/ports" > $age ) {
         $self->ports_update();
@@ -244,7 +244,7 @@ That's it. Really. Honest. Nothing more.
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 =head1 BUGS
 

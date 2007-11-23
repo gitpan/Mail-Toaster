@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::DNS</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -28,12 +30,12 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::DNS</p>
+<p>Mail::Toaster::DNS - DNS functions, primarily to test RBLs</p>
 <p>
 </p>
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p>Common DNS functions</p>
+<p>A set of subroutines for testing rbls to verify that they are functioning properly. If Net::DNS is installed it will be used but we can also test using dig.</p>
 <p>
 </p>
 <hr />
@@ -44,21 +46,21 @@
 <hr />
 <h1><a name="subroutines">SUBROUTINES</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
-Create a new DNS method:
+<p>Create a new DNS method:</p>
 </dd>
 <dd>
 <pre>
    use Mail::Toaster::DNS;
    my $dns = Mail::Toaster::DNS-&gt;new;</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_rbl_test">rbl_test</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_rbl_test">rbl_test</a></strong>
+
 <dd>
-After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.
+<p>After the demise of osirusoft and the DDoS attacks currently under way against RBL operators, this little subroutine becomes one of necessity for using RBL's on mail servers. It is called by the toaster-watcher.pl script to test the RBLs before including them in the SMTP invocation.</p>
 </dd>
 <dd>
 <pre>
@@ -81,9 +83,9 @@ After the demise of osirusoft and the DDoS attacks currently under way against R
 <dd>
 <p>If the blacklist fails any test, the sub will return zero and you should not use that blacklist.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_rbl_test_ns">rbl_test_ns</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_rbl_test_ns">rbl_test_ns</a></strong>
+
 <dd>
 <pre>
         my $count = $t_dns-&gt;rbl_test_ns(
@@ -100,8 +102,8 @@ After the demise of osirusoft and the DDoS attacks currently under way against R
 <dd>
 <p>This script requires a zone name. It will then return a count of how many NS records exist for that zone. This sub is used by the rbl tests. Before we bother to look up addresses, we make sure valid nameservers are defined.</p>
 </dd>
-<dt><strong><a name="item_rbl_test_positive_ip">rbl_test_positive_ip</a></strong><br />
-</dt>
+<dt><strong><a name="item_rbl_test_positive_ip">rbl_test_positive_ip</a></strong>
+
 <dd>
 <pre>
         $t_dns-&gt;rbl_test_positive_ip( rbl=&gt;'sbl.spamhaus.org' );</pre>
@@ -126,8 +128,8 @@ After the demise of osirusoft and the DDoS attacks currently under way against R
 <dd>
 <p>In the case of rfc-ignorant.org, they have no known test IPs and thus we have to skip testing them.</p>
 </dd>
-<dt><strong><a name="item_rbl_test_negative_ip">rbl_test_negative_ip</a></strong><br />
-</dt>
+<dt><strong><a name="item_rbl_test_negative_ip">rbl_test_negative_ip</a></strong>
+
 <dd>
 <pre>
         $t_dns-&gt;rbl_test_negative_ip(conf=&gt;$conf, rbl=&gt;$rbl);</pre>

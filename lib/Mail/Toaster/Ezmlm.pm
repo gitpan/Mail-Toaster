@@ -113,9 +113,9 @@ sub footer {
 
     print <<EOFOOTER;
 <hr> <p align="center"><font size="-2">
-		<a href="http://www.tnpi.biz/computing/mail/toaster">Mail::Toaster::Ezmlm</a>
+		<a href="http://mail-toaster.org">Mail::Toaster::Ezmlm</a>
       $VERSION -
-		&copy; <a href="http://www.tnpi.biz">The Network People, Inc.</a> 1999-2005 <br><br>
+		&copy; <a href="http://www.tnpi.net">The Network People, Inc.</a> 1999-2007 <br><br>
         <!--Donated to the toaster community by <a href="mailto:sam.mayes\@sudhian.com">Sam Mayes</a>--></font>
      </p>
   </body>
@@ -201,10 +201,10 @@ sub logo {
         = ( $p{'conf'}, $p{'web_logo_url'}, $p{'web_logo_alt'}, $p{'fatal'}, $p{'debug'} );
 
     $logo ||= $conf->{'web_logo_url'}
-        || "http://www.tnpi.biz/images/head.jpg";
+        || "http://www.tnpi.net/images/head.jpg";
         
     $alt ||= $conf->{'web_logo_alt_text'}
-        || "tnpi.biz logo";
+        || "tnpi.net logo";
 
     return "<img src=\"$logo\" alt=\"$alt\">";
 }
@@ -602,8 +602,8 @@ $conf is values from toaster.conf.
 
  Example: 
     $ezmlm->logo(
-        web_logo_url => 'http://www.tnpi.biz/images/head.jpg',
-        web_log_alt  => 'tnpi.biz logo',
+        web_logo_url => 'http://www.tnpi.net/images/head.jpg',
+        web_log_alt  => 'tnpi.net logo',
     );
 
 

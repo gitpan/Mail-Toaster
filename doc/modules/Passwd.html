@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Passwd</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -29,7 +31,7 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::Passwd</p>
+<p>Mail::Toaster::Passwd - add/delete entries from Unix /etc/passwd database</p>
 <p>
 </p>
 <hr />
@@ -50,21 +52,21 @@
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
-Before calling any of the methods, you must create a password object:
+<p>Before calling any of the methods, you must create a password object:</p>
 </dd>
 <dd>
 <pre>
   use Mail::Toaster::Passwd;
   my $pass = Mail::Toaster::Passwd-&gt;new;</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_show">show</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_show">show</a></strong>
+
 <dd>
-Show user attributes. Right now it only shows quota info.
+<p>Show user attributes. Right now it only shows quota info.</p>
 </dd>
 <dd>
 <pre>
@@ -76,11 +78,11 @@ Show user attributes. Right now it only shows quota info.
 <dd>
 <p>returns a hashref with error_code and error_desc</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_delete">delete</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_delete">delete</a></strong>
+
 <dd>
-Delete an /etc/passwd user.
+<p>Delete an /etc/passwd user.</p>
 </dd>
 <dd>
 <pre>
@@ -92,11 +94,11 @@ Delete an /etc/passwd user.
 <dd>
 <p>returns a hashref with error_code and error_desc</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_disable">disable</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_disable">disable</a></strong>
+
 <dd>
-Disable an /etc/passwd user by expiring their account.
+<p>Disable an /etc/passwd user by expiring their account.</p>
 </dd>
 <dd>
 <pre>
@@ -108,11 +110,11 @@ Disable an /etc/passwd user by expiring their account.
 <dd>
 <p>returns a hashref with error_code and error_desc</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_enable">enable</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_enable">enable</a></strong>
+
 <dd>
-Enable an /etc/passwd user by removing the expiration date.
+<p>Enable an /etc/passwd user by removing the expiration date.</p>
 </dd>
 <dd>
 <pre>
@@ -124,9 +126,9 @@ Enable an /etc/passwd user by removing the expiration date.
 <dd>
 <p>returns a hashref with error_code and error_desc</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_encrypt">encrypt</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_encrypt">encrypt</a></strong>
+
 <dd>
 <pre>
         $pass-&gt;encrypt ($pass, $debug)</pre>
@@ -134,10 +136,10 @@ Enable an /etc/passwd user by removing the expiration date.
 <dd>
 <p>encrypt (MD5) the plain text password that arrives at $pass.</p>
 </dd>
-<dt><strong><a name="item_exist">exist</a></strong><br />
-</dt>
+<dt><strong><a name="item_exist">exist</a></strong>
+
 <dd>
-Check to see if a user exists
+<p>Check to see if a user exists</p>
 </dd>
 <dd>
 <pre>
@@ -158,11 +160,11 @@ Check to see if a user exists
 <dd>
 <p>returns 1 if exists, 0 otherwise</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_sanity">sanity</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_sanity">sanity</a></strong>
+
 <dd>
-Check a password for sanity.
+<p>Check a password for sanity.</p>
 </dd>
 <dd>
 <pre>
@@ -205,9 +207,9 @@ Check a password for sanity.
 <dd>
 <p>$r-&gt;{'error_desc'} will contain a string with a description of which test failed.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_backupmasterpasswd">BackupMasterPasswd</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_backupmasterpasswd">BackupMasterPasswd</a></strong>
+
 <dd>
 <pre>
         $pass-&gt;BackupMasterPasswd($file)</pre>
@@ -215,8 +217,8 @@ Check a password for sanity.
 <dd>
 <p>Back up the /etc/master.passwd database. This copies $file to a new file named $file.bak.</p>
 </dd>
-<dt><strong><a name="item_verifymasterpasswd">VerifyMasterPasswd</a></strong><br />
-</dt>
+<dt><strong><a name="item_verifymasterpasswd">VerifyMasterPasswd</a></strong>
+
 <dd>
 <pre>
     my $r = $pass-&gt;VerifyMasterPasswd ($passwd, $change, $debug)</pre>
@@ -234,10 +236,10 @@ Check a password for sanity.
 <dd>
 <p>$change is whether the file should ``shrink'' or ``grow''</p>
 </dd>
-<dt><strong><a name="item_creategroup">creategroup</a></strong><br />
-</dt>
+<dt><strong><a name="item_creategroup">creategroup</a></strong>
+
 <dd>
-Installs a system group. The $gid is optional.
+<p>Installs a system group. The $gid is optional.</p>
 </dd>
 <dd>
 <pre>
@@ -247,11 +249,11 @@ Installs a system group. The $gid is optional.
 <pre>
     $r-&gt;{'error_code'} == 200 ? print &quot;success&quot; : print $r-&gt;{'error_desc'};</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_user_add">user_add</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_user_add">user_add</a></strong>
+
 <dd>
-Installs a system user. Expects a hashref to be passed containing at least: user. Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.
+<p>Installs a system user. Expects a hashref to be passed containing at least: user. Optional values can be set for: pass, shell, homedir, gecos, quota, uid, gid, expire, domain.</p>
 </dd>
 <dd>
 <pre>
@@ -264,11 +266,11 @@ Installs a system user. Expects a hashref to be passed containing at least: user
 <dd>
 <p>returns a HTTP style result code (200 success, 400 bad, 401 unauthorized, 500 error)</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_user_archive">user_archive</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_user_archive">user_archive</a></strong>
+
 <dd>
-Create's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.
+<p>Create's a tarball of the users home directory. Typically done right before you rm -rf their home directory as part of a de-provisioning step.</p>
 </dd>
 <dd>
 <pre>
@@ -280,9 +282,9 @@ Create's a tarball of the users home directory. Typically done right before you 
 <dd>
 <p>returns a boolean.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_user_sanity">user_sanity</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_user_sanity">user_sanity</a></strong>
+
 <dd>
 <pre>
    $r = $pass-&gt;user_sanity($user, $denylist);</pre>

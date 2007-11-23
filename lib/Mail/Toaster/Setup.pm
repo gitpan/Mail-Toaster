@@ -9,7 +9,7 @@ use warnings;
 package Mail::Toaster::Setup;
 
 use vars qw($VERSION $freebsd $darwin $err);
-$VERSION = '5.05';
+$VERSION = '5.06';
 
 use Carp;
 use Config;
@@ -108,7 +108,7 @@ sub apache {
     else {
 
         $apache->install_apache2( conf=>$conf, debug=>$debug );
-        chdir($old_directory);
+        chdir($old_directory) if $old_directory;
         return 1;
     }
 
@@ -952,6 +952,7 @@ sub config_tweaks {
         $changes{'qmailadmin_http_images'}      = '/var/www/images';
         $changes{'apache_suexec_docroot'}       = '/var/www';
         $changes{'apache_suexec_safepath'}      = '/usr/local/bin:/usr/bin:/bin';
+        $changes{'install_dovecot'}             = '1.0.2';
     }
 
     if ( $hostname && $hostname =~ /mt-test/ ) {
@@ -1879,6 +1880,7 @@ sub dependencies {
 
         # create /etc/periodic.conf if it does not exist.
         $self->periodic_conf();
+        $self->openssl_stable();
 
         # there is little good reason to build these from source
         my @ok_to_be_stale_packages = qw/ gdbm gmake gettext ispell /;
@@ -1914,8 +1916,12 @@ WITHOUT_HTMLMAN=true\n",
             { port => "p5-Params-Validate",  base => "devel" },
         );
 
-        push @ports_to_install, { port => "openssl", base => "security" }
-          if $conf->{'install_openssl'};
+        push @ports_to_install, { 
+            port  => "openssl", 
+            base  => "security", 
+            flags => "WITH_OPENSSL_STABLE=yes",
+         }
+         if $conf->{'install_openssl'};
 
         push @ports_to_install, { port => "ispell", base => "textproc" }
           if $conf->{'install_ispell'};
@@ -2328,7 +2334,7 @@ sub dovecot {
             return 1;
         }
 
-        $ver = "1.0.rc21";
+        $ver = "1.0.2";
     }
 
     my $dovecot = $utility->find_the_bin( bin => "dovecot", fatal => 0 );
@@ -2348,8 +2354,8 @@ sub dovecot {
         package        => "dovecot-$ver",
         site           => 'http://www.dovecot.org',
         url            => '/releases',
-        targets        => [ 'make', 'make install' ],
-        patches        => '',
+        targets        => [ './configure', 'make', 'make install' ],
+        patches        => [ ],
         bintest        => 'dovecot',
         debug          => 1,
         source_sub_dir => 'mail',
@@ -2362,9 +2368,9 @@ sub dovecot_patch {
     open my $DOVECOT_PATCH, ">", "dovecot.conf.patch";
 
     print $DOVECOT_PATCH <<'EO_DOVECOT_PATCH';
---- dovecot.conf.orig	Tue Feb  6 23:48:32 2007
-+++ dovecot.conf	Wed Feb  7 00:04:42 2007
-@@ -18,7 +18,8 @@
+--- dovecot-example.conf    Wed Sep 19 21:25:29 2007
++++ dovecot.conf    Wed Sep 19 21:39:19 2007
+@@ -21,7 +21,8 @@
  # Protocols we want to be serving: imap imaps pop3 pop3s
  # If you only want to use dovecot-auth, you can set this to "none".
  #protocols = imap imaps
@@ -2374,7 +2380,7 @@ sub dovecot_patch {
  
  # IP or host address where to listen in for connections. It's not currently
  # possible to specify multiple addresses. "*" listens in all IPv4 interfaces.
-@@ -44,6 +45,7 @@
+@@ -47,6 +48,7 @@
  # matches the local IP (ie. you're connecting from the same computer), the
  # connection is considered secure and plaintext authentication is allowed.
  #disable_plaintext_auth = yes
@@ -2382,7 +2388,7 @@ sub dovecot_patch {
  
  # Should all IMAP and POP3 processes be killed when Dovecot master process
  # shuts down. Setting this to "no" means that Dovecot can be upgraded without
-@@ -51,7 +53,7 @@
+@@ -54,7 +56,7 @@
  # a problem if the upgrade is eg. because of a security fix). This however
  # means that after master process has died, the client processes can't write
  # to log files anymore.
@@ -2391,7 +2397,7 @@ sub dovecot_patch {
  
  ##
  ## Logging
-@@ -88,8 +90,8 @@
+@@ -92,8 +94,8 @@
  # dropping root privileges, so keep the key file unreadable by anyone but
  # root. Included doc/mkcert.sh can be used to easily generate self-signed
  # certificate, just make sure to update the domains in dovecot-openssl.cnf
@@ -2402,7 +2408,7 @@ sub dovecot_patch {
  
  # If key file is password protected, give the password here. Alternatively
  # give it when starting dovecot with -p parameter.
-@@ -166,6 +168,7 @@
+@@ -171,6 +173,7 @@
  
  # Greeting message for clients.
  #login_greeting = Dovecot ready.
@@ -2410,16 +2416,16 @@ sub dovecot_patch {
  
  # Space-separated list of elements we want to log. The elements which have
  # a non-empty variable value are joined together to form a comma-separated
-@@ -206,7 +209,7 @@
- # http://wiki.dovecot.org/MailLocation
+@@ -211,7 +214,7 @@
+ # <doc/wiki/MailLocation.txt>
  #
  #mail_location = 
 -mail_location = mbox:~/mail/:INBOX=/var/mail/%u
 +#mail_location = mbox:~/mail/:INBOX=/var/mail/%u
  
  # If you need to set multiple mailbox locations or want to change default
- # namespace settings, you can do it by defining namespace sections:
-@@ -309,16 +312,16 @@
+ # namespace settings, you can do it by defining namespace sections.
+@@ -321,16 +324,16 @@
  # to make sure that users can't log in as daemons or other system users.
  # Note that denying root logins is hardcoded to dovecot binary and can't
  # be done even if first_valid_uid is set to 0.
@@ -2440,7 +2446,7 @@ sub dovecot_patch {
  
  # Maximum number of running mail processes. When this limit is reached,
  # new users aren't allowed to log in.
-@@ -409,7 +412,7 @@
+@@ -421,7 +424,7 @@
  
  # When copying a message, do it with hard links whenever possible. This makes
  # the performance much better, and it's unlikely to have any side effects.
@@ -2449,7 +2455,25 @@ sub dovecot_patch {
  
  # When copying a message, try to preserve the base filename. Only if the
  # destination mailbox already contains the same name (ie. the mail is being
-@@ -655,7 +658,8 @@
+@@ -525,6 +528,7 @@
+   # Support for dynamically loadable plugins. mail_plugins is a space
+   # separated
+   # list of plugins to load.
+   #mail_plugins = 
++  mail_plugins = quota imap_quota
+   #mail_plugin_dir = /usr/local/lib/dovecot/imap
+ 
+   # Send IMAP capabilities in greeting message. This makes it unnecessary for
+@@ -634,6 +638,7 @@
+   # Support for dynamically loadable plugins. mail_plugins is a space
+   # separated
+   # list of plugins to load.
+   #mail_plugins = 
++  mail_plugins = quota
+   #mail_plugin_dir = /usr/local/lib/dovecot/pop3
+ 
+   # Workarounds for various client bugs:
+@@ -667,7 +672,8 @@
  
    # Binary to use for sending mails.
    #sendmail_path = /usr/lib/sendmail
@@ -2459,37 +2483,40 @@ sub dovecot_patch {
  
    # UNIX socket path to master authentication server to find users.
    #auth_socket_path = /var/run/dovecot/auth-master
-@@ -744,7 +748,7 @@
- auth default {
+@@ -761,7 +767,7 @@
    # Space separated list of wanted authentication mechanisms:
    #   plain login digest-md5 cram-md5 ntlm rpa apop anonymous gssapi
+   # NOTE: See also disable_plaintext_auth setting.
 -  mechanisms = plain
 +  mechanisms = plain login digest-md5 cram-md5
  
    #
    # Password database is used to verify user's password (and nothing more).
-@@ -780,7 +784,7 @@
+@@ -793,8 +799,9 @@
+   # so it can't be used as userdb. If you don't want to use a separate user
+   # database (passwd usually), you can use static userdb.
    # REMEMBER: You'll need /etc/pam.d/dovecot file created for PAM
-   # authentication to actually work.
-   # http://wiki.dovecot.org/PasswordDatabase/PAM
+-  # authentication to actually work. <doc/wiki/PasswordDatabase.PAM.txt>
 -  passdb pam {
-+#  passdb pam {
-     #  [session=yes] [setcred=yes] [cache_key=<key>] [<service name>]
++  # authentication to actually work.
++  # http://wiki.dovecot.org/PasswordDatabase/PAM
++  #passdb pam {
+     # [blocking=yes] [session=yes] [setcred=yes]
+     # [cache_key=<key>] [<service name>]
      #
-     # session=yes makes Dovecot open and immediately close PAM session. Some
-@@ -808,7 +812,7 @@
+@@ -827,7 +834,7 @@
      #   args = session=yes *
      #   args = cache_key=%u dovecot
      #args = dovecot
 -  }
 +#  }
  
-   # /etc/passwd or similar, using getpwnam()
+   # System users (NSS, /etc/passwd, or similiar)
    # In many systems nowadays this uses Name Service Switch, which is
-@@ -860,10 +864,10 @@
+@@ -880,10 +887,10 @@
+   #}
  
-   # vpopmail authentication
-   # http://wiki.dovecot.org/AuthDatabase/VPopMail
+   # vpopmail authentication <doc/wiki/AuthDatabase.VPopMail.txt>
 -  #passdb vpopmail {
 +  passdb vpopmail {
      # [cache_key=<key>] - See cache_key in PAM for explanation.
@@ -2499,21 +2526,29 @@ sub dovecot_patch {
  
    #
    # User database specifies where mails are located and what user/group IDs
-@@ -877,8 +881,8 @@
-   # configured in /etc/nsswitch.conf. WARNING: nss_ldap is known to be broken
-   # with Dovecot. Don't use it, or users might log in as each others!
-   # http://wiki.dovecot.org/AuthDatabase/Passwd
+@@ -895,14 +902,14 @@
+   # System users (NSS, /etc/passwd, or similiar). In many systems nowadays
+   # this
+   # uses Name Service Switch, which is configured in /etc/nsswitch.conf.
+   # <doc/wiki/AuthDatabase.Passwd.txt>
 -  userdb passwd {
++  #userdb passwd {
+     # [blocking=yes] - By default the lookups are done in the main
+     # dovecot-auth
+     # process. This setting causes the lookups to be done in auth worker
+     # proceses. Useful with remote NSS lookups that may block.
+     # NOTE: Be sure to use this setting with nss_ldap or users might get
+     # logged in as each others!
+     #args = 
 -  }
-+#  userdb passwd {
-+#  }
++  #}
  
    # passwd-like file with specified location
-   # http://wiki.dovecot.org/AuthDatabase/PasswdFile
-@@ -914,8 +918,8 @@
+   # <doc/wiki/AuthDatabase.PasswdFile.txt>
+@@ -941,8 +948,8 @@
+   #}
  
-   # vpopmail
-   # http://wiki.dovecot.org/AuthDatabase/VPopMail
+   # vpopmail <doc/wiki/AuthDatabase.VPopMail.txt>
 -  #userdb vpopmail {
 -  #}
 +  userdb vpopmail {
@@ -2521,7 +2556,7 @@ sub dovecot_patch {
  
    # "prefetch" user database means that the passdb already provided the
    # needed information and there's no need to do a separate userdb lookup.
-@@ -931,7 +935,7 @@
+@@ -958,7 +965,7 @@
    # authentication with BSDs internally accesses shadow files, which also
    # requires roots. Note that this user is NOT used to access mails.
    # That user is specified by userdb above.
@@ -2530,7 +2565,7 @@ sub dovecot_patch {
  
    # Directory where to chroot the process. Most authentication backends don't
    # work if this is set, and there's no point chrooting if auth_user is root.
-@@ -1014,7 +1018,7 @@
+@@ -1040,7 +1047,7 @@
    #   dict: Keep quota stored in dictionary (eg. SQL)
    #   maildir: Maildir++ quota
    #   fs: Read-only support for filesystem quota
@@ -2539,6 +2574,7 @@ sub dovecot_patch {
  
    # ACL plugin. vfile backend reads ACLs from "dovecot-acl" file from maildir
    # directory. You can also optionally give a global ACL directory path where
+
 EO_DOVECOT_PATCH
 ;
 
@@ -3444,7 +3480,8 @@ sub logmonster {
 
     $perl->module_install(
         module  => 'Apache-Logmonster',
-        archive => 'Logmonster.tar.gz',
+        site    => 'http://www.tnpi.net',
+        archive => 'Apache-Logmonster',
         url     => '/internet/www/logmonster',
         targets => \@targets,
         debug   => $debug,
@@ -4517,6 +4554,7 @@ sub openssl_conf {
         $freebsd->port_install ( 
             port => "openssl", 
             base => "security",
+            flags => "WITH_OPENSSL_STABLE=yes",
             debug=> 0,
         );
     };
@@ -4532,6 +4570,10 @@ sub openssl_conf {
     }
     elsif ( $OSNAME eq "linux" ) { 
         $sslconf = "/etc/ssl/openssl.cnf"; 
+        if ( ! -e $sslconf ) {
+# centos (and probably RedHat/Fedora)
+            $sslconf = "/etc/share/ssl/openssl.cnf"; 
+        };
     }
 
     unless ( -e $sslconf ) {
@@ -4619,6 +4661,47 @@ emailAddress_default\t\t= $email";
 
     return 1;
 }
+
+sub openssl_stable {
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
+
+    # parameter validation
+    my %p = validate( @_, {
+            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
+            'debug' => { type => BOOLEAN, optional => 1, default => $debug },
+        },
+    );
+
+    my $fatal = $p{'fatal'};
+       $debug = $p{'debug'};
+
+    my $file = "/etc/make.conf";
+    my $check = "WITH_OPENSSL_";
+    my $line  = "WITH_OPENSSL_STABLE=yes";
+
+    return 1 if `grep $check $file`;
+    
+    $utility->file_write(
+        file   => $file,
+        lines  => [$line],
+        append => 1,
+        debug  => $debug,
+        fatal  => $fatal,
+   );
+        
+   return 1 if `grep $check $file`;
+            
+   print "make.conf_check: FAILED to add $line to $file: $!\n";
+   carp "
+    NOTICE: It would be a good idea for you to manually add:
+        $line 
+    to $file.         ";
+
+   croak if $fatal;
+   return; 
+};
 
 sub periodic_conf {
 
@@ -4795,16 +4878,6 @@ sub phpmyadmin {
             flags => "WITHOUT_X11=yes",
             debug => 0,
         );
-        if (
-            $utility->yes_or_no(
-                question =>
-"php-gd requires x11 libraries. Shall I try installing the xorg-libraries package?"
-            )
-          )
-        {
-            $freebsd->package_install( port => "xorg-libraries", debug=>$debug )
-              unless $freebsd->is_port_installed( port => "xorg-libraries", debug=>$debug );
-        }
 
         if (    !$freebsd->is_port_installed( port => "xorg-libraries", debug=>$debug )
             and !$freebsd->is_port_installed( port => "XFree86-Libraries", debug=>$debug ) )
@@ -5436,7 +5509,7 @@ sub qmail_scanner_config {
 
   # We want qmail-scanner to process emails so we add an ENV to the SMTP server:
     print "To enable qmail-scanner, see the instructions on the filtering page
-of the web site: http://www.tnpi.biz/internet/mail/toaster/
+of the web site: http://mail-toaster.org/
 
 ";
 
@@ -5655,11 +5728,11 @@ sub qs_stats {
     }
     else {
         @lines =
-'Fri, 12 Jan 2004 15:09:00 -0500	w.diep\@hetnet.nl	matt\@tnpi.biz	Advice  Worm.Gibe.F       clamuko: 0.67.';
+'Fri, 12 Jan 2004 15:09:00 -0500	w.diep\@hetnet.nl	matt\@tnpi.net	Advice  Worm.Gibe.F       clamuko: 0.67.';
         push @lines,
 'Fri, 12 Feb 2004 10:34:16 -0500	yykk62\@hotmail.com	mike\@example.net	Re: Your product	Worm.SomeFool.I	clamuko: 0.67. ';
         push @lines,
-'Fri, 12 Mar 2004 15:06:04 -0500	w.diep\@hetnet.nl	matt\@tnpi.biz	Last Microsoft Critical Patch	Worm.Gibe.F	clamuko: 0.67.';
+'Fri, 12 Mar 2004 15:06:04 -0500	w.diep\@hetnet.nl	matt\@tnpi.net	Last Microsoft Critical Patch	Worm.Gibe.F	clamuko: 0.67.';
         $utility->file_write( file => $quarantinelog, lines => \@lines );
         chmod oct('0664'), $quarantinelog;
     }
@@ -5728,11 +5801,11 @@ sub qs_stats {
 
     unless ( -s $quarantinelog ) {
         @lines =
-'Fri, 12 Jan 2004 15:09:00 -0500	w.diep\@hetnet.nl	matt\@tnpi.biz	Advice  Worm.Gibe.F	clamuko: 0.67.';
+'Fri, 12 Jan 2004 15:09:00 -0500	w.diep\@hetnet.nl	matt\@tnpi.net	Advice  Worm.Gibe.F	clamuko: 0.67.';
         push @lines,
 'Fri, 12 Feb 2004 10:34:16 -0500	yykk62\@hotmail.com	mike\@example.net	Re: Your product	Worm.SomeFool.I	clamuko: 0.67. ';
         push @lines,
-'Fri, 12 Mar 2004 15:06:04 -0500	w.diep\@hetnet.nl	matt\@tnpi.biz	Last Microsoft Critical Patch	Worm.Gibe.F	clamuko: 0.67.';
+'Fri, 12 Mar 2004 15:06:04 -0500	w.diep\@hetnet.nl	matt\@tnpi.net	Last Microsoft Critical Patch	Worm.Gibe.F	clamuko: 0.67.';
         $utility->file_write( file => $quarantinelog, lines => \@lines, debug=>$debug );
     }
 }
@@ -5940,7 +6013,7 @@ sub ripmime {
         site           => 'http://www.pldaniels.com',
         url            => '/ripmime',
         targets        => [ 'make', 'make install' ],
-        patches        => '',
+        patches        => [ ],
         bintest        => 'ripmime',
         debug          => 1,
         source_sub_dir => 'mail',
@@ -6003,7 +6076,7 @@ sub rrdtool {
     if ( $OSNAME eq "freebsd" ) {
         $freebsd->port_install(
             port  => "rrdtool",
-            base  => "net",
+            base  => "databases",
             fatal => $fatal
         );
 
@@ -6016,7 +6089,7 @@ sub rrdtool {
 
     return 1 if ( -x $utility->find_the_bin( bin => "rrdtool", fatal => 0 ) );
 
-    my $ver = "1.2.15";
+    my $ver = "1.2.23";
 
     unless ( $conf->{'install_rrdutil'} ) {
         print
@@ -6030,7 +6103,7 @@ sub rrdtool {
         site    => 'http://people.ee.ethz.ch',
         url     => '/~oetiker/webtools/rrdtool/pub',
         targets => [ './configure', 'make', 'make install' ],
-        patches => '',
+        patches => [ ],
         bintest => 'rrdtool',
         debug   => 1,
     );
@@ -6163,7 +6236,7 @@ sub rrdutil {
     $perl->module_install(
         module  => 'RRDutil',
         archive => 'RRDutil',
-        site    => 'http://www.tnpi.biz',
+        site    => 'http://www.tnpi.net',
         url     => '/internet/manage/rrdutil',
         targets => \@targets,
         debug   => $debug,
@@ -6184,7 +6257,9 @@ sub rrdutil {
 
         my $start = "start";
         if ( $ver == 5 ) { $start = "restart"; }
-        $utility->syscmd( command => "/usr/local/etc/rc.d/snmpd.sh $start", debug=>$debug );
+        my $rc_start = -x "/usr/local/etc/rc.d/snmpd" ? "/usr/local/etc/rc.d/snmpd"
+                        : "/usr/local/etc/rc.d/snmpd.sh";
+        $utility->syscmd( command => "$rc_start $start", debug=>$debug );
     }
 }
 
@@ -6625,7 +6700,7 @@ sub spamassassin {
     $perl->module_load( module => "Mail::SpamAssassin", debug=>$debug, auto=>1 );
     $self->maildrop(  debug=>$debug );
 
-    $self->spamassassin_sql(  debug=>$debug );
+    $self->spamassassin_sql(  debug=>$debug ) if ( $conf->{'install_spamassassin_sql'} );
 }
 
 sub spamassassin_sql {
@@ -6649,7 +6724,7 @@ sub spamassassin_sql {
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    unless ( ! $conf->{'install_spamassassin_sql'} ) {
+    if ( ! $conf->{'install_spamassassin_sql'} ) {
         print "SpamAssasin MySQL integration not selected. skipping.\n";
         return 0;
     }
@@ -6953,71 +7028,59 @@ sub squirrelmail {
         return 0;
     }
 
+
     if ( $OSNAME eq "freebsd" && $ver eq "port" ) {
-        if ( $freebsd->is_port_installed( port => "squirrelmail", debug=>$debug ) ) {
-            print "Squirrelmail is already installed, skipping!\n";
-            return 0;
-        }
 
-        if ( $conf->{'install_squirrelmail_sql'} ) {
-            $freebsd->port_install( 
-                port => "pear-DB", 
-                base => "databases" ,
-                debug => $debug,
-            );
-
-            $freebsd->port_install( 
-                port => "squirrelmail-sasql-plugin", 
-                base => "mail" ,
-                debug => $debug,
-            );
-            $freebsd->port_install( 
-                port => "squirrelmail-quota_usage-plugin", 
-                base => "mail" ,
-                debug => $debug,
-            );
-        };
+        my @squirrel_flags;
+        push @squirrel_flags, 'WITH_APACHE2=1'  if ( $conf->{'install_apache'} == 2 );
+        push @squirrel_flags, 'WITH_DATABASE=1' if $conf->{'install_squirrelmail_sql'};
 
         if ( $conf->{'install_apache'} == 2 ) {
 
+            # port was installing wrong version of mbstring..remove this when
+            # the port is fixed.
             $freebsd->port_install(
                 port  => $conf->{'install_php'} == 5 ? "php5-mbstring" : "php4-mbstring",
                 base  => "converters",
                 flags => "BATCH=1,WITH_APACHE2=1,WITH_DATABASE=1",
                 debug => $debug,
             );
-
-            $freebsd->port_install(
-                port  => "squirrelmail",
-                base  => "mail",
-                flags => "WITH_APACHE2=yes,WITH_DATABASE=1",
-                debug => $debug,
-            );
-        }
-        else {
-            $freebsd->port_install( 
-                port => "squirrelmail", 
-                base => "mail" ,
-                flags => "WITH_DATABASE=1",
-                debug => $debug,
-            );
         }
 
-        if ( -d "/usr/local/www/squirrelmail" ) {
-            unless ( -e "/usr/local/www/squirrelmail/config/config.php" ) {
-                chdir("/usr/local/www/squirrelmail/config");
-                print "squirrelmail: installing a default config.php\n";
+        $freebsd->port_install( 
+            port => "squirrelmail", 
+            base => "mail",
+            flags => join(',', @squirrel_flags),
+            debug => $debug,
+        );
 
-                $utility->file_write(
-                    file  => "config.php",
-                    lines => [ $self->squirrelmail_config() ],
-                    debug => $debug,
-                );
+        $freebsd->port_install( 
+            port => "squirrelmail-quota_usage-plugin", 
+            base => "mail" ,
+            debug => $debug,
+        );
+
+
+        if ( $freebsd->is_port_installed( port => "squirrelmail", debug=>$debug ) ) 
+        {
+            if ( -d "/usr/local/www/squirrelmail" ) {
+                unless ( -e "/usr/local/www/squirrelmail/config/config.php" ) {
+                    chdir("/usr/local/www/squirrelmail/config");
+                    print "squirrelmail: installing a default config.php\n";
+
+                    $utility->file_write(
+                        file  => "config.php",
+                        lines => [ $self->squirrelmail_config() ],
+                        debug => $debug,
+                    );
+                }
             }
-        }
 
-        if ( $freebsd->is_port_installed( port => "squirrelmail", debug=>$debug ) ) {
-            $self->squirrelmail_mysql(debug=>$debug);
+            if ( $conf->{'install_squirrelmail_sql'} ) {
+
+                $self->squirrelmail_mysql(debug=>$debug);
+            };
+
             return 1;
         }
     }
@@ -7081,14 +7144,25 @@ sub squirrelmail_mysql {
     return 0 unless $conf->{'install_squirrelmail_sql'};
 
     if ( $OSNAME eq "freebsd" ) {
-        $freebsd->port_install( port => "pear-DB", base => "databases" );
+        $freebsd->port_install( 
+            port  => "pear-DB", 
+            base  => "databases",
+            debug => $debug,
+        );
+
         print
 '\nHEY!  You need to add include_path = ".:/usr/local/share/pear" to php.ini.\n\n';
+
+        $freebsd->port_install( 
+            port => "squirrelmail-sasql-plugin", 
+            base => "mail" ,
+            debug => $debug,
+        );
     }
 
     my $db   = "squirrelmail";
     my $user = "squirrel";
-    my $pass = "secret";
+    my $pass = $conf->{'install_squirrelmail_sql_pass'} || "secret";
     my $host = "localhost";
 
     require Mail::Toaster::Mysql;
@@ -7465,13 +7539,14 @@ WITH_NLS=true",
             flags => join( ",", @args ),
             options => "# This file is auto-generated by 'make config'.
 # No user-servicable parts inside!
-# Options for sqwebmail-5.1.3
-_OPTIONS_READ=sqwebmail-5.1.3
+# Options for sqwebmail-5.1.5
+_OPTIONS_READ=sqwebmail-5.1.5
 WITH_CACHEDIR=true
+WITH_FAM=true
 WITHOUT_GDBM=true
 WITH_GZIP=true
 WITH_HTTPS=true
-WITH_HTTPS_LOGIN=true
+WITHOUT_HTTPS_LOGIN=true
 WITHOUT_IMAP=true
 WITH_ISPELL=true
 WITH_MIMETYPES=true
@@ -7870,7 +7945,7 @@ sub test {
     my $qmail = Mail::Toaster::Qmail->new();
 
     my @active_service_dirs;
-    foreach ( qw/ smtp send submit / ) {
+    foreach ( qw/ smtp send / ) {
         push @active_service_dirs, 
             $qmail->service_dir_get( conf => $conf, prot => $_, debug=>$debug );
     }
@@ -7878,6 +7953,11 @@ sub test {
     if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
         push @active_service_dirs, 
             $qmail->service_dir_get( conf => $conf, prot => "pop3", debug=>$debug ),
+    };
+
+    if ( $conf->{'submit_enable'}  ) {
+        push @active_service_dirs, 
+            $qmail->service_dir_get( conf => $conf, prot => "submit", debug=>$debug ),
     };
 
     foreach ( $q_ser, @active_service_dirs )
@@ -7914,7 +7994,8 @@ sub test {
 
         if ( $OSNAME eq "freebsd" ) { $netstat .= " -alS " }
         if ( $OSNAME eq "darwin" )  { $netstat .= " -al " }
-        if ( $OSNAME eq "linux" )   { $netstat .= " -an " }
+        if ( $OSNAME eq "linux" )   { $netstat .= " -a --numeric-hosts " }
+        #if ( $OSNAME eq "linux" )   { $netstat .= " -an " }
         else { $netstat .= " -a " }
         ;    # should be pretty safe
 
@@ -7926,7 +8007,10 @@ sub test {
         }
 
         print "checking for udp listeners\n";
-        foreach (qw( snmp )) {
+        my @udps;
+        if ( $conf->{'install_snmp'} ) { push @udps, "snmp"; };
+
+        foreach ( @udps ) {
             `$netstat | grep $_`
               ? $utility->_formatted( "\t$_", "ok" )
               : $utility->_formatted( "\t$_", "FAILED" );
@@ -8387,7 +8471,7 @@ sub ucspi_tcp {
 
         @targets = "echo '/opt/local' > conf-home";
 
-        #		$vals->{'patches'} = ["ucspi-tcp-0.88-mysql+rss-darwin.patch"];
+        $patches = ["ucspi-tcp-0.88-mysql+rss-darwin.patch"];
 
         if ( $conf->{'install_mysql'} ) {
             my $mysql_prefix = "/opt/local";
@@ -8412,8 +8496,8 @@ sub ucspi_tcp {
         );
 
 #		Need to test MySQL patch on linux before enabling it.
-#		$vals->{'patches'}    = ('ucspi-tcp-0.88-mysql+rss.patch', 'ucspi-tcp-0.88.errno.patch');
-#		$vals->{'patch_args'} = "-p0";
+#		$patches = ['ucspi-tcp-0.88-mysql+rss.patch', 'ucspi-tcp-0.88.errno.patch'];
+#		$patch_args = "-p0";
     }
 
     # see if it is installed
@@ -8927,12 +9011,28 @@ sub vpopmail_install_freebsd_port {
     my @defs = "WITH_CLEAR_PASSWD=yes";
     push @defs, "WITH_LEARN_PASSWORDS=yes"
         if ( $conf->{'vpopmail_learn_passwords'} );
-    push @defs, "WITH_MYSQL=yes";
 
-    push @defs, "WITH_MYSQL_REPLICATION=yes"
-        if ( $conf->{'vpopmail_mysql_replication'} );
-    push @defs, "WITH_MYSQL_LIMITS=yes"
-        if ( $conf->{'vpopmail_mysql_limits'} );
+    if ( $conf->{'vpopmail_mysql'} ) 
+    {
+        push @defs, "WITH_MYSQL=yes";
+
+        push @defs, "WITH_MYSQL_REPLICATION=yes"
+            if ( $conf->{'vpopmail_mysql_replication'} );
+        push @defs, "WITH_MYSQL_LIMITS=yes"
+            if ( $conf->{'vpopmail_mysql_limits'} );
+        push @defs,
+            'WITH_MYSQL_SERVER="' . $conf->{'vpopmail_mysql_repl_master'} . '"';
+        push @defs,
+            'WITH_MYSQL_USER="' . $conf->{'vpopmail_mysql_repl_user'} . '"';
+        push @defs,
+            'WITH_MYSQL_PASSWD="' . $conf->{'vpopmail_mysql_repl_pass'} . '"';
+        push @defs,
+            'WITH_MYSQL_DB="' . $conf->{'vpopmail_mysql_database'} . '"';
+        push @defs,
+            'WITH_MYSQL_READ_SERVER="'
+            . $conf->{'vpopmail_mysql_repl_slave'} . '"';
+    };
+
     push @defs, "WITH_IP_ALIAS=yes"
         if ( $conf->{'vpopmail_ip_alias_domains'} );
     push @defs, "WITH_QMAIL_EXT=yes"
@@ -8941,18 +9041,6 @@ sub vpopmail_install_freebsd_port {
         if ( $conf->{'vpopmail_domain_quotas'} );
     push @defs, "WITH_SINGLE_DOMAIN=yes"
         if ( $conf->{'vpopmail_disable_many_domains'} );
-
-    push @defs,
-        'WITH_MYSQL_SERVER="' . $conf->{'vpopmail_mysql_repl_master'} . '"';
-    push @defs,
-        'WITH_MYSQL_USER="' . $conf->{'vpopmail_mysql_repl_user'} . '"';
-    push @defs,
-        'WITH_MYSQL_PASSWD="' . $conf->{'vpopmail_mysql_repl_pass'} . '"';
-    push @defs,
-        'WITH_MYSQL_DB="' . $conf->{'vpopmail_mysql_database'} . '"';
-    push @defs,
-        'WITH_MYSQL_READ_SERVER="'
-        . $conf->{'vpopmail_mysql_repl_slave'} . '"';
 
     push @defs, 'LOGLEVEL="p"';
 
@@ -9231,13 +9319,12 @@ sub vpopmail_test {
     }
 
     print "checking vpopmail etc files...\n";
-    foreach (
-        qw/   inc_deps lib_deps
-        tcp.smtp tcp.smtp.cdb
-        vlimits.default vpopmail.mysql /
-      )
+    my @vpetc = qw/   inc_deps lib_deps tcp.smtp tcp.smtp.cdb vlimits.default /;
+    if ( $conf->{'vpopmail_mysql'} ) {
+        push @vpetc, 'vpopmail.mysql';
+    };
+    foreach ( @vpetc )
     {
-
         -e "$vpdir/etc/$_" && -s "$vpdir/etc/$_"
           ? $utility->_formatted( "\t$_", "ok" )
           : $utility->_formatted( "\t$_", "FAILED" );

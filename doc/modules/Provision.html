@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Provision</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -29,12 +31,12 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::Provision</p>
+<p>Mail::Toaster::Provision - a rudimentary provisioning agent</p>
 <p>
 </p>
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p>Account provisioning methods.</p>
+<p>Account provisioning methods. Not terribly complete, only the ones I use regularly have been coded.</p>
 <p>
 </p>
 <hr />
@@ -51,10 +53,10 @@
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
-To use the following methods, you must first create a provision object. Then invoke any of the methods that follow using your provision object.
+<p>To use the following methods, you must first create a provision object. Then invoke any of the methods that follow using your provision object.</p>
 </dd>
 <dd>
 <pre>
@@ -76,20 +78,20 @@ To use the following methods, you must first create a provision object. Then inv
  arguments required:
     conf - a hashref of values pulled from sysadmin.conf.</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_dns">dns</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_dns">dns</a></strong>
+
 <dd>
-dns will provision a DNS account using the programming API of a NicTool DNS server.
+<p>dns will provision a DNS account using the programming API of a NicTool DNS server.</p>
 </dd>
 <dd>
 <p>it is not completed.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_quota_set">quota_set</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_quota_set">quota_set</a></strong>
+
 <dd>
-Sets a user file system quota.
+<p>Sets a user file system quota.</p>
 </dd>
 <dd>
 <pre>
@@ -113,9 +115,9 @@ Sets a user file system quota.
  arguments optional:
     quota - (int) - the quota value in megabytes (100)</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_user">user</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_user">user</a></strong>
+
 <dd>
 <pre>
   $prov-&gt;user( action=&gt;'add', conf=&gt;$conf )</pre>
@@ -148,10 +150,10 @@ Sets a user file system quota.
 <pre>
  result:</pre>
 </dd>
-<dt><strong><a name="item_user_usage">user_usage</a></strong><br />
-</dt>
+<dt><strong><a name="item_user_usage">user_usage</a></strong>
+
 <dd>
-returns the following message if improper or missing arguments are passed:
+<p>returns the following message if improper or missing arguments are passed:</p>
 </dd>
 <dd>
 <pre>
@@ -184,17 +186,17 @@ returns the following message if improper or missing arguments are passed:
 <dd>
 <p>If domain is set, then tit's assumed that you're setting up a web hosted account and you want the home directory to be /home/domain.com instead of /home/user. This integrates quite nicely with Apache's mass virtual hosting.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_user_options">user_options</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_user_options">user_options</a></strong>
+
 <dd>
-Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.
+<p>Collects the options required for setting up a user account from the command line (GetOpts) or from a HTTP form submission.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_usage_action">usage_action</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_usage_action">usage_action</a></strong>
+
 <dd>
-return the following message:
+<p>return the following message:</p>
 </dd>
 <dd>
 <pre>
@@ -223,9 +225,9 @@ return the following message:
        repair  - misc repair options
        test    - test settings</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_web">web</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_web">web</a></strong>
+
 <dd>
 <pre>
         $prov-&gt;web (vals=&gt;$vals, conf=&gt;$conf)</pre>
@@ -243,21 +245,21 @@ return the following message:
 <dd>
 <p>web will call several private methods, beginning with web_get_options which collects the details for the new account from the command line (via GetOpts) or via a HTTP form method. Once the options are gathered, it will perform the requested action (create, destroy, disable, enable, show, repair, or test) on the account.</p>
 </dd>
-<dt><strong><a name="item_web_check_setup">web_check_setup</a></strong><br />
-</dt>
+<dt><strong><a name="item_web_check_setup">web_check_setup</a></strong>
+
 <dd>
-Performs various tests on the apache config settings:
+<p>Performs various tests on the apache config settings:</p>
 </dd>
 <dd>
 <pre>
  make sure apache conf dir exists
  make sure vhost config is set up</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_web_usage">web_usage</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_web_usage">web_usage</a></strong>
+
 <dd>
-returns the following message if improper or missing arguments are passed:
+<p>returns the following message if improper or missing arguments are passed:</p>
 </dd>
 <dd>
 <pre>
@@ -295,26 +297,26 @@ returns the following message if improper or missing arguments are passed:
        -awstats        - include alias for awstats
        -phpmyadmin     - include alias for php</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_web_get_options">web_get_options</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_web_get_options">web_get_options</a></strong>
+
 <dd>
-Collects web account settings from the command line arguments or a HTML form.
+<p>Collects web account settings from the command line arguments or a HTML form.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_what_am_i">what_am_i</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_what_am_i">what_am_i</a></strong>
+
 <dd>
 <pre>
-        $prov-&gt;what_am_i($debug)</pre>
+        $prov-&gt;what_am_i()</pre>
 </dd>
 <dd>
 <p>Determine what the filename of this program is.</p>
 </dd>
-<dt><strong><a name="item_what_am_i_check">what_am_i_check</a></strong><br />
-</dt>
+<dt><strong><a name="item_what_am_i_check">what_am_i_check</a></strong>
+
 <dd>
-To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options:
+<p>To simplify usage and increase the ability to secure access to various features, the program determines how it's being called. Currently, there are 4 options:</p>
 </dd>
 <dd>
 <pre>
@@ -326,12 +328,13 @@ To simplify usage and increase the ability to secure access to various features,
 <dd>
 <p>This simply checks to make sure a valid one has been invoked.</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />

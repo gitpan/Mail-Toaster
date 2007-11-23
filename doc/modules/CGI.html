@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::CGI</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -28,25 +30,25 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::CGI</p>
+<p>Mail::Toaster::CGI - a CGI application for logging into the various web components of a Mail Toaster.</p>
 <p>
 </p>
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p>index.cgi - A pretty web interface that showcases the abundant features of a mail toaster.</p>
-<p>
-</p>
-<hr />
-<h1><a name="description">DESCRIPTION</a></h1>
 <p>A cgi application and HTML template for a standard mail page.</p>
 <p>This module contains the subroutines that are used by index.cgi. They're named well so you should have no problems reading through index.cgi and understanding exactly what it's doing.</p>
 <p>
 </p>
 <hr />
+<h1><a name="description">DESCRIPTION</a></h1>
+<p>see index.cgi for a more complete description. The web pages are fully customizable as the index.tmpl is an HTML::Template file, which is almost pure HTML.</p>
+<p>
+</p>
+<hr />
 <h1><a name="subroutines">SUBROUTINES</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::CGI;
@@ -55,38 +57,38 @@
 <dd>
 <p>Once you have a Mail::Toaster::CGI object, you can call any of the following methods.</p>
 </dd>
-<dt><strong><a name="item_instructions">instructions</a></strong><br />
-</dt>
+<dt><strong><a name="item_instructions">instructions</a></strong>
+
 <dd>
-Displays the end user instructions displayed on the web page. Uses values from toaster.conf.
+<p>Displays the end user instructions displayed on the web page. Uses values from toaster.conf.</p>
 </dd>
 <dd>
 <pre>
     $toaster_cgi-&gt;instructions($conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_logo">logo</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_logo">logo</a></strong>
+
 <dd>
-Displays the logo using the URL and alt data from toaster.conf.
+<p>Displays the logo using the URL and alt data from toaster.conf.</p>
 </dd>
 <dd>
 <pre>
     $toaster_cgi-&gt;logo($conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_heading">heading</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_heading">heading</a></strong>
+
 <dd>
-Displays the HTML heading using the data from toaster.conf.
+<p>Displays the HTML heading using the data from toaster.conf.</p>
 </dd>
 <dd>
 <pre>
     $toaster_cgi-&gt;heading($conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_imp_submit">imp_submit</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_imp_submit">imp_submit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;imp_submit($conf, $ssl, $host);</pre>
@@ -94,8 +96,8 @@ Displays the HTML heading using the data from toaster.conf.
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
 </dd>
-<dt><strong><a name="item_setvwebsubmit">SetVWebSubmit</a></strong><br />
-</dt>
+<dt><strong><a name="item_setvwebsubmit">SetVWebSubmit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;vwebmail_submit($conf, $ssl, $host);</pre>
@@ -103,8 +105,8 @@ Displays the HTML heading using the data from toaster.conf.
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
 </dd>
-<dt><strong><a name="item_qss_stats_submit">qss_stats_submit</a></strong><br />
-</dt>
+<dt><strong><a name="item_qss_stats_submit">qss_stats_submit</a></strong>
+
 <dd>
 <pre>
     $toaster_cgi-&gt;qss_stats_submit($conf, $ssl, $host);</pre>
@@ -119,8 +121,8 @@ Displays the HTML heading using the data from toaster.conf.
 <pre>
     $toaster_cgi-&gt;qss_stats_submit($conf, 1, &quot;matt.cadillac.net&quot; );</pre>
 </dd>
-<dt><strong><a name="item_isoqlog_submit">isoqlog_submit</a></strong><br />
-</dt>
+<dt><strong><a name="item_isoqlog_submit">isoqlog_submit</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::CGI;
@@ -136,8 +138,8 @@ Displays the HTML heading using the data from toaster.conf.
 <pre>
         isoqlog_submit($conf, 1, &quot;matt.cadillac.net&quot;);</pre>
 </dd>
-<dt><strong><a name="item_rrdutil_submit">rrdutil_submit</a></strong><br />
-</dt>
+<dt><strong><a name="item_rrdutil_submit">rrdutil_submit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;rrdutil_submit($conf, $ssl, $host);</pre>
@@ -148,14 +150,14 @@ Displays the HTML heading using the data from toaster.conf.
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection. $host is the hostname to submit the form to.</p>
 </dd>
-<dt><strong><a name="item_cookies_expire">cookies_expire</a></strong><br />
-</dt>
+<dt><strong><a name="item_cookies_expire">cookies_expire</a></strong>
+
 <dd>
-Very simple use of CGI's cookie method. To expire the cookie we just set it's expiration to a negative value.
+<p>Very simple use of CGI's cookie method. To expire the cookie we just set it's expiration to a negative value.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_qmailadmin_submit">qmailadmin_submit</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_qmailadmin_submit">qmailadmin_submit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;qmailadmin_submit($conf, $ssl, $host);</pre>
@@ -163,8 +165,8 @@ Very simple use of CGI's cookie method. To expire the cookie we just set it's ex
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
 </dd>
-<dt><strong><a name="item_sqwebmail_submit">sqwebmail_submit</a></strong><br />
-</dt>
+<dt><strong><a name="item_sqwebmail_submit">sqwebmail_submit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;sqwebmail_submit($conf, $ssl, $host);</pre>
@@ -172,8 +174,8 @@ Very simple use of CGI's cookie method. To expire the cookie we just set it's ex
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.</p>
 </dd>
-<dt><strong><a name="item_squirrelmail_submit">squirrelmail_submit</a></strong><br />
-</dt>
+<dt><strong><a name="item_squirrelmail_submit">squirrelmail_submit</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;squirrelmail_submit($conf, $ssl, $host);</pre>
@@ -181,14 +183,14 @@ Very simple use of CGI's cookie method. To expire the cookie we just set it's ex
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.  $path is the installed URL path on the server.</p>
 </dd>
-<dt><strong><a name="item_cookies_set">cookies_set</a></strong><br />
-</dt>
+<dt><strong><a name="item_cookies_set">cookies_set</a></strong>
+
 <dd>
-Very simple use of CGI's cookie method. We save a cookie with the users email address and another one for for whether they selected Use SSL.
+<p>Very simple use of CGI's cookie method. We save a cookie with the users email address and another one for for whether they selected Use SSL.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_ssl_line">ssl_line</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_ssl_line">ssl_line</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;ssl_line($ssl, $editable);</pre>
@@ -196,8 +198,8 @@ Very simple use of CGI's cookie method. We save a cookie with the users email ad
 <dd>
 <p>$ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $editable is a binary value, determining if the SSL preference is available or not.</p>
 </dd>
-<dt><strong><a name="item_cookie_line">cookie_line</a></strong><br />
-</dt>
+<dt><strong><a name="item_cookie_line">cookie_line</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;cookie_line($save);</pre>
@@ -205,8 +207,8 @@ Very simple use of CGI's cookie method. We save a cookie with the users email ad
 <dd>
 <p>$save is a binary value, are the users settings saved or not?</p>
 </dd>
-<dt><strong><a name="item_email_line">email_line</a></strong><br />
-</dt>
+<dt><strong><a name="item_email_line">email_line</a></strong>
+
 <dd>
 <pre>
         $toaster_cgi-&gt;email_line($address, $editable);</pre>
@@ -217,17 +219,18 @@ Very simple use of CGI's cookie method. We save a cookie with the users email ad
 <dd>
 <p>$editable is whether or not the address field is editable.</p>
 </dd>
-<dt><strong><a name="item_process_shell">process_shell</a></strong><br />
-</dt>
+<dt><strong><a name="item_process_shell">process_shell</a></strong>
+
 <dd>
-Since we're a CGI app, we don't expect to be run from the command line except to test. This little sub just lets you know everything that was supposed to load did and that the CGI should work right.
+<p>Since we're a CGI app, we don't expect to be run from the command line except to test. This little sub just lets you know everything that was supposed to load did and that the CGI should work right.</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />

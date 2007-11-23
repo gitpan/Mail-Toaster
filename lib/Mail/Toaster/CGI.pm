@@ -97,7 +97,7 @@ sub imp_submit {
                 <input type="hidden" name="server" value="locahost" />
                 <input type="hidden" name="port" value="143" />
                 <input type="hidden" name="namespace" value="" />
-                <input type="hidden" name="maildomain" value="mail.tnpi.biz" />
+                <input type="hidden" name="maildomain" value="mail.tnpi.net" />
                 <input type="hidden" name="protocol" value="imap" />
                 <input type="hidden" name="realm" value="" />
                  <input type="hidden" name="folders" value="Mail/" />
@@ -685,7 +685,7 @@ Since we're a CGI app, we don't expect to be run from the command line except to
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 =head1 BUGS
 

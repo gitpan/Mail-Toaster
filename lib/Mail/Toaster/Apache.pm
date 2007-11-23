@@ -8,7 +8,7 @@ use warnings;
 package Mail::Toaster::Apache;
 
 use vars qw/ $VERSION /;
-$VERSION = '5.05';
+$VERSION = '5.06';
 
 use Carp;
 use English qw( -no_match_vars );
@@ -106,7 +106,7 @@ still want Apache1, simply follow the instructions here: \n";
     }
 
     unless ( -e $layout ) {
-        $utility->get_file("http://www.tnpi.biz/internet/www/apache.layout");
+        $utility->get_file("http://www.tnpi.net/internet/www/apache.layout");
         move( "apache.layout", $layout );
     }
 
@@ -243,7 +243,7 @@ sub install_apache2 {
             }
             else {
                 print "install_apache2: attempting package install.\n";
-                $freebsd->package_install( port => $ports_dir, "apache-2" );
+                $freebsd->package_install( port => $ports_dir, alt => "apache-2" );
                 $freebsd->package_install( port => "p5-libwww" );
             }
         }
@@ -304,7 +304,7 @@ sub install_apache2 {
         else {
             print
 "Yikes, I can't find DarwinPorts! Try following the instructions here:  
-http://www.tnpi.biz/internet/mail/toaster/darwin.shtml.\n";
+http://www.tnpi.net/internet/mail/toaster/darwin.shtml.\n";
         }
 
         return;
@@ -1876,11 +1876,11 @@ Builds and installs a DSA Certificate.
 
 =head2 DEPENDENCIES
 
-Mail::Toaster - http://www.tnpi.biz/internet/mail/toaster/
+Mail::Toaster - http://mail-toaster.org/
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 
 =head1 BUGS

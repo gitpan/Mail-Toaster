@@ -552,7 +552,7 @@ This method builds from sources only. Compare to module_load which will attempt 
     $perl->module_install(
        module   => 'Mail-Toaster',
        archive  => 'Mail-Toaster-4.01.tar.gz',
-       site     => 'http://www.tnpi.biz',
+       site     => 'http://www.tnpi.net',
        url      => '/internet/mail/toaster/src',
        targets  => ['perl Makefile.PL', 'make install'],
     );

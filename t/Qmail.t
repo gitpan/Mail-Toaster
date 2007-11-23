@@ -37,7 +37,7 @@ my $has_net_dns;
 
 
 # get_list_of_rwls
-	$r = $qmail->get_list_of_rwls( conf=>{ 'rwl_qmail.bondedsender.org'=> 1}, debug=>0 );
+	$r = $qmail->get_list_of_rwls( conf=>{ 'rwl_list.dnswl.org'=> 1}, debug=>0 );
 	ok ( @$r[0], 'get_list_of_rwls'); 
 
 
@@ -48,11 +48,13 @@ my $has_net_dns;
 
 # get_list_of_rbls
 	$r = $qmail->get_list_of_rbls( conf=>{'rbl_sbl-xbl.spamhaus.org'=> 1}, debug=>0,fatal=>0 );
-	cmp_ok ( $r, "eq", "-r sbl-xbl.spamhaus.org ", 'get_list_of_rbls'); 
+	cmp_ok ( $r, "eq", '\
+		-r sbl-xbl.spamhaus.org ', 'get_list_of_rbls'); 
 
 	# test one with a sort order
 	$r = $qmail->get_list_of_rbls( conf=>{'rbl_sbl-xbl.spamhaus.org'=> 2}, debug=>0, fatal=>0 );
-	cmp_ok ( $r, "eq", "-r sbl-xbl.spamhaus.org ", 'get_list_of_rbls');
+	cmp_ok ( $r, "eq", '\
+		-r sbl-xbl.spamhaus.org ', 'get_list_of_rbls'); 
 
 	# no enabled rbls!
 	ok ( ! $qmail->get_list_of_rbls( conf=>{'rbl_sbl-xbl.spamhaus.org'=> 0}, debug=>0, fatal=>0 ), 
@@ -65,11 +67,11 @@ my $has_net_dns;
 
 
 # get_list_of_rwls
-	$r = $qmail->get_list_of_rwls( conf=>{'rwl_qmail.bondedsender.org'=> 1}, debug=>0 );
-	ok ( @$r[0] eq "qmail.bondedsender.org", 'get_list_of_rwls'); 
+	$r = $qmail->get_list_of_rwls( conf=>{'rwl_list.dnswl.org'=> 1}, debug=>0 );
+	ok ( @$r[0] eq "list.dnswl.org", 'get_list_of_rwls'); 
 
 	# no enabled rwls!
-	$r = $qmail->get_list_of_rwls( conf=>{'rwl_qmail.bondedsender.org'=> 0}, debug=>0 );
+	$r = $qmail->get_list_of_rwls( conf=>{'rwl_list.dnswl.org'=> 0}, debug=>0 );
 	ok ( ! @$r[0], 'get_list_of_rwls nok');
 
 

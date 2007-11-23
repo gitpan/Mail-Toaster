@@ -7,7 +7,7 @@ toaster-watcher.conf - Configuration file for toaster_setup.pl and toaster-watch
 
 Most settings in this file pertain to toaster_setup.pl and toaster-watcher.pl scripts, both of which are run as root. Other settings needed by scripts that do not run with root privileges are in toaster.conf.
 
-A current copy of toaster-watcher.conf is posted on the Mail::Toaster web site at http://www.tnpi.biz/internet/mail/toaster/etc/toaster-watcher.conf
+A current copy of toaster-watcher.conf is posted on the Mail::Toaster web site at http://mail-toaster.org/etc/toaster-watcher.conf
 
 
 =head1 DESCRIPTION
@@ -50,7 +50,7 @@ toaster_setup.pl has two very useful targets: ports, sources. If you have a pre-
   toaster_pkg_site               = ftp://ftp.freebsd.org
   toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
   toaster_os_release             = 4-stable
-  toaster_dl_site                = http://www.tnpi.biz   # or a mirror
+  toaster_dl_site                = http://www.tnpi.net   # or a mirror
 
 You can alternately use a mirror to fetch the Mail::Toaster files from. The atl and sea mirrors are updated nightly. All other mirrors are updated only after major releases. If you want the last major update you can refer to a mirror.
 
@@ -146,7 +146,7 @@ You can choose from a variety of MySQL version to install. The code meanings are
 
 There is more information about using MySQL with the mail toaster here: 
 
-http://www.tnpi.biz/internet/mail/toaster/faq/programs/mysql.shtml
+http://mail-toaster.org/faq/programs/mysql.shtml
 
   install_mysql_ssl              = 1
   install_mysql_linuxthreads     = 0
@@ -482,7 +482,7 @@ toaster-watcher will warn you (and lower your smtpd_max_connections value) if yo
 
 Set this to zero if you are not using the patched version of tcpserver built by the toaster install.
 
-For more information, see http://www.tnpi.biz/internet/mail/toaster/patches/tcpserver-mysql.shtml
+For more information, see http:///mail-toaster.org/patches/tcpserver-mysql.shtml
 
 
   smtpd_lookup_tcpremotehost      = 0

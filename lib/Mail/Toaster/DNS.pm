@@ -170,7 +170,7 @@ sub rbl_test_positive_ip {
     my @rrs = $self->resolve( record=>$test, type=>"A", debug=>$debug );
 
     foreach my $rr ( @rrs ) {
-        next unless $rr =~ /127\.[0-1]\.0/;
+        next unless $rr =~ /127\.[0-1]\.[0-9]{1,3}/;
         $ip++;
         print " from ", $rr if $debug;
         print " matched.\n" if $debug;

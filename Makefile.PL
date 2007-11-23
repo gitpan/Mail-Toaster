@@ -65,10 +65,36 @@ conf:
 	echo make conf is deprecated! Use: toaster_setup.pl -s config
 
 docs:
-	pod2text bin/toaster_setup.pl         > README
-	pod2text doc/Changes.pod              > Changes
+	pod2text bin/toaster_setup.pl           > README
 	pod2html --noindex bin/toaster_setup.pl > doc/README.html
-	pod2html --noindex doc/Changes.pod    > doc/Changes.html
+
+	pod2text doc/Changes.pod                > Changes
+	pod2html --noindex doc/Changes.pod      > doc/Changes.html
+
+	pod2text lib/toaster.conf.pod           > doc/toaster.conf
+	pod2text lib/toaster-watcher.conf.pod   > doc/toaster-watcher.conf
+
+	pod2html --title="$(MT) toaster.conf" lib/toaster.conf.pod           > doc/toaster.conf.html
+	pod2html --title="$(MT) watcher.conf" lib/toaster-watcher.conf.pod   > doc/toaster-watcher.conf.html
+
+	pod2html --title="$(MT)"          lib/Mail/Toaster.pm          > $(MODULES)/Toaster.html
+	pod2html --title="$(MT)::Apache"  lib/Mail/Toaster/Apache.pm   > $(MODULES)/Apache.html
+	pod2html --title="$(MT)::CGI"     lib/Mail/Toaster/CGI.pm      > $(MODULES)/CGI.html
+	pod2html --title="$(MT)::Darwin"  lib/Mail/Toaster/Darwin.pm   > $(MODULES)/Darwin.html
+	pod2html --title="$(MT)::DNS"     lib/Mail/Toaster/DNS.pm      > $(MODULES)/DNS.html
+	pod2html --title="$(MT)::Ezmlm"   lib/Mail/Toaster/Ezmlm.pm    > $(MODULES)/Ezmlm.html
+	pod2html --title="$(MT)::FreeBSD" lib/Mail/Toaster/FreeBSD.pm  > $(MODULES)/FreeBSD.html
+	pod2html --title="$(MT)::Logs"    lib/Mail/Toaster/Logs.pm     > $(MODULES)/Logs.html
+	pod2html --title="$(MT)::Mysql"   lib/Mail/Toaster/Mysql.pm    > $(MODULES)/Mysql.html
+	pod2html --title="$(MT)::Passwd"  lib/Mail/Toaster/Passwd.pm   > $(MODULES)/Passwd.html
+	pod2html --title="$(MT)::Perl"    lib/Mail/Toaster/Perl.pm     > $(MODULES)/Perl.html
+	pod2html --title="$(MT)::Provision" lib/Mail/Toaster/Provision.pm > $(MODULES)/Provision.html
+	pod2html --title="$(MT)::Qmail"   lib/Mail/Toaster/Qmail.pm    > $(MODULES)/Qmail.html
+	pod2html --title="$(MT)::Setup"   lib/Mail/Toaster/Setup.pm    > $(MODULES)/Setup.html
+	pod2html --title="$(MT)::Utility" lib/Mail/Toaster/Utility.pm  > $(MODULES)/Utility.html
+	pod2html --title="$(MT) mailadmin" bin/mailadmin               > doc/mailadmin.html
+
+	rm pod2htm*
 
 newconf:
 	install -m 0644 toaster.conf-dist $(CONFDIR)
@@ -78,6 +104,8 @@ newconf:
 cgi:
 	echo make cgi is deprecated! Use toaster_setup.pl -s webmail instead.
 
+deps:
+	bin/install_deps.sh
 
 web:
 	install bin/toaster_setup.pl       $(TNPITOASTER)/

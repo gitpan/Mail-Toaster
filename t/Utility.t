@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 #
-# $Id: Utility.t,v 4.3 2006/06/09 19:26:18 matt Exp $
+# t/Utility.t - test suite written by Matt Simerson in 2006
 #
 use strict;
 use warnings;
@@ -11,8 +11,8 @@ use Test::More 'no_plan';
 my $deprecated = 0;    # run the deprecated tests.
 use lib "inc";
 use lib "lib";
-my $network = 1;       # run tests that require network
-$network = 0 if $OSNAME =~ /cygwin/;
+my $network = 0;       # run tests that require network
+$network = 1 if $OSNAME =~ /freebsd|darwin/;
 my $r;
 
 BEGIN { use_ok('Mail::Toaster::Utility'); }
@@ -61,6 +61,14 @@ SKIP: {
             default => 'just hit enter',
         ),
         'answer, multiline' );
+
+    # default password prompt
+    ok( $r = $utility->answer( 
+            question => 'type a secret word',
+            password => 1,
+            default  => 'secret',
+        ),
+        'answer, password' );
 }
 
 # archive_expand
@@ -189,6 +197,7 @@ TODO: {
 #ok ( $extra, 'yes_or_no' );
 }
 
+
 # file_read
 my $rwtest = "$tmp/rw-test";
 ok( $utility->file_write(
@@ -201,6 +210,7 @@ ok( $utility->file_write(
 my @lines = $utility->file_read( file => $rwtest );
 ok( @lines == 1, 'file_read' );
 
+
 # file_append
 # a typical invocation
 ok( $utility->file_write(
@@ -211,6 +221,7 @@ ok( $utility->file_write(
     ),
     'file_append'
 );
+
 
 # file_archive
 # a typical invocation
@@ -251,7 +262,7 @@ SKIP: {
 
     ok( $utility->file_get(
             url =>
-                "http://www.tnpi.biz/internet/mail/toaster/etc/maildrop-qmail-domain",
+                "http://mail-toaster.org/etc/maildrop-qmail-domain",
             debug => 0
         ), 'file_get'
     );
@@ -312,12 +323,12 @@ SKIP: {
 #		ok ( ! $utility->file_chown( file => $rwtest,
 #			uid=>'root', gid=>'wheel',debug=>0, sudo=>1,fatal=>0), 'file_chown');
 
+
 # file_chmod
 # get the permissions of the file in octal file mode
 use File::stat;
 my $st = stat($rwtest) or warn "No $tmp: $!\n";
-my $oct_perms = sprintf "%lo", $st->mode;
-my ($before) = $oct_perms =~ /([0-9]{4})$/;
+my $before = sprintf "%lo", $st->mode & 07777;
 
 #$utility->syscmd( command=>"ls -al $rwtest" );   # use ls -al to view perms
 
@@ -329,6 +340,15 @@ ok( $utility->file_chmod(
     ),
     'file_chmod'
 );
+
+
+# file_mode
+my $result_mode = $utility->file_mode(
+    file => $rwtest,
+    debug => 0,
+);
+cmp_ok( $result_mode, '==', 700, 'file_mode');
+
 
 #$utility->syscmd( command=>"ls -al $rwtest" );
 
@@ -431,10 +451,12 @@ ok( -e $list[0], 'get_dir_files' );
 
 
 # get_my_ips
-    if ( $OSNAME ne "netbsd" ) {
-        # need to figure out why this fails
-        ok( $utility->get_my_ips(exclude_internals=>0), 'get_my_ips');
-    };
+SKIP: {
+    skip "avoiding network tests", 1 if (! $network);
+
+    # need to update this so it works on netbsd & solaris
+    ok( $utility->get_my_ips(exclude_internals=>0), 'get_my_ips');
+}
 
 
 # get_the_date

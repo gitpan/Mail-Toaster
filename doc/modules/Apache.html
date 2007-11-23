@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Apache</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -33,25 +35,24 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::Apache</p>
+<p>Mail::Toaster::Apache - modules for installing, configuring and managing Apache</p>
 <p>
 </p>
 <hr />
 <h1><a name="synopsis">SYNOPSIS</a></h1>
-<p>Install Apache 1 or 2 based on settings in toaster-watcher.conf</p>
+<p>Modules for working with Apache. Some are specific to Mail Toaster while most are generic, such as provisioning vhosts for an Apache 2 server. Using just these subs, Apache will be installed, SSL certs generated, and serving.</p>
 <p>
 </p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
-<p>Perl methods for working with Apache.</p>
-<p>Install section builds a high performance statically compiled web server with SSL, PHP, and Perl support.</p>
+<p>Perl methods for working with Apache. See METHODS.</p>
 <p>
 </p>
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
 <pre>
    use Mail::Toaster::Apache
@@ -67,8 +68,8 @@ included in this document.</p>
 <dd>
 <p>The second hashref is key/value pairs from sysadmin.conf. See that file for details of what options you can set there to influence the behavior of these methods..</p>
 </dd>
-<dt><strong><a name="item_installapache1">InstallApache1</a></strong><br />
-</dt>
+<dt><strong><a name="item_installapache1">InstallApache1</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::Apache;
@@ -87,8 +88,8 @@ included in this document.</p>
 <dd>
 <p>Also installs mod_php4 and mod_ssl.</p>
 </dd>
-<dt><strong><a name="item_install_apache2">install_apache2</a></strong><br />
-</dt>
+<dt><strong><a name="item_install_apache2">install_apache2</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::Apache;
@@ -110,8 +111,8 @@ included in this document.</p>
 <dd>
 <p>Values in $conf are set in toaster-watcher.conf. Please refer to that file to see how you can influence your Apache build.</p>
 </dd>
-<dt><strong><a name="item_apache_conf_patch">apache_conf_patch</a></strong><br />
-</dt>
+<dt><strong><a name="item_apache_conf_patch">apache_conf_patch</a></strong>
+
 <dd>
 <pre>
         use Mail::Toaster::Apache;
@@ -124,26 +125,26 @@ included in this document.</p>
 <dd>
 <p>Patch apache's default httpd.conf file. See the patch in contrib of Mail::Toaster to see what changes are being made.</p>
 </dd>
-<dt><strong><a name="item_install_ssl_certs">install_ssl_certs</a></strong><br />
-</dt>
+<dt><strong><a name="item_install_ssl_certs">install_ssl_certs</a></strong>
+
 <dd>
-Builds and installs SSL certificates in the locations that Apache expects to find them. This allows me to build a SSL enabled web server with a minimal amount of human interaction.
+<p>Builds and installs SSL certificates in the locations that Apache expects to find them. This allows me to build a SSL enabled web server with a minimal amount of human interaction.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_install_rsa_cert">install_rsa_cert</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_install_rsa_cert">install_rsa_cert</a></strong>
+
 <dd>
-Builds and installs a RSA certificate.
+<p>Builds and installs a RSA certificate.</p>
 </dd>
 <dd>
 <pre>
         $apache-&gt;install_rsa_cert(crtdir=&gt;$crtdir, keydir=&gt;$keydir);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_restart">restart</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_restart">restart</a></strong>
+
 <dd>
-Restarts Apache.
+<p>Restarts Apache.</p>
 </dd>
 <dd>
 <p>On FreeBSD, we use the rc.d script if it's available because it's smarter than apachectl. Under some instances, sending apache a restart signal will cause it to crash and not restart. The control script sends it a TERM, waits until it has done so, then starts it back up.</p>
@@ -152,11 +153,11 @@ Restarts Apache.
 <pre>
     $apache-&gt;restart($vals);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_create">vhost_create</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_create">vhost_create</a></strong>
+
 <dd>
-Create an Apache vhost container like this:
+<p>Create an Apache vhost container like this:</p>
 </dd>
 <dd>
 <pre>
@@ -200,57 +201,57 @@ Create an Apache vhost container like this:
 <dd>
 <p>This sub works great. :-)</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_enable">vhost_enable</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_enable">vhost_enable</a></strong>
+
 <dd>
-Enable a (previously) disabled virtual host.
+<p>Enable a (previously) disabled virtual host.</p>
 </dd>
 <dd>
 <pre>
     $apache-&gt;vhost_enable($vals, $conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_disable">vhost_disable</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_disable">vhost_disable</a></strong>
+
 <dd>
-Disable a previously disabled vhost.
+<p>Disable a previously disabled vhost.</p>
 </dd>
 <dd>
 <pre>
     $apache-&gt;vhost_disable($vals, $conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_delete">vhost_delete</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_delete">vhost_delete</a></strong>
+
 <dd>
-Delete's an Apache vhost.
+<p>Delete's an Apache vhost.</p>
 </dd>
 <dd>
 <pre>
     $apache-&gt;vhost_delete();</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_exists">vhost_exists</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_exists">vhost_exists</a></strong>
+
 <dd>
-Tests to see if a vhost definition already exists in your Apache config file(s).
+<p>Tests to see if a vhost definition already exists in your Apache config file(s).</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhost_show">vhost_show</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhost_show">vhost_show</a></strong>
+
 <dd>
-Shows the contents of a virtualhost block that matches the virtual domain name passed in the $vals hashref.
+<p>Shows the contents of a virtualhost block that matches the virtual domain name passed in the $vals hashref.</p>
 </dd>
 <dd>
 <pre>
         $apache-&gt;vhost_show($vals, $conf);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhosts_get_file">vhosts_get_file</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhosts_get_file">vhosts_get_file</a></strong>
+
 <dd>
-If vhosts are each in their own file, this determines the file name the vhost will live in and returns it. The general methods on my systems works like this:
+<p>If vhosts are each in their own file, this determines the file name the vhost will live in and returns it. The general methods on my systems works like this:</p>
 </dd>
 <dd>
 <pre>
@@ -265,28 +266,29 @@ If vhosts are each in their own file, this determines the file name the vhost wi
 <dd>
 <p>$apache is looked up from the contents of $conf.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_vhosts_get_match">vhosts_get_match</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_vhosts_get_match">vhosts_get_match</a></strong>
+
 <dd>
-Find a vhost declaration block in the Apache config file(s).
+<p>Find a vhost declaration block in the Apache config file(s).</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_installdsacert">InstallDSACert</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_installdsacert">InstallDSACert</a></strong>
+
 <dd>
-Builds and installs a DSA Certificate.
+<p>Builds and installs a DSA Certificate.</p>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <h2><a name="dependencies">DEPENDENCIES</a></h2>
-<p>Mail::Toaster - <a href="http://www.tnpi.biz/internet/mail/toaster/">http://www.tnpi.biz/internet/mail/toaster/</a></p>
+<p>Mail::Toaster - <a href="http://mail-toaster.org/">http://mail-toaster.org/</a></p>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.biz">matt@tnpi.biz</a>&gt;</p>
+<p>Matt Simerson &lt;<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>&gt;</p>
 <p>
 </p>
 <hr />

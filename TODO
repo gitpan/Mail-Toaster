@@ -4,12 +4,11 @@
 #
 
  - qmail-verh patch
- - dovecot IMAP/POP3 server
  - qscanq support
  - make sure [service]_debug works
  - add support to maillogs for submit postprocessing
- - verify that maildrop 2.0 doesn't break anything in mailfilter
- - if running on FreeBSD 6, rc.d ports don't require .sh suffix
+ - require strong encryption - https://www.tnpi.net/support/forums/index.php/topic,793.0.html
+ -
 
 - DONE - 03/07/2006
  - launchd startup script for Darwin implemented
@@ -20,4 +19,3 @@
     (requested by Donavan, financed by Stella)
   - have smtp/run list rbls in the same order as listing in w.conf
   - add custom rbl text for each rbl
-    http://www.tnpi.biz/cgi-bin/ezmlm.cgi?mss:7877:200412:nekfoljkpbnaapcabmkp

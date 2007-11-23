@@ -12,17 +12,17 @@ use strict;
 
 package Mail::Toaster::Logs;
 
+use lib "lib";
+
 use Carp;
+use English qw( -no_match_vars );
+use File::Path;
 use Getopt::Std;
 use Params::Validate qw( :all);
-use File::Path;
-use English qw( -no_match_vars );
 use Pod::Usage;
 
 use vars qw( $VERSION $spam_ref $count_ref );
-$VERSION = "5.05";
-
-use lib "lib";
+$VERSION = "5.06";
 
 use Mail::Toaster::Utility 5; 
 my $utility = Mail::Toaster::Utility->new;
@@ -394,7 +394,6 @@ sub what_am_i {
     return $1;
 }
 
-
 sub rbl_count {
 
     my $self  = shift;
@@ -580,15 +579,25 @@ sub imap_count {
         open my $LOGF, "<", $_;
 
         while ( my $line = <$LOGF> ) {
-            next if $line !~ /imapd/;
+            next if $line !~ /imap/;
+
             $lines++;
 
-            if ( $line =~ /ssl: LOGIN/ ) { 
+            if ( $line =~ /imap-login/ ) {   # dovecot
+                if ( $line =~ /secured/ ) {
+                    $imap_ssl_success++;
+                } else {
+                    $imap_success++; 
+                }
+                next;
+            };
+
+            if ( $line =~ /ssl: LOGIN/ ) {   # courier
                 $imap_ssl_success++;
                 next;
             }
 
-            if ( $line =~ /LOGIN/ ) { 
+            if ( $line =~ /LOGIN/ ) {       # courier
                 $imap_success++; 
                 next;
             }
@@ -714,7 +723,7 @@ sub pop3_count {
 
         LINE:
         while ( my $line = <$LOGF> ) {
-            next unless ( $line =~ /pop3/ );
+            next unless ( $line =~ /pop3/ );   # discard everything not pop3
             $lines++;
 
             if ( $line =~ /vchkpw-pop3:/ ) {    # qmail-pop3d
@@ -731,6 +740,13 @@ sub pop3_count {
                     next LINE;
                 };
                 $new_entries{'ssl_connect'}++ if ( $line =~ /Connection/ );
+            }
+            elsif ( $line =~ /pop3-login: / ) {    # dovecot pop3
+                if ( $line =~ /secured/ ) {
+                    $new_entries{'ssl_success'}++;
+                } else {
+                    $new_entries{'success'}++;
+                }
             }
         }
         close $LOGF;
@@ -1819,12 +1835,20 @@ sub syslog_locate {
     }
 
     $log = "/var/log/mail.log";
-    if ( -e $log ) {
+    if ( $OSNAME eq "darwin" ) {
         print "syslog_locate: Darwin detected...using $log\n" if $debug;
         return $log;
     }
 
+    if ( -e $log ) {
+        print "syslog_locate: using $log\n" if $debug;
+        return $log;
+    };
+
     $log = "/var/log/messages";
+    return $log if -e $log;
+
+    $log = "/var/log/system.log";
     return $log if -e $log;
 
     croak "syslog_locate: can't find your syslog mail log\n";

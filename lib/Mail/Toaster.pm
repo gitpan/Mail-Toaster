@@ -12,7 +12,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $INJECT);
-$VERSION = '5.05';
+$VERSION = '5.08';
 
 use lib "inc";
 use lib "lib";
@@ -42,6 +42,19 @@ sub toaster_check {
         = ( $p{'conf'}, $p{'fatal'}, $p{'debug'}, $p{'test_ok'} );
 
     # Do other sanity tests here
+
+    # check permissions on toaster-watcher.conf
+    my $twconf = $conf->{'system_config_dir'} . "/toaster-watcher.conf";
+    if ( -f $twconf ) {
+        my $mode = $utility->file_mode(file=>$twconf, debug=>0);
+        print "file mode of $twconf is $mode.\n" if $debug;
+        my $others = substr($mode, -1, 1);
+        if ( $others > 0 ) {
+            print "HEY! Change the permissions on $twconf and remove others access! Try something like
+            
+            chmod 600 $twconf\n\n";
+        }
+    };
 
     # check for running processes
     $self->test_processes(conf=>$conf, debug=>$debug);
@@ -1287,45 +1300,58 @@ sub service_symlinks {
     require Mail::Toaster::Qmail;
     my $qmail = Mail::Toaster::Qmail->new();
 
-    my $pop_service_dir =
-      $qmail->service_dir_get( conf => $conf, prot => "pop3", debug => $debug );
+    my @active_services = ("smtp", "send");
 
-    my $pop_supervise_dir = $qmail->supervise_dir_get(
-        conf  => $conf,
-        prot  => "pop3",
-        debug => $debug
-    );
+    if ( $conf->{'pop3_daemon'} eq "qpop3d" ) 
+    {
+        push @active_services, "pop3";
+    }
+    else 
+    {
+        my $pop_service_dir =
+        $qmail->service_dir_get( conf => $conf, prot => "pop3", debug => $debug );
 
-    if ( $conf->{'pop3_daemon'} ne "qpop3d" ) {
+        my $pop_supervise_dir = $qmail->supervise_dir_get(
+            conf  => $conf,
+            prot  => "pop3",
+            debug => $debug
+        );
+
         if ( -e $pop_service_dir ) {
             print "Deleting $pop_service_dir because we aren't using qpop3d!\n"
               if $debug;
             unlink($pop_service_dir);
         }
         else {
-            print "NOTICE: Not enabled due to configuration settings.\n";
-        }
-    }
-    else {
-        if ( -e $pop_service_dir ) {
-            print "service_symlinks: $pop_service_dir already exists.\n"
-              if $debug;
-        }
-        else {
-            if ( -d $pop_supervise_dir ) {
-                print "service_symlinks: creating symlink from $pop_supervise_dir"
-                . " to $pop_service_dir\n"
-                if $debug;
-                symlink( $pop_supervise_dir, $pop_service_dir )
-                   or croak "couldn't symlink $pop_supervise_dir: $!";
-            }
-            else {
-                print "service_symlinks: skipping symlink to $pop_service_dir because target $pop_supervise_dir doesn't exist.\n";
-            }
+            warn "NOTICE: qpop3d not enabled due to configuration settings.\n" if $debug;
         }
     }
 
-    foreach my $prot ( "smtp", "send", "submit" ) {
+    if ( $conf->{'submit_enable'} ) 
+    {
+        push @active_services, "submit";
+    }
+    else 
+    {
+        my $submit_service_dir =
+        $qmail->service_dir_get( conf => $conf, prot => "submit", debug => $debug );
+
+        my $submit_supervise_dir = $qmail->supervise_dir_get(
+            conf  => $conf,
+            prot  => "submit",
+            debug => $debug
+        );
+        if ( -e $submit_service_dir ) {
+            print "Deleting $submit_service_dir because submit isn't enabled!\n"
+              if $debug;
+            unlink($submit_service_dir);
+        }
+        else {
+            warn "NOTICE: submit not enabled due to configuration settings.\n" if $debug;
+        }
+    }
+
+    foreach my $prot ( @active_services ) {
 
         my $svcdir = $qmail->service_dir_get(
             conf  => $conf,
@@ -1520,11 +1546,11 @@ sub supervised_log_method {
 
     if ( $conf->{$prot_val} eq "syslog" ) {
         print "build_" . $prot . "_run: using syslog logging.\n" if $debug;
-        return "splogger qmail ";
+        return "\\\n\tsplogger qmail ";
     }
     else {
         print "build_" . $prot . "_run: using multilog logging.\n" if $debug;
-        return "2>&1 ";
+        return "\\\n\t2>&1 ";
     }
 }
 
@@ -1589,9 +1615,9 @@ sub supervised_tcpserver {
     my $tcpserver =
       $utility->find_the_bin( bin => "tcpserver", debug => $debug );
 
-    my $exec = "exec $softlimit ";
+    my $exec = "exec\t$softlimit ";
     $exec .= "-m $mem " if $mem;
-    $exec .= "$tcpserver ";
+    $exec .= "\\\n\t$tcpserver ";
 
     if (   $conf->{ $prot . '_use_mysql_relay_table' }
         && $conf->{ $prot . '_use_mysql_relay_table' } == 1 )
@@ -1607,7 +1633,7 @@ sub supervised_tcpserver {
         }
         else {
             print
-                "The mysql relay table option is selected but the MySQL patch for ucspi-tcp (tcpserver) is not installed! Please re-install ucspi-tcp with the patch or disable the "
+                "The mysql relay table option is selected but the MySQL patch for ucspi-tcp (tcpserver) is not installed! Please re-install ucspi-tcp with the patch (toaster_setup.pl -s ucspi) or disable the "
                  . $prot . "_use_mysql_relay_table setting.\n";
             
         }
@@ -1621,10 +1647,7 @@ sub supervised_tcpserver {
     my $maxcon = $conf->{ $prot . '_max_connections' } || 40;
     my $maxmem = $conf->{ $prot . '_max_memory' };
 
-    if ( !$maxmem ) {
-        $exec .= "-c$maxcon " if $maxcon != 40;
-    }
-    else {
+    if ( $maxmem ) {
         if ( ( $mem / 1024000 ) * $maxcon > $maxmem ) {
             require POSIX;
             $maxcon = POSIX::floor( $maxmem / ( $mem / 1024000 ) );
@@ -1632,8 +1655,8 @@ sub supervised_tcpserver {
             my $qmail = Mail::Toaster::Qmail->new();
             $qmail->_memory_explanation( $conf, $prot, $maxcon );
         }
-        $exec .= "-c$maxcon ";
     }
+    $exec .= "-c$maxcon " if $maxcon != 40;
 
     $exec .= "-t$conf->{$prot.'_dns_lookup_timeout'} "
       if $conf->{ $prot . '_dns_lookup_timeout' } != 26;
@@ -1673,10 +1696,9 @@ and make sure " . $prot
         $exec .= "-u $uid -g $gid ";
     }
 
-    my $address = $conf->{ $prot . '_listen_on_address' }
-      || 0;    # default to 0 (all) if not selected
-    if ( $address eq "all" ) { $exec .= "0 " }
-    else { $exec .= "$address " }
+    # default to 0 (all) if not selected
+    my $address = $conf->{ $prot . '_listen_on_address' } || 0;    
+    $exec .= $address eq "all" ? "0 " : "$address ";
     print "build_" . $prot . "_run: listening on ip $address.\n" if $debug;
 
     my $port = $conf->{ $prot . '_listen_on_port' };

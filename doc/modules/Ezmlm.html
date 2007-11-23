@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Ezmlm</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -18,7 +20,6 @@
 	<li><a href="#dependencies">DEPENDENCIES</a></li>
 	<li><a href="#methods">METHODS</a></li>
 	<li><a href="#author">AUTHOR</a></li>
-	<li><a href="#acknowledgements">ACKNOWLEDGEMENTS</a></li>
 	<li><a href="#bugs">BUGS</a></li>
 	<li><a href="#todo">TODO</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
@@ -30,7 +31,7 @@
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
-<p>Mail::Toaster::Ezmlm</p>
+<p>Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists</p>
 <p>
 </p>
 <hr />
@@ -46,6 +47,7 @@
 </p>
 <hr />
 <h1><a name="description">DESCRIPTION</a></h1>
+<p>Ezmlm.cgi is a command line and CGI application that allows a domain administrator (ie, <a href="mailto:postmaster@example.com)">postmaster@example.com)</a> to add, remove, and list batches of email addresses. You can use this utility to subscribe lists of email addresses, delete a list of addresses, or simply retrieve a list of subscribers.</p>
 <p>
 </p>
 <hr />
@@ -59,27 +61,27 @@
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
-Creates a new Mail::Toaster::Ezmlm object.
+<p>Creates a new Mail::Toaster::Ezmlm object.</p>
 </dd>
 <dd>
 <pre>
    use Mail::Toaster::Ezmlm;
    my $ez = Mail::Toaster::Ezmlm;</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_authenticate">authenticate</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_authenticate">authenticate</a></strong>
+
 <dd>
-Authenticates a HTTP user against vpopmail to verify the user has permission to do what they're asking.
+<p>Authenticates a HTTP user against vpopmail to verify the user has permission to do what they're asking.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_dir_check">dir_check</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_dir_check">dir_check</a></strong>
+
 <dd>
-Check a directory and see if it's a directory and readable.
+<p>Check a directory and see if it's a directory and readable.</p>
 </dd>
 <dd>
 <pre>
@@ -88,21 +90,21 @@ Check a directory and see if it's a directory and readable.
 <dd>
 <p>return 0 if not, return 1 if OK.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_lists_get">lists_get</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_lists_get">lists_get</a></strong>
+
 <dd>
-Get a list of Ezmlm lists for a given mail directory. This is designed to work with vpopmail where all the list for example.com are in ~vpopmail/domains.
+<p>Get a list of Ezmlm lists for a given mail directory. This is designed to work with vpopmail where all the list for example.com are in ~vpopmail/domains.</p>
 </dd>
 <dd>
 <pre>
     $ezmlm-&gt;lists_get(&quot;example.com&quot;);</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_logo">logo</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_logo">logo</a></strong>
+
 <dd>
-Put the logo on the HTML page. Sets the URL from $conf.
+<p>Put the logo on the HTML page. Sets the URL from $conf.</p>
 </dd>
 <dd>
 <pre>
@@ -115,31 +117,31 @@ Put the logo on the HTML page. Sets the URL from $conf.
 <pre>
  Example: 
     $ezmlm-&gt;logo(
-        web_logo_url =&gt; '<a href="http://www.tnpi.biz/images/head.jpg">http://www.tnpi.biz/images/head.jpg</a>',
-        web_log_alt  =&gt; 'tnpi.biz logo',
+        web_logo_url =&gt; '<a href="http://www.tnpi.net/images/head.jpg">http://www.tnpi.net/images/head.jpg</a>',
+        web_log_alt  =&gt; 'tnpi.net logo',
     );</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_process_cgi">process_cgi</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_process_cgi">process_cgi</a></strong>
+
 <dd>
-Accepts input from HTTP requests, presents a HTML request form, and triggers actions based on input.
+<p>Accepts input from HTTP requests, presents a HTML request form, and triggers actions based on input.</p>
 </dd>
 <dd>
 <pre>
    $ez-&gt;process_cgi();</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_process_shell">process_shell</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_process_shell">process_shell</a></strong>
+
 <dd>
-Get input from the command line options and proceed accordingly.
+<p>Get input from the command line options and proceed accordingly.</p>
 </dd>
-<p></p>
-<dt><strong><a name="item_subs_add">subs_add</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_subs_add">subs_add</a></strong>
+
 <dd>
-Subcribe a user (or list of users) to a mailing list.
+<p>Subcribe a user (or list of users) to a mailing list.</p>
 </dd>
 <dd>
 <pre>
@@ -149,27 +151,23 @@ Subcribe a user (or list of users) to a mailing list.
        requested =&gt; $address_list
     );</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_subs_list">subs_list</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_subs_list">subs_list</a></strong>
+
 <dd>
-Print out a list of subscribers to an Ezmlm mailing list.
+<p>Print out a list of subscribers to an Ezmlm mailing list.</p>
 </dd>
 <dd>
 <pre>
     $ezmlm-&gt;subs_list(list=&gt;$list, dir=&gt;$list_dir);</pre>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
 <p>Matt Simerson (<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>)</p>
-<p>
-</p>
-<hr />
-<h1><a name="acknowledgements">ACKNOWLEDGEMENTS</a></h1>
-<p>Funded by Sam Mayes (<a href="mailto:sam.mayes@sudhian.com">sam.mayes@sudhian.com</a>) and donated to the toaster community</p>
 <p>
 </p>
 <hr />

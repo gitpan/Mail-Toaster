@@ -8,7 +8,7 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = "5.05";
+$VERSION = "5.06";
 
 use lib "lib";  
 

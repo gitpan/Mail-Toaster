@@ -1,10 +1,15 @@
-/*       colors in use:
+/* 
+  Author: Matt Simerson (matt@tnpi.net)
+	  Version: 1.1
+		Date: 2006.10.17
+		
+		colors in use:
 
-	dark grey:   #333333   text
-	light grey:  #666666   active text
+	  dark grey:   #333333   text
+	  light grey:  #666666   active text
 	
-	tan bg:  #FFFFCC    active/middle bar
-	tan bg:  #CCCC99    background page color
+  	tan bg:  #FFFFCC    active/middle bar
+  	tan bg:  #CCCC99    background page color
 */
 * html div#header {
 /* "tan hack", for IE box model positioning bug 
@@ -61,11 +66,19 @@ div#top_level_links span.first {
 	/* the webmail graphic */
 	background-color: #FFFFCC;
 	background-image: url("images/mt_tab-left-off.gif");
+	/* added by erics@steelerubber.com */
+	cursor:hand;
+	cursor:pointer;
+	/* end add by erics@steelerubber.com */
 }
 div#top_level_links span.middle {
 	/* admin - help tabs */
 	background-color: #FFFFCC;
 	background-image: url("images/mt_tab-middle-off.gif");
+	/* added by erics@steelerubber.com */
+	cursor:hand;
+	cursor:pointer;
+	/* end add by erics@steelerubber.com */
 }
 div#top_level_links span.last {
 	/* a special tab to close the tab  bar */
@@ -75,6 +88,10 @@ div#top_level_links span.last {
 	height: 25px;
 	padding: 0px;
 	margin: 0px;
+	/* added by erics@steelerubber.com */
+	cursor:hand;
+	cursor:pointer;
+	/* end add by erics@steelerubber.com */
 }
 div#top_level_links span:hover {
 	text-decoration: underline;
@@ -120,6 +137,10 @@ div#head_bot {
 div#head_bot a {
 	text-decoration: none;
 	color: #333333;
+	/* added by erics@steelerubber.com */
+	cursor:hand;
+	cursor:pointer;
+	/* end add by erics@steelerubber.com */
 }
 div#head_bot span {
 	border-right: 1px #666666 dotted;

@@ -10,7 +10,7 @@ package Mail::Toaster::Passwd;
 use Carp;
 
 use vars qw/$VERSION/;
-$VERSION = '5.05';
+$VERSION = '5.07';
 
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
@@ -401,7 +401,7 @@ sub user_add {
 
     my ( $r, $sudo );
 
-    my $user    = $vals->{'user'};
+    my $user    = $vals->{'username'};
     my $shell   = $vals->{'shell'};
     my $homedir = $vals->{'homedir'};
     my $debug   = $vals->{'debug'};

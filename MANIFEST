@@ -1,3 +1,6 @@
+bin/audit.pl
+bin/swaks
+bin/install_deps.sh
 bin/mailadmin
 bin/maillogs
 bin/qqtool.pl
@@ -41,6 +44,7 @@ cgi_files/mt-style.css
 cgi_files/mt-top.html
 cgi_files/mt-webchoice.html
 cgi_files/mt-webmail.html
+cgi_files/robots.txt
 cgi_files/support/antivirus.html
 cgi_files/support/filtering.html
 cgi_files/support/images/red.gif

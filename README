@@ -45,7 +45,7 @@ DESCRIPTION
   URLs
        http://mail-toaster.org/
        http://www.tnpi.net/internet/mail/toaster/
-   
+
 OPTIONS AND ARGUMENTS
       toaster_setup.pl -s <section> [-debug]
 
@@ -155,8 +155,8 @@ SEE ALSO
       Mail::Toaster::Conf
       toaster.conf 
       toaster-watcher.conf
-  
-      Mail::Toaster
+      
+  Mail::Toaster
       Mail::Toaster::Apache
       Mail::Toaster::CGI 
       Mail::Toaster::DNS

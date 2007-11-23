@@ -12,7 +12,7 @@ man pages for options in toaster.conf
 
 toaster.conf - This document provides details on what all them nifty settings do.
 
-A current copy of toaster.conf is posted on the Mail::Toaster web site at http://www.tnpi.biz/internet/mail/toaster/etc/toaster.conf
+A current copy of toaster.conf is posted on the Mail::Toaster web site at http://mail-toaster.org/etc/toaster.conf
 
 
 =head2 SITE SETTINGS
@@ -262,7 +262,7 @@ This enables a function in the mailadmin script whereby different users have dif
 =head1 AUTHOR
 
  David Chaplin-Loebell <david@klatha.com>
- Matt Simerson <matt@tnpi.biz>
+ Matt Simerson <matt@tnpi.net>
 
 David undertook the writing of this documentation for which I (Matt) and the toaster community are VERY grateful. Thank you David, and may the source always be with you.
 

@@ -1,13 +1,15 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
 
+use lib "inc";
+use lib "lib";
+
+use Config;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 #use Smart::Comments;
 
-use lib "inc";
-use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
 require_ok( 'Mail::Toaster::Utility' );
@@ -30,8 +32,14 @@ my $queue = $conf->{'qmail_dir'} . "/queue";
 ### require: -d $queue
 ### require: -r $queue
 
+my $this_perl = $EXECUTABLE_NAME;
+if ($OSNAME ne 'VMS')
+    {$this_perl .= $Config{_exe}
+        unless $this_perl =~ m/$Config{_exe}$/i;}
+
+
 ok( $utility->syscmd(
-        command => "$qqtool_location -a list -s matt -h From ",
+        command => "$this_perl $qqtool_location -a list -s matt -h From ",
         fatal   => 0,
         debug   => 0,
     ), 'qqtool.pl' );

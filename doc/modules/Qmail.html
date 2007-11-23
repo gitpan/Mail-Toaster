@@ -1,8 +1,10 @@
+<?xml version="1.0" ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <title>Mail::Toaster::Qmail</title>
-<link rev="made" href="mailto:root@b02.apple.com" />
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rev="made" href="mailto:root@omen.apple.com" />
 </head>
 
 <body style="background-color: white">
@@ -76,19 +78,19 @@ This module has all sorts of goodies, the most useful of which are the build_???
 
 An object of this class represents a means for interacting with qmail. There are functions for starting, stopping, installing, generating run-time config files, building ssl temp keys, testing functionality, monitoring processes, and training your spam filters.</pre>
 <dl>
-<dt><strong><a name="item_new">new</a></strong><br />
-</dt>
+<dt><strong><a name="item_new">new</a></strong>
+
 <dd>
-To use any of the methods following, you need to create a qmail object:
+<p>To use any of the methods following, you need to create a qmail object:</p>
 </dd>
 <dd>
 <pre>
         use Mail::Toaster::Qmail;
         my $qmail = Mail::Toaster::Qmail-&gt;new();</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_build_pop3_run">build_pop3_run</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_build_pop3_run">build_pop3_run</a></strong>
+
 <dd>
 <pre>
         $qmail-&gt;build_pop3_run( conf=&gt;$conf, file=&gt;$file, debug=&gt;$debug) 
@@ -126,8 +128,8 @@ To use any of the methods following, you need to create a qmail object:
     0 - failure
     1 - success</pre>
 </dd>
-<dt><strong><a name="item_install_qmail_control_log_files">install_qmail_control_log_files</a></strong><br />
-</dt>
+<dt><strong><a name="item_install_qmail_control_log_files">install_qmail_control_log_files</a></strong>
+
 <dd>
 <pre>
         $qmail-&gt;install_qmail_control_log_files( conf=&gt;$conf );</pre>
@@ -159,10 +161,10 @@ To use any of the methods following, you need to create a qmail object:
     qmail_supervise/send/log/run
     qmail_supervise/submit/log/run</pre>
 </dd>
-<dt><strong><a name="item_install_supervise_run">install_supervise_run</a></strong><br />
-</dt>
+<dt><strong><a name="item_install_supervise_run">install_supervise_run</a></strong>
+
 <dd>
-Installs a new supervise/run file for a supervised service. It first builds a new file, then compares it to the existing one and installs the new file if it has changed. It optionally notifies the admin.
+<p>Installs a new supervise/run file for a supervised service. It first builds a new file, then compares it to the existing one and installs the new file if it has changed. It optionally notifies the admin.</p>
 </dd>
 <dd>
 <pre>
@@ -196,11 +198,11 @@ Installs a new supervise/run file for a supervised service. It first builds a ne
     1 - success
     0 - error</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_netqmail_virgin">netqmail_virgin</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_netqmail_virgin">netqmail_virgin</a></strong>
+
 <dd>
-Builds and installs a pristine netqmail. This is necessary to resolve a chicken and egg problem. You can't apply the toaster patches (specifically chkuser) against netqmail until vpopmail is installed, and you can't install vpopmail without qmail being installed. After installing this, and then vpopmail, you can rebuild netqmail with the toaster patches.
+<p>Builds and installs a pristine netqmail. This is necessary to resolve a chicken and egg problem. You can't apply the toaster patches (specifically chkuser) against netqmail until vpopmail is installed, and you can't install vpopmail without qmail being installed. After installing this, and then vpopmail, you can rebuild netqmail with the toaster patches.</p>
 </dd>
 <dd>
 <pre>
@@ -224,16 +226,16 @@ Builds and installs a pristine netqmail. This is necessary to resolve a chicken 
  result:
     qmail installed.</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_queue_process">queue_process</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_queue_process">queue_process</a></strong>
+
 <dd>
 <pre>
 
 queue_process - Tell qmail to process the queue immediately</pre>
 </dd>
-<dt><strong><a name="item_restart">restart</a></strong><br />
-</dt>
+<dt><strong><a name="item_restart">restart</a></strong>
+
 <dd>
 <pre>
   $qmail-&gt;restart( conf=&gt;$conf )</pre>
@@ -241,8 +243,8 @@ queue_process - Tell qmail to process the queue immediately</pre>
 <dd>
 <p>Use to restart the qmail-send process. It will send qmail-send the TERM signal and then return.</p>
 </dd>
-<dt><strong><a name="item_send_start">send_start</a></strong><br />
-</dt>
+<dt><strong><a name="item_send_start">send_start</a></strong>
+
 <dd>
 <pre>
         $qmail-&gt;send_start( conf=&gt;$conf ) - Start up the qmail-send process.</pre>
@@ -250,8 +252,8 @@ queue_process - Tell qmail to process the queue immediately</pre>
 <dd>
 <p>After starting up qmail-send, we verify that it's running before returning.</p>
 </dd>
-<dt><strong><a name="item_send_stop">send_stop</a></strong><br />
-</dt>
+<dt><strong><a name="item_send_stop">send_stop</a></strong>
+
 <dd>
 <pre>
   $qmail-&gt;send_stop( conf=&gt;$conf )</pre>
@@ -259,10 +261,10 @@ queue_process - Tell qmail to process the queue immediately</pre>
 <dd>
 <p>Use send_stop to quit the qmail-send process. It will send qmail-send the TERM signal and then wait until it's shut down before returning. If qmail-send fails to shut down within 100 seconds, then we force kill it, causing it to abort any outbound SMTP sessions that are active. This is safe, as qmail will attempt to deliver them again, and again until it succeeds.</p>
 </dd>
-<dt><strong><a name="item_service_dir_get">service_dir_get</a></strong><br />
-</dt>
+<dt><strong><a name="item_service_dir_get">service_dir_get</a></strong>
+
 <dd>
-This is necessary because things such as service directories are now in /var/service by default but older versions of my toaster installed them in /service. This will detect and adjust for that.
+<p>This is necessary because things such as service directories are now in /var/service by default but older versions of my toaster installed them in /service. This will detect and adjust for that.</p>
 </dd>
 <dd>
 <pre>
@@ -287,9 +289,9 @@ This is necessary because things such as service directories are now in /var/ser
     0 - failure
     a directory upon success</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_smtpd_restart">smtpd_restart</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_smtpd_restart">smtpd_restart</a></strong>
+
 <dd>
 <pre>
   $qmail-&gt;smtpd_restart( conf=&gt;$conf, prot=&gt;&quot;smtp&quot;)</pre>
@@ -297,8 +299,8 @@ This is necessary because things such as service directories are now in /var/ser
 <dd>
 <p>Use smtpd_restart to restart the qmail-smtpd process. It will send qmail-smtpd the TERM signal causing it to exit. It will restart immediately because it's supervised.</p>
 </dd>
-<dt><strong><a name="item_supervise_dir_get">supervise_dir_get</a></strong><br />
-</dt>
+<dt><strong><a name="item_supervise_dir_get">supervise_dir_get</a></strong>
+
 <dd>
 <pre>
   my $dir = $qmail-&gt;supervise_dir_get( conf=&gt;$conf, prot=&gt;&quot;smtp&quot; );</pre>
@@ -313,10 +315,10 @@ any settings are missing from the config, it chooses reasonable defaults.</p>
 <p>This is used primarily to allow you to set your mail system up in ways
 that are a different than mine, like a LWQ install.</p>
 </dd>
-<dt><strong><a name="item_supervised_hostname_qmail">supervised_hostname_qmail</a></strong><br />
-</dt>
+<dt><strong><a name="item_supervised_hostname_qmail">supervised_hostname_qmail</a></strong>
+
 <dd>
-Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically creates and returns those hostname portion of said run file such as this one based on the settings in $conf.
+<p>Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically creates and returns those hostname portion of said run file such as this one based on the settings in $conf.</p>
 </dd>
 <dd>
 <pre>
@@ -344,9 +346,9 @@ Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically cr
                 exit 1
         fi</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_test_each_rbl">test_each_rbl</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_test_each_rbl">test_each_rbl</a></strong>
+
 <dd>
 <pre>
         my $available = $qmail-&gt;test_each_rbl( rbls=&gt;$selected, debug=&gt;1 );</pre>
@@ -370,8 +372,8 @@ Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically cr
  result:
    an arrayref with the list of the correctly functioning RBLs.</pre>
 </dd>
-<dt><strong><a name="item_build_send_run">build_send_run</a></strong><br />
-</dt>
+<dt><strong><a name="item_build_send_run">build_send_run</a></strong>
+
 <dd>
 <pre>
   $qmail-&gt;build_send_run( conf=&gt;$conf, file=&gt;$file) ? print &quot;success&quot;;</pre>
@@ -409,8 +411,8 @@ Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically cr
    0 - failure
    1 - success</pre>
 </dd>
-<dt><strong><a name="item_build_smtp_run">build_smtp_run</a></strong><br />
-</dt>
+<dt><strong><a name="item_build_smtp_run">build_smtp_run</a></strong>
+
 <dd>
 <pre>
   if ( $qmail-&gt;build_smtp_run( conf=&gt;$conf, file=&gt;$file) ) { print &quot;success&quot; };</pre>
@@ -447,8 +449,8 @@ Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically cr
     0 - failure
     1 - success</pre>
 </dd>
-<dt><strong><a name="item_build_submit_run">build_submit_run</a></strong><br />
-</dt>
+<dt><strong><a name="item_build_submit_run">build_submit_run</a></strong>
+
 <dd>
 <pre>
   if ( $qmail-&gt;build_submit_run( conf=&gt;$conf, file=&gt;$file ) ) { print &quot;success&quot;};</pre>
@@ -485,10 +487,10 @@ Gets/sets the qmail hostname for use in supervise/run scripts. It dynamically cr
     0 - failure
     1 - success</pre>
 </dd>
-<dt><strong><a name="item_check_control">check_control</a></strong><br />
-</dt>
+<dt><strong><a name="item_check_control">check_control</a></strong>
+
 <dd>
-Verify the existence of the qmail control directory (typically /var/qmail/control).
+<p>Verify the existence of the qmail control directory (typically /var/qmail/control).</p>
 </dd>
 <dd>
 <pre>
@@ -507,9 +509,9 @@ Verify the existence of the qmail control directory (typically /var/qmail/contro
     0 - failure
     1 - success</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_check_rcpthosts">check_rcpthosts</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_check_rcpthosts">check_rcpthosts</a></strong>
+
 <dd>
 <pre>
   $qmail-&gt;check_rcpthosts($qmaildir);</pre>
@@ -532,10 +534,10 @@ Verify the existence of the qmail control directory (typically /var/qmail/contro
  result
     instructions to repair any problem discovered.</pre>
 </dd>
-<dt><strong><a name="item_config">config</a></strong><br />
-</dt>
+<dt><strong><a name="item_config">config</a></strong>
+
 <dd>
-Qmail is nice because it is quite easy to configure. Just edit files and put the right values in them. However, many find that a problem because it is not so easy to always know the syntax for what goes in every file, and exactly where that file might be. This sub takes your values from toaster-watcher.conf and puts them where they need to be. It modifies the following files:
+<p>Qmail is nice because it is quite easy to configure. Just edit files and put the right values in them. However, many find that a problem because it is not so easy to always know the syntax for what goes in every file, and exactly where that file might be. This sub takes your values from toaster-watcher.conf and puts them where they need to be. It modifies the following files:</p>
 </dd>
 <dd>
 <pre>
@@ -583,11 +585,11 @@ Qmail is nice because it is quite easy to configure. Just edit files and put the
     0 - failure
     1 - success</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_control_create">control_create</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_control_create">control_create</a></strong>
+
 <dd>
-To make managing qmail a bit easier, we install a control script that allows the administrator to interact with the running qmail processes.
+<p>To make managing qmail a bit easier, we install a control script that allows the administrator to interact with the running qmail processes.</p>
 </dd>
 <dd>
 <pre>
@@ -630,11 +632,11 @@ To make managing qmail a bit easier, we install a control script that allows the
     0 - failure
     1 - success</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_get_domains_from_assign">get_domains_from_assign</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_get_domains_from_assign">get_domains_from_assign</a></strong>
+
 <dd>
-Fetch a list of domains from the qmaildir/users/assign file.
+<p>Fetch a list of domains from the qmaildir/users/assign file.</p>
 </dd>
 <dd>
 <pre>
@@ -658,11 +660,11 @@ Fetch a list of domains from the qmaildir/users/assign file.
  results:
     an array</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_get_list_of_rbls">get_list_of_rbls</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_get_list_of_rbls">get_list_of_rbls</a></strong>
+
 <dd>
-Gets passed a hashref of values and extracts all the RBLs that are enabled in the file. See the toaster-watcher.conf file and the rbl_ settings therein for the format expected. See also the t/Qmail.t for examples of usage.
+<p>Gets passed a hashref of values and extracts all the RBLs that are enabled in the file. See the toaster-watcher.conf file and the rbl_ settings therein for the format expected. See also the t/Qmail.t for examples of usage.</p>
 </dd>
 <dd>
 <pre>
@@ -686,9 +688,9 @@ Gets passed a hashref of values and extracts all the RBLs that are enabled in th
  result:
    an arrayref of values</pre>
 </dd>
-<p></p>
-<dt><strong><a name="item_get_list_of_rwls">get_list_of_rwls</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_get_list_of_rwls">get_list_of_rwls</a></strong>
+
 <dd>
 <pre>
   my $selected = $qmail-&gt;get_list_of_rwls( conf=&gt;$conf, debug=&gt;$debug);</pre>
@@ -712,10 +714,10 @@ Gets passed a hashref of values and extracts all the RBLs that are enabled in th
  result:
    an arrayref with the enabled rwls.</pre>
 </dd>
-<dt><strong><a name="item_install_qmail">install_qmail</a></strong><br />
-</dt>
+<dt><strong><a name="item_install_qmail">install_qmail</a></strong>
+
 <dd>
-Builds qmail and installs qmail with patches (based on your settings in toaster-watcher.conf), installs the SSL certs, adjusts the permissions of several files that need it.
+<p>Builds qmail and installs qmail with patches (based on your settings in toaster-watcher.conf), installs the SSL certs, adjusts the permissions of several files that need it.</p>
 </dd>
 <dd>
 <pre>
@@ -740,13 +742,13 @@ Builds qmail and installs qmail with patches (based on your settings in toaster-
      one kick a55 mail server.</pre>
 </dd>
 <dd>
-<p>Patch info is here: <a href="http://www.tnpi.biz/internet/mail/toaster/patches/">http://www.tnpi.biz/internet/mail/toaster/patches/</a></p>
+<p>Patch info is here: <a href="http://mail-toaster.org/patches/">http://mail-toaster.org/patches/</a></p>
 </dd>
-<p></p>
-<dt><strong><a name="item_install_qmail_control_files">install_qmail_control_files</a></strong><br />
-</dt>
+</li>
+<dt><strong><a name="item_install_qmail_control_files">install_qmail_control_files</a></strong>
+
 <dd>
-When qmail is first installed, it needs some supervised run files to run under tcpserver and daemontools. This sub generates the qmail/supervise/*/run files based on your settings. Perpetual updates are performed by toaster-watcher.pl.
+<p>When qmail is first installed, it needs some supervised run files to run under tcpserver and daemontools. This sub generates the qmail/supervise/*/run files based on your settings. Perpetual updates are performed by toaster-watcher.pl.</p>
 </dd>
 <dd>
 <pre>
@@ -771,7 +773,8 @@ When qmail is first installed, it needs some supervised run files to run under t
     qmail_supervise/send/run
     qmail_supervise/submit/run</pre>
 </dd>
-<p></p></dl>
+</li>
+</dl>
 <p>
 </p>
 <hr />
@@ -827,9 +830,7 @@ Patches are welcome.</pre>
   Mail::Toaster 
   Mail::Toaster::Conf
   toaster.conf
-  toaster-watcher.conf
-
-</pre>
+  toaster-watcher.conf</pre>
 <pre>
  <a href="http://mail-toaster.org/">http://mail-toaster.org/</a>
 

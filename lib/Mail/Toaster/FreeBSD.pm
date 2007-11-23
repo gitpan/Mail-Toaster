@@ -1,19 +1,19 @@
 #!/usr/bin/perl
+package Mail::Toaster::FreeBSD;
+
+#
+# $Id: $
+#
+
 use strict;
 use warnings;
-
-#
-# $Id: FreeBSD.pm,v 4.18 2006/06/09 19:26:18 matt Exp $
-#
-
-package Mail::Toaster::FreeBSD;
 
 use Cwd;
 use Carp;
 use Params::Validate qw( :all );;
 
 use vars qw($VERSION $err);
-$VERSION = '5.05';
+$VERSION = '5.06';
 
 use lib "lib";
 
@@ -1201,6 +1201,12 @@ sub ports_update {
         return;
     };
 
+    my $supfile = $conf->{'cvsup_supfile_ports'} || "portsnap";
+
+    if ( $supfile eq "portsnap" ) {
+        return $self->portsnap(debug=>$debug, fatal=>$fatal);
+    };
+
     my $days_old = int( (-M "/usr/ports") + 0.5);
     print "\n\nports_update: Your ports tree has not been updated in $days_old days.";
     unless (
@@ -1214,12 +1220,6 @@ sub ports_update {
             "skipped" );
         return;
     }
-
-    my $supfile = $conf->{'cvsup_supfile_ports'} || "portsnap";
-
-    if ( $supfile eq "portsnap" ) {
-        return $self->portsnap(debug=>$debug, fatal=>$fatal);
-    };
 
     # if we got here, these are set
     $supfile  = $conf->{'system_config_dir'}   || "/usr/local/etc";
@@ -1406,7 +1406,7 @@ sub source_update {
             $p{'cvsup_supfile_sources'}, $p{'fatal'}, $p{'debug'} );
 
     my $toaster = $conf->{'toaster_dl_site'} . $conf->{'toaster_dl_url'}
-      || "http://www.tnpi.net/internet/mail/toaster";
+      || "http://mail-toaster.org";
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
@@ -1786,7 +1786,7 @@ See the docs for toaster-watcher.conf for complete details.
 
 =head1 AUTHOR
 
-Matt Simerson <matt@tnpi.biz>
+Matt Simerson <matt@tnpi.net>
 
 =head1 BUGS
 
@@ -1806,12 +1806,12 @@ The following are all man/perldoc pages:
  toaster-watcher.conf
 
  http://mail-toaster.org/
- http://www.tnpi.biz/computing/freebsd/
+ http://www.tnpi.net/computing/freebsd/
 
 
 =head1 COPYRIGHT
 
-Copyright 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2007, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

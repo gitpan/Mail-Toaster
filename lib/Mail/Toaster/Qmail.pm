@@ -14,7 +14,7 @@ use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use vars qw($VERSION $err);
-$VERSION = '5.05';
+$VERSION = '5.06';
 
 use lib "lib";
 
@@ -86,7 +86,7 @@ sub build_pop3_run {
 
 #qmail-popup mail.cadillac.net /usr/local/vpopmail/bin/vchkpw qmail-pop3d Maildir 2>&1
 
-    $exec .= "qmail-popup ";
+    $exec .= "\\\n\tqmail-popup ";
     $exec .= $toaster->supervised_hostname(
         conf  => $conf,
         prot  => "pop3",
@@ -249,9 +249,9 @@ sub build_smtp_run {
 
     $exec .= $self->smtp_set_rbls($conf, $debug);
 
-    $exec .= "recordio " if $conf->{'smtpd_recordio'};
-    $exec .= "fixcrio "  if $conf->{'smtpd_fixcrio'};
-    $exec .= "qmail-smtpd ";
+    $exec .= "\\\n\trecordio " if $conf->{'smtpd_recordio'};
+    $exec .= "\\\n\tfixcrio "  if $conf->{'smtpd_fixcrio'};
+    $exec .= "\\\n\tqmail-smtpd ";
 
     $exec .= $self->smtp_auth_enable($conf,$debug);
 
@@ -313,6 +313,12 @@ sub build_submit_run {
         debug => $debug
       );
 
+    # suggestion by twa on 3/7/2007, don't subject authed clients to HELO
+    # tests since many (Outlook, OE) do not send a proper HELO.
+    push @lines, 'export NOBADHELO=""
+
+';
+
     my $qctrl = $conf->{'qmail_dir'} . "/control";
     unless ( -d $qctrl ) {
         carp "WARNING: build_submit_run failed. $qctrl is not a directory";
@@ -355,7 +361,7 @@ sub build_submit_run {
     );
     return 0 unless $exec;
 
-    $exec .= "qmail-smtpd ";
+    $exec .= "\\\n\tqmail-smtpd ";
 
     if ( $conf->{'submit_auth_enable'} ) {
         if ( $conf->{'submit_hostname'} && $conf->{'qmail_smtpd_auth_0.31'} ) {
@@ -562,6 +568,12 @@ sub config {
         { file => 'alias/.qmail-mailer-daemon', setting => $postmaster,   },
     );
 
+    my $openssl_bin = $utility->find_the_bin( bin=>"openssl", debug=>$debug );
+    my $ciphers = `$openssl_bin ciphers`; chomp $ciphers;
+
+    push @changes, { file => 'control/tlsserverciphers', setting => $ciphers };
+    push @changes, { file => 'control/tlsclientciphers', setting => $ciphers };
+
     if ( $conf->{'vpopmail_mysql'} ) {
         my $qmail_mysql = "server $dbhost\n" 
                         . "port $dbport\n" 
@@ -571,10 +583,7 @@ sub config {
                         . "pass $password\n"
                         . "time 1800\n";
 
-        push @changes, { 
-            file    => 'control/sql', 
-            setting => $qmail_mysql, 
-        };
+        push @changes, { file => 'control/sql', setting => $qmail_mysql };
     };
 
     foreach my $change (@changes) {
@@ -740,7 +749,7 @@ sub control_create {
     my ( $conf, $fatal, $debug )
         = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
 
-    my $dl_site = $conf->{'toaster_dl_site'} || "http://www.tnpi.biz";
+    my $dl_site = $conf->{'toaster_dl_site'} || "http://www.tnpi.net";
     my $dl_url  = $conf->{'toaster_dl_url'}  || "/internet/mail/toaster";
     my $toaster_url = "$dl_site$dl_url";
 
@@ -888,7 +897,14 @@ case "\$1" in
 			chmod 644 ~vpopmail/etc/tcp.smtp*
 			echo "Reloaded ~vpopmail/etc/tcp.smtp."
 		fi 
-                
+
+		if [ -s ~vpopmail/etc/tcp.submit ]
+		then
+			$tcprules ~vpopmail/etc/tcp.submit.cdb ~vpopmail/etc/tcp.submit.tmp < ~vpopmail/etc/tcp.submit
+			chmod 644 ~vpopmail/etc/tcp.submit*
+			echo "Reloaded ~vpopmail/etc/tcp.submit."
+		fi 
+
 		if [ -s /etc/tcp.smtp ]
 		then
 			$tcprules /etc/tcp.smtp.cdb /etc/tcp.smtp.tmp < /etc/tcp.smtp
@@ -1098,11 +1114,11 @@ sub get_list_of_rbls {
         my $mess = $conf->{"rbl_${_}_message"};
         if ( defined $mess && $mess ) {
             print "adding $_:'$mess'\n" if $debug;
-            $string_of_rbls .= "-r $_:'$mess' ";
+            $string_of_rbls .= "\\\n\t\t-r $_:'$mess' ";
         }
         else {
             print "adding $_ \n" if $debug;
-            $string_of_rbls .= "-r $_ ";
+            $string_of_rbls .= "\\\n\t\t-r $_ ";
         }
     }
 
@@ -1241,7 +1257,7 @@ sub install_qmail {
     my $vpopdir  = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
     my $mysql = $conf->{'qmail_mysql_include'}
       || "/usr/local/lib/mysql/libmysqlclient.a";
-    my $dl_site = $conf->{'toaster_dl_site'} || "http://www.tnpi.biz";
+    my $dl_site = $conf->{'toaster_dl_site'} || "http://www.tnpi.net";
     my $dl_url  = $conf->{'toaster_dl_url'}  || "/internet/mail/toaster";
     my $toaster_url = "$dl_site$dl_url";
 
@@ -1677,7 +1693,7 @@ sub install_qmail_control_log_files {
     my %valid_prots = (
         "smtp"   => 1, 
         "send"   => 1,
-        "pop3"   => 1, 
+        "pop3"   => 1,
         "submit" => 1,
     );
 
@@ -1710,7 +1726,10 @@ sub install_qmail_control_log_files {
             "install_qmail_control_log_files: comparing $run_f")
           if $debug;
 
-        my $notify = $conf->{'supervise_rebuild_notice'} || 1;
+        my $notify = 1;
+        if ( defined $conf->{'supervise_rebuilt_notice'} ) {
+            $notify = $conf->{'supervise_rebuilt_notice'};
+        }
 
         if ( -s $tmpfile ) {
             return 0
@@ -1730,26 +1749,13 @@ sub install_qmail_control_log_files {
         }
     }
 
-    $toaster->supervised_dir_test(
-        conf  => $conf,
-        prot  => "smtp",
-        debug => $debug
-    );
-    $toaster->supervised_dir_test(
-        conf  => $conf,
-        prot  => "send",
-        debug => $debug
-    );
-    $toaster->supervised_dir_test(
-        conf  => $conf,
-        prot  => "pop3",
-        debug => $debug
-    );
-    $toaster->supervised_dir_test(
-        conf  => $conf,
-        prot  => "submit",
-        debug => $debug
-    );
+    foreach ( qw/ smtp send pop3 submit / ) {
+        $toaster->supervised_dir_test(
+            conf  => $conf,
+            prot  => $_,
+            debug => $debug
+        );
+    }
 }
 
 sub maildir_in_skel {
@@ -1794,7 +1800,7 @@ sub netqmail {
       || "/usr/local/lib/mysql/libmysqlclient.a";
     my $qmailgroup = $conf->{'qmail_log_group'}   || "qnofiles";
     my $vpopdir    = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
-    my $dl_site    = $conf->{'toaster_dl_site'}   || "http://www.tnpi.biz";
+    my $dl_site    = $conf->{'toaster_dl_site'}   || "http://www.tnpi.net";
     my $dl_url     = $conf->{'toaster_dl_url'}    || "/internet/mail/toaster";
     my $toaster_url = "$dl_site$dl_url";
     my $vhome       = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
@@ -1824,7 +1830,8 @@ sub netqmail {
         else { print "\t smtp_reject patch: no\n" }
     }
 
-    my $patch = "$package-toaster-3.1.patch";
+    my $patch_version = $conf->{'qmail_toaster_patch_version'} || 3.1;
+    my $patch = "$package-toaster-$patch_version.patch";
 
     print "netqmail: using patch $patch\n";
 
@@ -2737,7 +2744,7 @@ sub smtp_set_rbls {
 
     my $rblsmtpd =
         $utility->find_the_bin( bin => "rblsmtpd", debug => $debug );
-    $rbl_cmd_string .= "$rblsmtpd ";
+    $rbl_cmd_string .= "\\\n\t$rblsmtpd ";
 
     print "smtp_set_rbls: using rblsmtpd\n" if $debug;
 
@@ -2750,8 +2757,8 @@ sub smtp_set_rbls {
     if ( $conf->{'rwl_enable'} && $conf->{'rwl_enable'} > 0 ) {
         print "testing RWLs...." if $debug;
 
-        my $list = $self->get_list_of_rwls( $conf, $debug );
-        foreach my $rwl (@$list) { $rbl_cmd_string .= "-a $rwl " }
+        my $list = $self->get_list_of_rwls( conf=>$conf, debug=>$debug );
+        foreach my $rwl (@$list) { $rbl_cmd_string .= "\\\n\t\t-a $rwl " }
 
         print "done.\n" if $debug;
     }
@@ -3175,8 +3182,7 @@ sub _smtp_sanity_tests {
     my $conf = $p{'conf'};
     my $qdir = $conf->{'qmail_dir'} || "/var/qmail";
 
-    return "
-if [ ! -f $qdir/control/rcpthosts ]; then
+    return "if [ ! -f $qdir/control/rcpthosts ]; then
 	echo \"No $qdir/control/rcpthosts!\"
 	echo \"Refusing to start SMTP listener because it'll create an open relay\"
 	exit 1
@@ -3835,7 +3841,7 @@ Builds qmail and installs qmail with patches (based on your settings in toaster-
  result:
      one kick a55 mail server.
 
-Patch info is here: http://www.tnpi.biz/internet/mail/toaster/patches/
+Patch info is here: http://mail-toaster.org/patches/
 
 
 =item  install_qmail_control_files

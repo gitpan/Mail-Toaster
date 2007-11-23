@@ -1,7 +1,61 @@
 
 =head1 Mail Toaster Changes
 
-=head2 5.05 - 
+
+=head2 5.08 - Nov 21, 2007
+
+    tw.conf: added rbl psbl.surriel.com
+    tw.conf: added rwl list.dnswl.org
+    DNS.pm - adjust the RBL positive tests to accommodate pattern used by dnswl.org 
+    Qmail.pm - smtp_set_rbls invoked get_list_of_rwls incorrectly (Bugz #3)
+    t/qqtool.t & toaster_setup.t - run the script using the same version of
+      perl as the test is being run as. - (for CPAN testers)
+    t/Logs.t - see if syslog's mail.log exists before testing against it
+    t/Utility.t - only run network tests on darwin and FreeBSD (for now).
+
+
+=head2 5.07 - Oct 19, 2007
+
+   qmail_toaster_patch_version = 3.1
+   missing \ in qmail-pop3d/run file caused pop3 not to run
+   updated logmonster download URL
+   rrdutil port moved from net to databases
+   snmpd rc.d file can be named snmpd or snmpd.sh
+   ucspi-tcp source install, updated patch format
+   only pass vpopmail mysql defines if selected (port now checks this)
+
+
+=head2 5.06 - Sep 19, 2007
+
+ Added bin/swaks
+ Added bin/audit.pl
+ Added bin/install_deps.sh
+ Changed several default values in tw.conf:
+   toaster_os_release to RELENG_6_2
+   simscan_received = 0
+   qmail_toaster_patch_version = 3.2
+   install_vpopmail = 5.4.17
+   install_php = 5
+   install_dovecot = 1.0.2 (Linux only)
+ Install OpenSSL stable port by default
+ Updated dovecot.conf patch
+ Added ./configure to dovecot source install
+ rewrote install_squirrelmail sub
+ only test submit service if its selected.
+ format the service/run files for easier legibility
+ Check permissions on toaster-watcher.conf file
+ Don't ask about mysql package if package install selected
+ Always run portsnap fetch update when ports_update is called
+ Source installs for dovecot, ripmime, ucspi-tcp, and 
+   rrdtool were passing an invalid patches value.
+ Altered netstat invocation on Linux so it works reliably
+ Only test snmp if it is enabled
+ Put the contents of "openssl ciphers" into
+   /var/qmail/control/tlsserverciphers. Should resolve some
+   openssl issues.
+ 
+
+=head2 5.05 - Feb 7, 2007
 
  Extensive updates for Darwin and Linux platforms
  Support for Yahoo DomainKeys

@@ -18,7 +18,7 @@ use Scalar::Util qw( openhandle );
 #use Smart::Comments;
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.05';
+$VERSION = '5.06';
 
 use lib "inc";
 use lib "lib";
@@ -36,10 +36,11 @@ sub answer {
 
     # parameter validation here
     my %p = validate (@_, {
-            'question' => { type=>SCALAR, optional=>1 },
-            'q'        => { type=>SCALAR, optional=>1 },
-            'default'  => { type=>SCALAR, optional=>1 },
-            'timeout'  => { type=>SCALAR, optional=>1 },
+            'question' => { type=>SCALAR,  optional=>1 },
+            'q'        => { type=>SCALAR,  optional=>1 },
+            'password' => { type=>BOOLEAN, optional=>1, default=>0 },
+            'default'  => { type=>SCALAR,  optional=>1 },
+            'timeout'  => { type=>SCALAR,  optional=>1 },
             'test_ok'  => { type=>BOOLEAN, optional=>1 },
         }
     );
@@ -73,11 +74,12 @@ sub answer {
 
     if ( defined $p{'test_ok'}) { return $p{'test_ok'} };
     
-    print "Please enter $question: ";
-    print "($default) : " if $default;
+    PROMPT:
+    print "Please enter $question";
+    print " [$default]" if ( $default  && ! $p{'password'});
+    print ": ";
 
-    #    if ($default) { print "Please enter $question. ($default) :" }
-    #    else          { print "Please enter $question: "; }
+    system "stty -echo" if $p{'password'};
 
     if ($timeout) {
         eval {
@@ -95,6 +97,17 @@ sub answer {
     else { 
         $response = <STDIN>;
     }
+
+    if ( $p{'password'} ) {
+        print "Please enter $question (confirm): ";
+        my $response2 = <STDIN>;
+        unless ( $response eq $response2 ) {
+            print "\nPasswords don't match, try again.\n";
+            goto PROMPT 
+        };
+        system "stty echo";
+        print "\n";
+    };
 
     chomp $response;
 
@@ -393,8 +406,6 @@ sub chown_system {
         $self->_invalid_params( sub => 'chown_system' );
     }
 
-    # prepend sudo if necessary (and available)
-    my $sudo = $self->sudo( debug => $debug );    
     my $chown = $self->find_the_bin(
         program => 'chown',
         fatal   => $fatal,
@@ -407,7 +418,11 @@ sub chown_system {
     $cmd .= ":$group" if $group;
     $cmd .= " $dir";
 
-    $cmd = "$sudo $cmd" if ($sudo);
+    # prepend sudo if necessary (and available)
+    if ( ! -w $dir ) {
+        my $sudo = $self->sudo( debug => $debug );    
+        $cmd = "$sudo $cmd" if ($sudo);
+    };
 
     print "chown_system: cmd: $cmd\n" if $debug;
 
@@ -522,12 +537,19 @@ sub file_archive {
             'file'    => { type=>SCALAR },
             'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
             'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
+            'sudo'    => { type=>BOOLEAN, optional=>1, default=>1 },
         }
     );
 
-    my ( $file, $fatal, $debug ) = ($p{'file'}, $p{'fatal'}, $p{'debug'});
+    my ( $file, $fatal, $debug, $try_sudo ) 
+        = ($p{'file'}, $p{'fatal'}, $p{'debug'}, $p{'sudo'} );
 
     my $date = time;
+
+    if ( ! -e $file ) {
+        print "file_archive: the file to back up ($file) is missing!\n" if $debug;
+        return 0;
+    };
 
     # see if we can write to both files (new & archive) with current user
     if (
@@ -554,24 +576,22 @@ sub file_archive {
     # since we failed with existing permissions, try to escalate
     if ( $< != 0 )    # we're not root
     {
-        my $sudo = $self->find_the_bin(
-            program => 'sudo',
-            debug   => $debug,
-            fatal   => $fatal
-        );
-        my $cp = $self->find_the_bin(
-            program => 'cp',
-            debug   => $debug,
-            fatal   => $fatal
-        );
+        if ( $try_sudo ) {
+            my $sudo = $self->sudo( debug => $debug, fatal => $fatal );
+            my $cp = $self->find_the_bin(
+                program => 'cp',
+                debug   => $debug,
+                fatal   => $fatal
+            );
 
-        if ( $sudo && -x $sudo && $cp && -x $cp ) {
-            $self->syscmd( command => "$sudo $cp $file $file.$date", debug=>$debug, fatal=>$fatal );
-        }
-        else {
-            print "file_archive: sudo or cp was missing, could not escalate.\n"
-              if $debug;
-        }
+            if ( $sudo && $cp && -x $cp ) {
+                $self->syscmd( command => "$sudo $cp $file $file.$date", debug=>$debug, fatal=>$fatal );
+            }
+            else {
+                print "file_archive: sudo or cp was missing, could not escalate.\n"
+                if $debug;
+            }
+        };
     }
 
     if ( -e "$file.$date" ) {
@@ -668,7 +688,7 @@ sub file_get {
     my (      $url,       $timer,       $fatal,      $debug ) 
         = ($p{'url'}, $p{'timeout'}, $p{'fatal'}, $p{'debug'});
     
-    my ( $fetchbin, $fetchcmd, $found );
+    my ( $fetchbin, $found );
 
     print "file_get: fetching $url\n" if $debug;
 
@@ -676,39 +696,37 @@ sub file_get {
         $fetchbin = $self->find_the_bin(
             program => "fetch",
             debug   => $debug,
-            fatal   => 0
+            fatal   => 0,
         );
-        if ( $fetchbin && -x $fetchbin ) { $found = "fetch" }
+        if ( $fetchbin && -x $fetchbin ) { 
+            $found = "fetch";
+            $found .= " -q" unless $debug;
+        }
     }
     elsif ( $OSNAME eq "darwin" ) {
         $fetchbin =
           $self->find_the_bin( program => "curl", debug => $debug, fatal => 0 );
-        if ( $fetchbin && -x $fetchbin ) { $found = "curl" }
+        if ( $fetchbin && -x $fetchbin ) { 
+            $found = "curl -O";
+            $found .= " -s " unless $debug;
+        }
     }
 
     unless ($found) {
         $fetchbin =
-          $self->find_the_bin( program => "wget", debug => $debug, fatal => 0 );
+          $self->find_the_bin( program => "wget", debug => $debug, fatal => $fatal );
         if ( $fetchbin && -x $fetchbin ) { $found = "wget"; }
     }
 
     unless ($found) {
 
         # should use LWP here if available
-        print "Yikes, couldn't find wget! Please install it.\n" if $debug;
+        $err = "Yikes, couldn't find wget! Please install it.\n";
+        croak $err if $debug;
         return 0;
     }
 
-    $fetchcmd = "$fetchbin ";
-
-    if ( $found eq "fetch" ) {
-        $fetchcmd .= "-q " unless $debug;
-    }
-    elsif ( $found eq "curl" ) {
-        $fetchcmd .= "-O ";
-        $fetchcmd .= "-s " unless $debug;
-    }
-    $fetchcmd .= "$url";
+    my $fetchcmd = "$found $url";
 
     my $r;
 
@@ -729,6 +747,7 @@ sub file_get {
         ( $@ eq "alarm\n" )
           ? print "timed out!\n"
           : carp $@;    # propagate unexpected errors
+        die if $fatal;
     }
 
     if ( $r == 0 ) {
@@ -1000,6 +1019,42 @@ sub file_chmod {
         return;
     }
 }
+
+sub file_mode {
+
+    my $self = shift;
+
+    # parameter validation here
+    my %p = validate (@_, {
+            'file'       => { type=>SCALAR },
+            'fatal'      => { type=>BOOLEAN, optional=>1, default=>1 },
+            'debug'      => { type=>BOOLEAN, optional=>1, default=>0 },
+        }
+    );
+
+    my $file = $p{'file'};
+    if ( !-e $file ) {
+        $err = "argument file to sub file_mode does not exist!\n";
+        die $err if $p{'fatal'};
+        warn $err;
+    };
+
+    warn "file is: $file \n" if $p{'debug'};
+
+    # one way to get file mode
+#    my $raw_mode = stat($file)->[2];
+    my $mode = sprintf "%04o", stat($file)->[2] & 07777;
+
+    # another way to get it
+#    my $st = stat($file);
+#    my $mode = sprintf "%lo", $st->mode & 07777;
+
+    if ( $p{'debug'} ) {
+        warn "file $file has mode: $mode \n";
+    };
+
+    return $mode;
+};
 
 sub file_write {
 
@@ -1808,7 +1863,7 @@ Downloads a PHP program and installs it. Not completed.
         foreach my $patch (@$patches) {
             my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
             unless ($toaster) {
-                $toaster = "http://www.tnpi.biz/internet/mail/toaster";
+                $toaster = "http://mail-toaster.org";
             }
             unless ( -e $patch ) {
                 unless ( $self->file_get( 
@@ -2325,7 +2380,7 @@ sub logfile_append {
 sub mailtoaster {
 
     my ( $self, $debug ) = @_;
-    my ($conf);
+    my ($conf, $ver);
 
     my $perlbin = $self->find_the_bin( program => "perl", debug=>0 );
 
@@ -2336,20 +2391,19 @@ sub mailtoaster {
                                      etcdir => "/usr/local/etc", );
     };
 
-    my $archive = "Mail-Toaster.tar.gz";
+    my $archive = "Mail-Toaster";
     my $url     = "/internet/mail/toaster";
 
-    my $ver;
     $ver = $conf->{'toaster_version'} if $conf;
 
     if ($ver) {
-        $archive = "Mail-Toaster-$ver.tar.gz";
+        $archive = "Mail-Toaster-$ver";
         $url     = "/internet/mail/toaster/src";
     }
 
     print "going for archive $archive.\n";
 
-    my @targets = ( "$perlbin Makefile.PL", "make", "make conf", "make install" );
+    my @targets = ( "$perlbin Makefile.PL", "make", "make conf", "make deps", "make install" );
 
     push @targets, "make test" if $debug;
 
@@ -2359,7 +2413,7 @@ sub mailtoaster {
     $perl->module_install(
         module  => 'Mail-Toaster',
         archive => $archive,
-        site    => 'http://www.tnpi.biz',
+        site    => 'http://www.tnpi.net',
         url     => $url,
         targets => \@targets,
         debug   => $debug,
@@ -2645,7 +2699,7 @@ sub pidfile_check {
     elsif ( $age < 3600 ) {   # 1 hour
         carp "\nWARNING! pidfile_check: $pidfile is " . $age / 60
           . " minutes old and might still be running. If it is not running,"
-          . " please remote the pidfile. (rm $pidfile)\n"
+          . " please remove the pidfile. (rm $pidfile)\n"
           ; #if $debug;
 
         return;
@@ -3296,7 +3350,7 @@ sub yes_or_no {
 
     # this sub is useless without a question.
     unless ($question) {
-        croak "question called incorrectly. RTFM. \n";
+        croak "yes_or_no called incorrectly. RTFM. \n";
     };
  
     # for 'make test' testing

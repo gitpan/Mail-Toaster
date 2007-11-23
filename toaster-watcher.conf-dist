@@ -22,7 +22,7 @@
 #            TOASTER
 ######################################
 
-toaster_os_release                 = RELENG_6_1
+toaster_os_release                 = RELENG_6_2
 toaster_version                    = 0               # ver, 0 = latest release
 toaster_hostname                   = mail.example.com
 toaster_admin_email                = postmaster@example.com
@@ -83,6 +83,7 @@ toaster_pkg_site                   = ftp://ftp.freebsd.org
 
 install_squirrelmail               = 1.4.7   # 0, ver, port
 install_squirrelmail_sql           = 0       # use MySQL for user prefs and address book?
+install_squirrelmail_sql_pass      = changethis!
 install_apache                     = 2       # 0, 1, 2, 21, 22
 install_apache_etc                 = /usr/local/etc/apache2
 install_apache_user                = www
@@ -91,10 +92,10 @@ install_apache_suexec              = 0
 install_apache_proxy               = 0
 install_apache_bdb                 = 0       # berkeley DB
 install_cronolog                   = 1.6.2   # ver, port
-install_php                        = 4       # 0, 4, 5, ver
+install_php                        = 5       # 0, 4, 5, ver
 install_phpmyadmin                 = 0       # 0, 1
 install_mysql                      = 5       # 0, 1, 2, 3, 40, 41, 5, 51
-install_mysql_ssl                  = 1
+install_mysql_ssl                  = 0
 install_mysql_linuxthreads         = 0
 install_mysql_optimized            = 1
 install_mysql_dir                  = /var/db/mysql
@@ -108,7 +109,7 @@ install_qmailadmin                 = 1.2.9   # 0, ver, port
 install_autorespond                = 2.0.5   # 0, ver, port
 install_daemontools                = 0.76    # ver, port
 install_djbdns                     = 1.05    # ver, port
-install_vpopmail                   = 5.4.13  # ver, port
+install_vpopmail                   = 5.4.17  # ver, port
 install_vqadmin                    = 0       # 0, ver, port
 install_isoqlog                    = 2.2     # 0, ver, port
 install_portupgrade                = 1
@@ -178,6 +179,7 @@ qmail_service_smtp                 = qmail_service/smtp
 qmail_service_send                 = qmail_service/send
 qmail_service_pop3                 = qmail_service/pop3
 qmail_service_submit               = qmail_service/submit
+qmail_toaster_patch_version        = 3.1
 qmail_smtp_reject_patch            = 1
 qmail_mfcheck_enable               = 1
 qmail_domainkeys                   = 0
@@ -331,6 +333,7 @@ rbl_dnsbl.sorbs.net                = 1       # aggregate: includes all sorbs.net
 rbl_dul.dnsbl.sorbs.net            = 0   
 rbl_zombie.dnsbl.sorbs.net         = 0       # http://www.dnsbl.sorbs.net/
 rbl_socks.dnsbl.sorbs.net          = 0
+rbl_psbl.surriel.com               = 1       # http://psbl.surriel.com/
 #          new and not heavily tested as of 5/1/05
 rbl_pbl.spamhaus.org               = 0       # was dynablock.njabl.org
 rbl_combined.njabl.org             = 0       # aggregate: all njabl.org lists
@@ -339,8 +342,7 @@ rbl_dnsbl.ahbl.org                 = 0       # http://www.ahbl.org/
 rbl_multi.surbl.org                = 0       # http://www.surbl.org/
 rbl_cn-kr.blackholes.us            = 0       # block china & korea
 rbl_cbl.abuseat.org                = 0       # http://cbl.abuseat.org/ (part of sbl-xbl)
-#       end of new and untested
-#       begin deprecated/defunct RBLs
+#            deprecated/defunct RBLs
 rbl_sbl-xbl.spamhaus.org           = 0       # replaced by zen.spamhaus.org
 rbl_dynablock.njabl.org            = 0       # being dropped as of 2007.01.??
 rbl_relays.ordb.org                = 0       # DEAD - 2006.12.18 http://www.ordb.org/
@@ -357,8 +359,8 @@ rbl_proxies.relays.monkeys.com     = 0       # monkeys.com DEAD as of 2003.09.22
 rbl_abuse.easynet.nl               = 0       # DEAD as of 2003.12.11
 
 rwl_enable                         = 0       # master RWL switch. Disables all RWLs
+rwl_list.dnswl.org                 = 1       # http://www.dnswl.org/
 rwl_qmail.bondedsender.org         = 0       # http://www.bondedsender.org/
-rwl_list.example.com               = 0       # realtime white list example
 
 
 #######################################
@@ -498,7 +500,7 @@ simscan_spam_passthru              = 0       # allow spam messages to be deliver
 simscan_per_domain                 = 1       # use /var/qmail/control/simcontrol
 simscan_block_attachments          = 1       # block attachments in /var/qmail/control/ssattach
 simscan_block_types                = exe,com,vbs,lnk,scr,wsh,hta,pif
-simscan_received                   = 1       # add the Received: by simscan header
+simscan_received                   = 0       # add the Received: by simscan header
 simscan_custom_smtp_reject         = 1       # does qmail have the custom smtp reject patch?
 simscan_regex_scanner              = 0       # 
 

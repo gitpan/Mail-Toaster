@@ -136,11 +136,13 @@ SKIP: {
             'check_log_files system'
         );
 
-        is_deeply ( 
-            ["/var/log/mail.log"],
-            $log->check_log_files( ["/var/log/mail.log"] ), 
-            'check_log_files mail',
-        );
+        if ( -e "/var/log/mail.log" ) {
+            is_deeply ( 
+                ["/var/log/mail.log"],
+                $log->check_log_files( ["/var/log/mail.log"] ), 
+                'check_log_files mail',
+            );
+        };
     }
 
 

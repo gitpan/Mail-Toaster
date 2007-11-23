@@ -8,7 +8,7 @@ TIMESTAMP=`date "+%b %d %H:%M:%S"`
 #  title:  mailfilter-site
 #  author: Matt Simerson
 #  version 2.2
-#  http://www.tnpi.biz/internet/mail/toaster/etc/mailfilter-site
+#  http://mail-toaster.org/etc/mailfilter-site
 #
 #  Usage: Install this file in /usr/local/etc/mail/mailfilter (or whereever)
 #
