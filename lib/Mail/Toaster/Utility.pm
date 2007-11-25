@@ -9,6 +9,9 @@ use warnings;
 
 package Mail::Toaster::Utility;
 
+use lib "inc";
+use lib "lib";
+
 use Cwd;
 use Carp;
 use English qw( -no_match_vars );
@@ -18,10 +21,7 @@ use Scalar::Util qw( openhandle );
 #use Smart::Comments;
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.06';
-
-use lib "inc";
-use lib "lib";
+$VERSION = '5.07';
 
 sub new {
     my ( $class, $name ) = @_;
@@ -1952,10 +1952,7 @@ sub install_from_source {
     $self->chdir_source_dir( dir => $src, debug=>$debug );
 
     if ( $bintest ) {
-        if ( $self->find_the_bin( 
-                    bin   => $bintest, 
-                    fatal => 0, 
-                    debug => 0, ) ) {
+        if ( $self->find_the_bin(bin=>$bintest, fatal=>0, debug=>0) ) {
 
             return if ( !$self->yes_or_no(
                     timeout => 60,
@@ -1971,8 +1968,7 @@ sub install_from_source {
 
     # make sure there are no previous sources in the way
     if ( -d $package ) {
-        unless (
-            $self->source_warning(
+        if ( !$self->source_warning(
                 package => $package,
                 clean   => 1,
                 src     => $src,
@@ -2045,7 +2041,7 @@ EO_OOPS
     }
     else {
 
-   # some packages (like daemontools) unpack within an enclosing directory, grrr
+   # some packages (like daemontools) unpack within an enclosing directory
         $sub_path = `find ./ -name $package`;    # tainted data
         chomp $sub_path;
 
@@ -2060,7 +2056,7 @@ EO_OOPS
     }
 
     if ( $patches && @$patches[0] ) {
-        print "yes, should be patching here!\n" if $debug;
+        print "should be patching here!\n" if $debug;
 
         foreach my $patch (@$patches) {
 
@@ -2897,7 +2893,7 @@ sub source_warning {
         },
     );
 
-    my ( $package, $clean, $src, $timeout, $fatal, $debug ) 
+    my (       $package,      $clean,      $src,      $timeout,      $fatal,      $debug ) 
         = ( $p{'package'}, $p{'clean'}, $p{'src'}, $p{'timeout'}, $p{'fatal'}, $p{'debug'} );
 
     if ( !-d $package ) {
@@ -2913,15 +2909,11 @@ sub source_warning {
         return 0 unless $clean;
     }
 
-    if (
-        !$self->yes_or_no(
+    return 0 if ( !$self->yes_or_no(
             question => "\n\tWould you like me to remove the sources for you?",
             timeout  => $timeout,
         )
-      )
-    {
-        return 0;
-    }
+      );
 
     print "wd: " . cwd . "\n";
     print "Deleting $src/$package...";
@@ -3327,8 +3319,8 @@ So, for now I use Params::Validate and I expect it will be a good solution. I ju
     return 1;
 }
 
-sub yes_or_no {
-
+sub yes_or_no
+{
     my $self = shift;
 
     # parameter validation here
@@ -3411,7 +3403,8 @@ sub yes_or_no {
     $response eq "y" ? return 1 : return 0;
 }
 
-sub _incomplete_feature {
+sub _incomplete_feature
+{
 
     my ( $self, $args ) = @_;
 
@@ -3423,8 +3416,8 @@ sub _incomplete_feature {
 
 }
 
-sub _invalid_params {
-
+sub _invalid_params
+{
 
 =begin _invalid_params
 
@@ -3788,6 +3781,27 @@ Use the standard URL fetching utility (fetch, curl, wget) for your OS to downloa
 =item file_is_newer
 
 compares the mtime on two files to determine if one is newer than another. 
+
+
+=item file_mode
+
+ usage:
+   my @lines = "1", "2", "3";  # named array
+   $utility->file_write ( file=>"/tmp/foo", lines=>\@lines );   
+        or
+   $utility->file_write ( file=>"/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
+
+ required arguments:
+   mode - the files permissions mode
+
+ arguments optional:
+   fatal
+   debug
+
+ result:
+   0 - failure
+   1 - success
+
 
 =item file_read
 

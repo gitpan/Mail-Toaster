@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use strict;
-#use warnings;
+use warnings;
 #use diagnostics;
 # the output of warnings and diagnostics should not be enabled in production.
 # the SNMP daemon depends on the output of maillogs, so we need to return
@@ -22,7 +22,7 @@ use Params::Validate qw( :all);
 use Pod::Usage;
 
 use vars qw( $VERSION $spam_ref $count_ref );
-$VERSION = "5.06";
+$VERSION = "5.07";
 
 use Mail::Toaster::Utility 5; 
 my $utility = Mail::Toaster::Utility->new;
@@ -1050,7 +1050,7 @@ sub qms_count {
     my $count_ref = $self->counter_read( file=>$countfile );
 
     my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
-    if ( !$logfiles || @$logfiles[0] eq "" ) {
+    if ( ! defined @$logfiles[0] || @$logfiles[0] eq "" ) {
         carp "    qms_count: ERROR: no logfiles!";
         return 1;
     }

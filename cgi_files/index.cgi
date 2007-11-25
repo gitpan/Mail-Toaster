@@ -9,6 +9,9 @@ use vars qw/ $VERSION /;
 
 $VERSION = "5.02";
 
+use lib "lib";
+use lib "inc";
+
 use CGI qw(:standard);
 use CGI::Carp qw( fatalsToBrowser );
 

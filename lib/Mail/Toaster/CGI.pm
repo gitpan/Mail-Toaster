@@ -10,10 +10,9 @@ package Mail::Toaster::CGI;
 
 use Carp;
 use vars qw($VERSION);
-$VERSION = '5.01';
+$VERSION = '5.02';
 
 use lib "lib";
-
 
 sub new {
 
@@ -21,12 +20,6 @@ sub new {
     my $self = { class => $class };
     bless( $self, $class );
     return $self;
-}
-
-sub only {
-    $_ = shift;
-    /([A-Za-z0-9-_]+)/;
-    return $1;
 }
 
 sub instructions {
@@ -103,7 +96,7 @@ sub imp_submit {
                  <input type="hidden" name="folders" value="Mail/" />
                  <input type="hidden" name="new_lang" value="en_US/" />
                             <input type="submit" value="'
-      . only($name)
+      . _only($name)
       . '" onclick="copydata(\'imp\')">
 			  </form>
                         </td>
@@ -150,7 +143,7 @@ sub vwebmail_submit {
 				<input type="hidden" name="language" value="en">
 				<input type="hidden" name="template" value="v-webmail">
 				<input type="submit" class="submit" name="submit" value="'
-      . only($name)
+      . _only($name)
       . '" onclick="copydata(\'vweb\')">
 			   </form>
                         </td>
@@ -185,7 +178,7 @@ sub qss_stats_submit {
 			<td width="25">
 			   <form method="post" name="qss" action="' . $http . '://' . $qshost . $path
       . '">
-                              <input type="submit" value="' . only($name) . '">
+                              <input type="submit" value="' . _only($name) . '">
 		           </form>
                         </td>
 			<td>
@@ -219,7 +212,7 @@ sub isoqlog_submit {
 			<td width="20" height="3"></td>
 			<td width="25">
 			<form name="isoqlog" action="' . $http . '://' . $isohost . $path . '">
-                             <input type="submit" value="' . only($name) . '">
+                             <input type="submit" value="' . _only($name) . '">
 			</form>
                         </td>
 			<td>
@@ -255,7 +248,7 @@ sub rrdutil_submit {
 			<input type="hidden" name="mail" value="on">
 			<input type="hidden" name="days" value="1">
 			<input type="hidden" name="hostname" value="localhost">
-                   <input type="submit" value="' . only($name) . '"></td>
+                   <input type="submit" value="' . _only($name) . '"></td>
 		</form>
 		<td>
                     <strong>' . $name . '</strong> ' . $descrip . '
@@ -320,7 +313,7 @@ sub qmailadmin_submit {
 				<input type="hidden" name="domain" value="">
 				<input type="hidden" name="password" value="">
 				<input type="submit" value="'
-      . only($name)
+      . _only($name)
       . '" onclick="copydata(\'admin\')">
 			</form>
 			</td>
@@ -365,7 +358,7 @@ sub sqwebmail_submit {
 				<input type="hidden" name="password" value="">
 				<input type="hidden" name="sameip" value="1">
 				<input type="submit" value="'
-      . only($name)
+      . _only($name)
       . '" onclick="copydata(\'sqweb\')">
 			</form>
                         </td>
@@ -418,7 +411,7 @@ sub squirrelmail_submit {
 				<input type="hidden" name="login_username" value="">
 				<input type="hidden" name="secretkey" value="">
                            <input type="submit" value="'
-      . only($name)
+      . _only($name)
       . '" onclick="copydata(\'squirrel\')">
 			</form>
                         </td>
@@ -522,6 +515,12 @@ sub process_shell {
     exit 1;
 }
 
+sub _only {
+    $_ = shift;
+    /([A-Za-z0-9-_]+)/;
+    return $1;
+}
+
 1;
 __END__
 
@@ -580,7 +579,7 @@ Displays the HTML heading using the data from toaster.conf.
 $ssl is a binary value, representing whether the form URL should be http or https, based on the users selection.  $host is the hostname to submit the form to.
 
 
-=item SetVWebSubmit
+=item vwebmail_submit
 
 	$toaster_cgi->vwebmail_submit($conf, $ssl, $host);
 

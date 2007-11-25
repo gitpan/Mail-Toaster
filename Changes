@@ -1,13 +1,27 @@
 Mail Toaster Changes
+  5.09 - Nov   , 2007
+       playing Kwalitee (http://cpants.perl.org/highscores/)
+       added 'use warnings' pragma to several modules
+       updated Copyright dates to 2007
+       Build.PL - added several modules to build_requires
+       t/DNS.t - added suffixes to tests to more easily identify exactly which test failed.
+       updated inc/Module/Install to 0.68
+       CGI.pm - renamed only sub to _only
+       Mysql.pm - package install logic was forcing package install
+       Setup.pm - updated dovecot patch so it applies cleanly to 1.0.7
+                - don't pass mysql args to FreeBSD port install, no loger
+                  necessary and doing so causes port build to fail
+       Utility.pm - added missing pod doc for file_mode
+
   5.08 - Nov 21, 2007
-        tw.conf: added rbl psbl.surriel.com
-        tw.conf: added rwl list.dnswl.org
-        DNS.pm - adjust the RBL positive tests to accommodate pattern used by dnswl.org 
-        Qmail.pm - smtp_set_rbls invoked get_list_of_rwls incorrectly (Bugz #3)
-        t/qqtool.t & toaster_setup.t - run the script using the same version of
-          perl as the test is being run as. - (for CPAN testers)
-        t/Logs.t - see if syslog's mail.log exists before testing against it
-        t/Utility.t - only run network tests on darwin and FreeBSD (for now).
+       tw.conf: added rbl psbl.surriel.com
+       tw.conf: added rwl list.dnswl.org
+       DNS.pm - adjust the RBL positive tests to accommodate pattern used by dnswl.org 
+       Qmail.pm - smtp_set_rbls invoked get_list_of_rwls incorrectly (Bugz #3)
+       t/qqtool.t & toaster_setup.t - run the script using the same version of
+         perl as the test is being run as. - (for CPAN testers)
+       t/Logs.t - see if syslog's mail.log exists before testing against it
+       t/Utility.t - only run network tests on darwin and FreeBSD (for now).
 
   5.07 - Oct 19, 2007
        qmail_toaster_patch_version = 3.1

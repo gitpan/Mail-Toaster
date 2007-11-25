@@ -42,7 +42,8 @@ require_ok( 'Mail::Toaster::Utility' );
         ok ( -x $apachectl, 'apachectl exists' );
 
 # apache2_fixups
-        $apache->apache2_fixups($conf, "apache22");
+    # icky...this sub needs to be cleaned up
+        #$apache->apache2_fixups($conf, "apache22");
 
 
 # conf_get_dir

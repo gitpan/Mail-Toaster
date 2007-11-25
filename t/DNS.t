@@ -21,31 +21,31 @@ require_ok ( 'Mail::Toaster::DNS' );
 
 
 # rbl_test_ns
-	ok( $dns->rbl_test_ns(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_ns');
+	ok( $dns->rbl_test_ns(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_ns +');
 
 	# a query that should fail
-	ok( ! $dns->rbl_test_ns(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_ns');
+	ok( ! $dns->rbl_test_ns(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_ns -');
 
 
 # rbl_test_positive_ip
-	ok( $dns->rbl_test_positive_ip(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_positive_ip');
+	ok( $dns->rbl_test_positive_ip(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_positive_ip +');
 
 	# a query that should fail
-	ok( ! $dns->rbl_test_positive_ip(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_positive_ip');
+	ok( ! $dns->rbl_test_positive_ip(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_positive_ip -');
 
 
 # rbl_test_negative_ip
-	ok( $dns->rbl_test_negative_ip(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_negative_ip');
+	ok( $dns->rbl_test_negative_ip(rbl=>"sbl.spamhaus.org",debug=>0), 'rbl_test_negative_ip +');
 
 	# a query that should fail
-	ok( $dns->rbl_test_negative_ip(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_negative_ip');
+	ok( $dns->rbl_test_negative_ip(rbl=>"sbl.spamhorse.org",debug=>0), 'rbl_test_negative_ip -');
 
 
 # rbl_test
-	ok( $dns->rbl_test(zone=>"sbl.spamhaus.org", debug=>0), 'rbl_test');
+	ok( $dns->rbl_test(zone=>"sbl.spamhaus.org", debug=>0), 'rbl_test +');
 
 	# a query that should fail
-	ok( ! $dns->rbl_test(zone=>"sbl.spamhorse.org", debug=>0), 'rbl_test');
+	ok( ! $dns->rbl_test(zone=>"sbl.spamhorse.org", debug=>0), 'rbl_test -');
 
 
 # resolve

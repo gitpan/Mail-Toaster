@@ -13,9 +13,9 @@ perl_version       '5.008';
 # modules required at run time
 requires           'Params::Validate' => '0.8';
 requires           'Date::Parse'      => '2.0'; 
-requires           'Net::IP'          => 1.25;        # needed by Net::DNS
 requires           'Digest::SHA1'     => 2;           # needed by HMAC_MD5
 requires           'Digest::HMAC_MD5' => 1;           # needed by Net::DNS
+requires           'Net::IP'          => 1.25;        # needed by Net::DNS
 requires           'Net::DNS'         => 0.5;
 requires           'Digest::MD5'      => 2;           # needed by files_diff
 #requires           'vpopmail'         => 0; 
@@ -24,17 +24,20 @@ requires           'Digest::MD5'      => 2;           # needed by files_diff
 #auto_bundle_deps  ();   # same but includes dependencies
 
 # bundle CPAN dists
-#bundle              "Date::Parse",    '2.0';
-#bundle              "Test::More",         '0';
-#bundle              "Params::Validate", '0.8';
+#bundle              ('Date::Parse',     '2.0');
+#bundle              ('Test::More',        '0');
 
 # same but with depencencies
-#bundle_deps         "Params::Validate", '0.8';
-#bundle_deps         "Digest::SHA1",     '0';
-#bundle_deps         "Net::DNS",         '0.5';
+bundle_deps         ('Params::Validate',  '0.8');
+#bundle_deps         ('Digest::SHA1',     '0');
+#bundle_deps         ('Net::DNS',         '0.5)';
 
 # modules used only during building
 build_requires     'Test::More'         => '0';
+build_requires     'Test::Pod'          => '0';
+build_requires     'Test::Pod::Coverage'=> '0';
+build_requires     'Test::Perl::Critic' => '0';
+build_requires     'HTML::Template'     => '0';   # deprecated
 
 #requires_external_bin 'dig';
 
@@ -50,9 +53,8 @@ build_requires     'Test::More'         => '0';
 no_index           ( directory => 'contrib');
 
 
-
 include           ('ExtUtils/AutoInstall.pm');
-include             'Module::AutoInstall';
+include           ( 'Module::AutoInstall'   );
 
 
 feature             'Authentication Testing',
@@ -60,6 +62,7 @@ feature             'Authentication Testing',
                         'IO::Socket::SSL'  => '1',
                         'Mail::IMAPClient' => '1',
                         'Net::SMTP_auth'   => '1',
+                        'Mail::Send'       => '1';
 
 
 #requires           'Quota'            => 0;

@@ -9,7 +9,7 @@ use warnings;
 package Mail::Toaster::Setup;
 
 use vars qw($VERSION $freebsd $darwin $err);
-$VERSION = '5.06';
+$VERSION = '5.07';
 
 use Carp;
 use Config;
@@ -2334,7 +2334,7 @@ sub dovecot {
             return 1;
         }
 
-        $ver = "1.0.2";
+        $ver = "1.0.7";
     }
 
     my $dovecot = $utility->find_the_bin( bin => "dovecot", fatal => 0 );
@@ -2363,13 +2363,14 @@ sub dovecot {
 
     $self->dovecot_start();
 }
+
 sub dovecot_patch {
 
     open my $DOVECOT_PATCH, ">", "dovecot.conf.patch";
 
     print $DOVECOT_PATCH <<'EO_DOVECOT_PATCH';
---- dovecot-example.conf    Wed Sep 19 21:25:29 2007
-+++ dovecot.conf    Wed Sep 19 21:39:19 2007
+--- dovecot-example.conf    Fri Nov 23 21:05:53 2007
++++ dovecot.conf    Fri Nov 23 21:07:24 2007
 @@ -21,7 +21,8 @@
  # Protocols we want to be serving: imap imaps pop3 pop3s
  # If you only want to use dovecot-auth, you can set this to "none".
@@ -2456,8 +2457,7 @@ sub dovecot_patch {
  # When copying a message, try to preserve the base filename. Only if the
  # destination mailbox already contains the same name (ie. the mail is being
 @@ -525,6 +528,7 @@
-   # Support for dynamically loadable plugins. mail_plugins is a space
-   # separated
+   # Support for dynamically loadable plugins. mail_plugins is a space separated
    # list of plugins to load.
    #mail_plugins = 
 +  mail_plugins = quota imap_quota
@@ -2465,8 +2465,7 @@ sub dovecot_patch {
  
    # Send IMAP capabilities in greeting message. This makes it unnecessary for
 @@ -634,6 +638,7 @@
-   # Support for dynamically loadable plugins. mail_plugins is a space
-   # separated
+   # Support for dynamically loadable plugins. mail_plugins is a space separated
    # list of plugins to load.
    #mail_plugins = 
 +  mail_plugins = quota
@@ -2526,25 +2525,6 @@ sub dovecot_patch {
  
    #
    # User database specifies where mails are located and what user/group IDs
-@@ -895,14 +902,14 @@
-   # System users (NSS, /etc/passwd, or similiar). In many systems nowadays
-   # this
-   # uses Name Service Switch, which is configured in /etc/nsswitch.conf.
-   # <doc/wiki/AuthDatabase.Passwd.txt>
--  userdb passwd {
-+  #userdb passwd {
-     # [blocking=yes] - By default the lookups are done in the main
-     # dovecot-auth
-     # process. This setting causes the lookups to be done in auth worker
-     # proceses. Useful with remote NSS lookups that may block.
-     # NOTE: Be sure to use this setting with nss_ldap or users might get
-     # logged in as each others!
-     #args = 
--  }
-+  #}
- 
-   # passwd-like file with specified location
-   # <doc/wiki/AuthDatabase.PasswdFile.txt>
 @@ -941,8 +948,8 @@
    #}
  
@@ -2581,7 +2561,7 @@ EO_DOVECOT_PATCH
     close $DOVECOT_PATCH;
 
     my $patchbin = $utility->find_the_bin(bin=>"patch", debug=>0);
-    $utility->syscmd(cmd=>"$patchbin < dovecot.conf.patch", debug=>0 );
+    $utility->syscmd(cmd=>"$patchbin -F4 -i dovecot.conf.patch dovecot.conf", debug=>0 );
 
     return;
 };
@@ -2610,10 +2590,11 @@ sub dovecot_start {
         if ( -e "dovecot-example.conf" ) {
 # copy dovecot-example.conf dovecot.conf
             copy("dovecot-example.conf", "dovecot.conf");
+# the dovecot_patch sub will create the new file.
         };
 
         if ( ! -f "dovecot.conf" ) {
-            print "\nuh oh. I wasn't able to find a package supplied dovecot.conf sample\n\n";
+            print "\nuh oh. I wasn't able to find a package supplied dovecot.conf example\n\n";
             sleep 3;
             return 0;
         };
@@ -9012,26 +8993,28 @@ sub vpopmail_install_freebsd_port {
     push @defs, "WITH_LEARN_PASSWORDS=yes"
         if ( $conf->{'vpopmail_learn_passwords'} );
 
-    if ( $conf->{'vpopmail_mysql'} ) 
-    {
-        push @defs, "WITH_MYSQL=yes";
-
-        push @defs, "WITH_MYSQL_REPLICATION=yes"
-            if ( $conf->{'vpopmail_mysql_replication'} );
-        push @defs, "WITH_MYSQL_LIMITS=yes"
-            if ( $conf->{'vpopmail_mysql_limits'} );
-        push @defs,
-            'WITH_MYSQL_SERVER="' . $conf->{'vpopmail_mysql_repl_master'} . '"';
-        push @defs,
-            'WITH_MYSQL_USER="' . $conf->{'vpopmail_mysql_repl_user'} . '"';
-        push @defs,
-            'WITH_MYSQL_PASSWD="' . $conf->{'vpopmail_mysql_repl_pass'} . '"';
-        push @defs,
-            'WITH_MYSQL_DB="' . $conf->{'vpopmail_mysql_database'} . '"';
-        push @defs,
-            'WITH_MYSQL_READ_SERVER="'
-            . $conf->{'vpopmail_mysql_repl_slave'} . '"';
-    };
+# as of fall 2007, the vpopmail port will fail to build if these parameters
+# are defined. 
+#    if ( $conf->{'vpopmail_mysql'} ) 
+#    {
+#        push @defs, "WITH_MYSQL=yes";
+#
+#        push @defs, "WITH_MYSQL_REPLICATION=yes"
+#            if ( $conf->{'vpopmail_mysql_replication'} );
+#        push @defs, "WITH_MYSQL_LIMITS=yes"
+#            if ( $conf->{'vpopmail_mysql_limits'} );
+#        push @defs,
+#            'WITH_MYSQL_SERVER="' . $conf->{'vpopmail_mysql_repl_master'} . '"';
+#        push @defs,
+#            'WITH_MYSQL_USER="' . $conf->{'vpopmail_mysql_repl_user'} . '"';
+#        push @defs,
+#            'WITH_MYSQL_PASSWD="' . $conf->{'vpopmail_mysql_repl_pass'} . '"';
+#        push @defs,
+#            'WITH_MYSQL_DB="' . $conf->{'vpopmail_mysql_database'} . '"';
+#        push @defs,
+#            'WITH_MYSQL_READ_SERVER="'
+#            . $conf->{'vpopmail_mysql_repl_slave'} . '"';
+#    };
 
     push @defs, "WITH_IP_ALIAS=yes"
         if ( $conf->{'vpopmail_ip_alias_domains'} );
@@ -10311,7 +10294,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
+Copyright (c) 2004-2007, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

@@ -1,9 +1,10 @@
 bin/audit.pl
-bin/swaks
 bin/install_deps.sh
 bin/mailadmin
 bin/maillogs
+bin/migrate.pl
 bin/qqtool.pl
+bin/swaks
 bin/sysadmin
 bin/toaster-watcher.pl
 bin/toaster_setup.pl
@@ -119,6 +120,7 @@ inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 inc/Params/Validate.pm
 inc/Params/ValidatePP.pm
+INSTALL
 lib/Mail/Toaster.pm
 lib/Mail/Toaster/Apache.pm
 lib/Mail/Toaster/CGI.pm

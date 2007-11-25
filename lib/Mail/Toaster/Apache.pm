@@ -456,8 +456,8 @@ sub startup {
     }
 }
 
-sub apache2_fixups {
-
+sub apache2_fixups
+{
     my ( $self, $conf, $ports_dir ) = @_;
 
     my $prefix = $conf->{'toaster_prefix'}    || "/usr/local";
@@ -467,12 +467,12 @@ sub apache2_fixups {
 
     unless ( -d $htdocs ) {    # should exist
         print "ERROR: Interesting. What happened to your $htdocs directory? Since it does not exist, I will create it. Verify that the path in toaster-watcher.conf (toaster_http_docs) is set correctly.\n";
-        $utility->mkdir_system(dir=>$htdocs, debug=>0);
+        $utility->mkdir_system(dir=>$htdocs, debug=>0,fatal=>0);
     }
 
     unless ( -d $cgibin ) {    # should exist
         print "ERROR: What happened to your $cgibin directory? Since it does not exist, I will create it. Check to verify Is the path in toaster-watcher.conf (toaster_cgi_bin) set correctly?\n";
-        $utility->mkdir_system(dir=>$cgibin, debug=>0);
+        $utility->mkdir_system(dir=>$cgibin, debug=>0,fatal=>0);
     }
 
     if ( $OSNAME eq "freebsd" && $ver eq "22" && ! -d "$prefix/www/$ports_dir" ) {   # should exist
@@ -752,8 +752,8 @@ WITHOUT_KERBEROS=true\n",
     }
 }
 
-sub conf_get_dir {
-
+sub conf_get_dir
+{
     my $self = shift;
     my %p = validate( @_, {
             'conf'  => HASHREF,
@@ -947,7 +947,7 @@ sub install_ssl_certs {
         unless ( -e "$crtdir/server-dsa.crt" ) {
 
             #openssl_config_note();
-            #InstallDSACert($crtdir, $keydir);
+            #install_dsa_cert($crtdir, $keydir);
         }
         else {
             print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
@@ -964,7 +964,7 @@ sub install_ssl_certs {
         unless ( -e "$crtdir/server-dsa.crt" ) {
 
             #			openssl_config_note();
-            #			InstallDSACert($crtdir, $keydir);
+            #			install_dsa_cert($crtdir, $keydir);
         }
         else {
             print "install_ssl_certs: $crtdir/server-dsa.crt is already installed!\n";
@@ -1572,7 +1572,7 @@ edit your openssl.cnf file. ";
     return 1;
 }
 
-sub InstallDSACert {
+sub install_dsa_cert {
 
     my ( $crtdir, $keydir ) = @_;
 
@@ -1860,7 +1860,7 @@ $apache is looked up from the contents of $conf.
 Find a vhost declaration block in the Apache config file(s).
 
 
-=item InstallDSACert
+=item install_dsa_cert
 
 Builds and installs a DSA Certificate.
 

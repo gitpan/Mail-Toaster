@@ -4,13 +4,15 @@
 #
 use strict;
 use warnings;
+
+use lib "inc";
+use lib "lib";
+
 use Cwd;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
 my $deprecated = 0;    # run the deprecated tests.
-use lib "inc";
-use lib "lib";
 my $network = 0;       # run tests that require network
 $network = 1 if $OSNAME =~ /freebsd|darwin/;
 my $r;
@@ -21,25 +23,23 @@ require_ok('Mail::Toaster::Utility');
 # let the testing begin
 
 # basic OO mechanism
-my $utility = Mail::Toaster::Utility->new;    # create an object
+my $utility = new Mail::Toaster::Utility;    # create an object
 ok( defined $utility, 'get Mail::Toaster::Utility object' );    # check it
 isa_ok( $utility, 'Mail::Toaster::Utility' );    # is it the right class
 
 # for internal use only
 if ( -e "Utility.t" ) { chdir "../"; }
 
-# we need this stuff later during several tests
+# we need this stuff during subsequent tests
 my $debug = 0;
 my ($cwd) = cwd =~ /^([\/\w\-\s\.]+)$/;          # get our current directory
 
 print "\t\twd: $cwd\n" if $debug;
 
 my $tmp = "$cwd/t/trash";
-ok( $utility->mkdir_system( dir => $tmp, debug => 0, fatal => 0 ),
-    'mkdir_system' );
+ok( $utility->mkdir_system( dir => $tmp, debug => 0, fatal => 0 ), 'mkdir_system' );
 ok( -d $tmp, "temp dir: $tmp" );
-ok( $utility->syscmd( cmd => "cp TODO $tmp/", debug => 0, fatal => 0 ),
-    'cp TODO' );
+ok( $utility->syscmd( cmd => "cp TODO $tmp/", debug => 0, fatal => 0 ), 'cp TODO' );
 
 # answer - asks a question and retrieves the answer
 SKIP: {

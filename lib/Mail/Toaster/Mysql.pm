@@ -8,16 +8,17 @@ use warnings;
 
 package Mail::Toaster::Mysql;
 
-use Carp;
+use lib "inc";
+use lib "lib";
 
+use Carp;
 #use Getopt::Std;
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use vars qw($VERSION $darwin $freebsd);
-$VERSION = '5.05';
+$VERSION = '5.06';
 
-use lib "lib";
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
 use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
 
@@ -280,14 +281,13 @@ sub install {
     };
 
     # we only install using FreeBSD ports and DarwinPorts at this time
-    if ( ! $OSNAME eq "freebsd" ) {
+    if ( $OSNAME ne "freebsd" ) {
         print "\nskipping MySQL, build support on $OSNAME is not available."
             . "Please install MySQL manually.\n";
         return;
     };
 
     my $installed = $freebsd->is_port_installed( port => "mysql-server", debug => 0 );
-
     if ($installed) {
         $utility->_formatted( "mysql->install: MySQL is already installed",
             "ok ($installed)" );
@@ -296,39 +296,14 @@ sub install {
     };
 
     # try to speed things up by installing the package
-    my $package_install = 0;
-    $package_install ++ if ( $ver == 1 && !$installed);
+    $self->install_freebsd_package($ver, $debug);
 
-    if ( ! $package_install ) {
-        $package_install ++ if ( $utility->answer( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+    # see if the package install succeeded
+    $installed = $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
+    if ( $installed ) {
+        $utility->_formatted( "mysql->install: installing MySQL", "ok ($installed)" );
+        return $self->mysql_extras(conf=>$conf, debug=>$debug);
     };
-
-    if ( $package_install ) {
-
-        my $package_name = $ver eq "51" ? "mysql51-server" 
-                         : $ver eq "50" ? "mysql50-server"
-                         : $ver eq "41" ? "mysql41-server"
-                         : $ver eq "40" ? "mysql40-server"
-                         : $ver eq  "4" ? "mysql41-server"
-                         : "mysql50-server";
-
-        $freebsd->package_install( port => $package_name, debug=>$debug );
-
-        $installed = $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
-
-        if (! $installed) {
-            # try this for really old freebsd ports tree
-            $freebsd->package_install( port => "mysql-server", debug=>$debug );
-            $installed =
-                $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
-        }
-
-        if ( $freebsd->is_port_installed( port => "mysql-server", debug=>0) ) {
-            $utility->_formatted( "mysql->install: installing MySQL",
-                "ok ($installed)" );
-            return $self->mysql_extras(conf=>$conf, debug=>$debug);
-        };
-    }
 
     # MySQL is still not installed, lets do it!
     my $copts = "SKIP_DNS_CHECK";
@@ -351,31 +326,12 @@ sub install {
     my ( $port, $check, $dir );
     $dir = "";
 
-    if ( $ver == 3 || $ver == 323 ) {
-        $port  = "mysql323-server";
-        $check = "mysql-server-3.23";
-    }
-    elsif ( $ver == 4 || $ver == 40 ) {
-        $port  = "mysql40-server";
-        $check = "mysql-server-4.0";
-    }
-    elsif ( $ver == 41 || $ver == 4.1 ) {
-        $port  = "mysql41-server";
-        $check = "mysql-server-4.1";
-    }
-    elsif ( $ver == 5 || $ver == 50 || $ver == 5.0 ) {
-        $port  = "mysql50-server";
-        $check = "mysql-server-5";
-    }
-    elsif ( $ver == 51 || $ver == 5.1 ) {
-        $port  = "mysql51-server";
-        $check = "mysql-server-5";
-    }
-    else {
-        # default version (latest stable)
-        $port  = "mysql50-server";
-        $check = "mysql-server-5";
-    }
+    if    ( $ver ==  3 || $ver == 323 ) { $port  = "mysql323-server"; $check = "mysql-server-3.23"; }
+    elsif ( $ver ==  4 || $ver == 40  ) { $port  = "mysql40-server";  $check = "mysql-server-4.0";  }
+    elsif ( $ver == 41 || $ver == 4.1 ) { $port  = "mysql41-server";  $check = "mysql-server-4.1";  }
+    elsif ( $ver == 50 || $ver == 5.0 ) { $port  = "mysql50-server";  $check = "mysql-server-5";    }
+    elsif ( $ver == 51 || $ver == 5.1 ) { $port  = "mysql51-server";  $check = "mysql-server-5";    }
+    else                                { $port  = "mysql50-server";  $check = "mysql-server-5";    }
 
     unless (
         $freebsd->port_install(
@@ -386,7 +342,7 @@ sub install {
             flags => $copts,
             debug => $debug,
         )
-        )
+    )
     {
         $utility->_formatted( "install: installing MySQL", "FAILED" );
         return;
@@ -401,7 +357,8 @@ sub install {
     return $self->mysql_extras(conf=>$conf, debug=>$debug);
 };
 
-sub install_darwin {
+sub install_darwin
+{
 
     my $self = shift;
 
@@ -433,6 +390,35 @@ sub install_darwin {
 
     print "There is a $mysql.dmg file on your Desktop. Read and follow the "
         . "readme therein to install MySQL";
+}
+
+sub install_freebsd_package
+{
+    my ($self, $ver, $debug) = @_;
+
+    my $package_install = 0;
+    $package_install++ if $ver == 1;
+
+    if ( ! $package_install ) {
+        $package_install++ if ( $utility->yes_or_no( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+    };
+
+    return if !$package_install;
+
+    my $package_name = $ver eq "51" ? "mysql51-server" 
+                     : $ver eq "50" ? "mysql50-server"
+                     : $ver eq "41" ? "mysql41-server"
+                     : $ver eq "40" ? "mysql40-server"
+                     : $ver eq  "4" ? "mysql41-server"
+                     : "mysql50-server";
+
+    $freebsd->package_install( port => $package_name, debug=>$debug );
+
+    if (!  $freebsd->is_port_installed(port => "mysql-server", debug=>0) ) 
+    {
+        # try this for really old freebsd package
+        $freebsd->package_install( port => "mysql-server", debug=>$debug );
+    }
 }
 
 sub is_newer {

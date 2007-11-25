@@ -183,7 +183,7 @@ sub set_conf_dir {
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2004-2006, The Network People, Inc. All rights reserved.
+Copyright (c) 2004-2007, The Network People, Inc. All rights reserved.
 
  
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
