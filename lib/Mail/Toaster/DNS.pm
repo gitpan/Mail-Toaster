@@ -1,26 +1,19 @@
-#!/usr/bin/perl
+package Mail::Toaster::DNS;
+
 use strict;
 use warnings;
 
-#
-# $Id: DNS.pm,v 5.00 2006/03/18 20:13:21 matt Exp $
-#
-
-package Mail::Toaster::DNS;
-
-use vars qw($VERSION);
-
-$VERSION = '5.01';
-
-use lib "lib";
+our $VERSION = '5.02';
 
 use Carp;
 use Params::Validate qw( :all );
 
+use lib "lib";
 use Mail::Toaster::Utility 5;
-    my $utility = Mail::Toaster::Utility->new;
 use Mail::Toaster::Perl;
-    my $perl = Mail::Toaster::Perl->new;
+
+my $util = Mail::Toaster::Utility->new;
+my $perl = Mail::Toaster::Perl->new;
 
 sub new {
     my $class = shift;
@@ -252,7 +245,7 @@ sub resolve {
     my @records;
 
     if ( $resolver eq "dig" ) {
-        my $dig = $utility->find_the_bin( bin => 'dig', debug=>0 );
+        my $dig = $util->find_the_bin( bin => 'dig', debug=>0 );
 
         foreach (`$dig $type $record +short`) {
             chomp;
@@ -298,6 +291,9 @@ __END__
 
 Mail::Toaster::DNS - DNS functions, primarily to test RBLs
 
+=head1 VERSION
+
+5.01
 
 =head1 SYNOPSIS
 
@@ -407,7 +403,7 @@ The following man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

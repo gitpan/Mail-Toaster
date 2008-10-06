@@ -2,25 +2,20 @@
 use strict;
 use warnings;
 
-#
-# $Id: $
-#
-
 use vars qw( $VERSION $debug );
-$VERSION = "5.03";
+$VERSION = "5.04";
 
 use English qw( -no_match_vars );
 use Getopt::Long;
 use Pod::Usage;
 
-use lib "inc";
 use lib "lib";
 
 use Mail::Toaster          5; my $toaster = Mail::Toaster->new;
 use Mail::Toaster::FreeBSD 5; my $freebsd = Mail::Toaster::FreeBSD->new;
 use Mail::Toaster::Perl    5; my $perl    = Mail::Toaster::Perl->new;
 use Mail::Toaster::Qmail   5; my $qmail   = Mail::Toaster::Qmail->new;
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Utility 5; my $util    = Mail::Toaster::Utility->new;
 use Mail::Toaster::Apache  5; my $apache  = Mail::Toaster::Apache->new;
 
 $OUTPUT_AUTOFLUSH++;
@@ -43,8 +38,7 @@ unless ( $section ) {
 
 # these sections do not require root privs to run
 my $root_agnostic = {
-    help   => 1,  docs => 1,
-    test2  => 1,
+    help   => 1,  docs => 1, test2  => 1,
 };
 
 # everything else requires root
@@ -67,7 +61,7 @@ if ( ! $perl_agnostic->{$section} ) {
 # and sprinkled liberally throughout the code. This gives the user the ability
 # freedom to change things as they wish but still have  reasonable defaults as
 # a starting point. 
-my $conf = $utility->parse_config( 
+my $conf = $util->parse_config( 
     file  => "toaster-watcher.conf", 
     debug => $debug,
 );
@@ -114,10 +108,10 @@ my $setup = Mail::Toaster::Setup->new(conf=>$conf);
 : $section eq "vpeconfig"  ? $setup->vpopmail_etc     ( )
 : $section eq "vpopmysql"  ? $setup->vpopmail_mysql_privs()
 : $section eq "vqadmin"    ? $setup->vqadmin          ( )
-: $section eq "qmail"      ? $qmail->install_qmail    (conf=>$conf, debug=>$debug )
-: $section eq "qmailconf"  ? $qmail->config           (conf=>$conf, debug=>$debug )
-: $section eq "netqmail"   ? $qmail->netqmail         (conf=>$conf, debug=>$debug )
-: $section eq "netqmailmac"? $qmail->netqmail_virgin  (conf=>$conf, debug=>$debug )
+: $section eq "qmail"      ? $qmail->install_qmail    (debug=>$debug )
+: $section eq "qmailconf"  ? $qmail->config           (debug=>$debug )
+: $section eq "netqmail"   ? $qmail->netqmail         (debug=>$debug )
+: $section eq "netqmailmac"? $qmail->netqmail_virgin  (debug=>$debug )
 : $section eq "djbdns"     ? $setup->djbdns           ( )
 
 # mail servers
@@ -155,7 +149,7 @@ my $setup = Mail::Toaster::Setup->new(conf=>$conf);
 : $section eq "test"        ? $setup->test             ( )
 : $section eq "filtertest"  ? $setup->filtering_test   ( )
 : $section eq "authtest"    ? $setup->test_auth        ( )
-: $section eq "proctest"    ? $toaster->test_processes (conf=>$conf, debug=>$debug)
+: $section eq "proctest"    ? $toaster->test_processes (debug=>$debug)
 : $section eq "imap"        ? $setup->imap_test_auth   ( )
 : $section eq "pop3"        ? $setup->pop3_test_auth   ( )
 : $section eq "smtp"        ? $setup->smtp_test_auth   ( )
@@ -166,7 +160,7 @@ my $setup = Mail::Toaster::Setup->new(conf=>$conf);
 : $section eq "mattbundle"  ? $setup->mattbundle       ( )
 : $section eq "logmonster"  ? $setup->logmonster       ( )
 : $section eq "mrm"         ? $setup->mrm              ( )
-: $section eq "toaster"     ? $utility->mailtoaster    (debug=>$debug)
+: $section eq "toaster"     ? $util->mailtoaster    (debug=>$debug)
 : $section eq "nictool"     ? $setup->nictool          ( )
 : $section eq "webmail"     ? $setup->webmail          ( )
 : $section eq "all"         ? all()
@@ -176,7 +170,7 @@ sub all {
 	$setup->config        ( );
 
         # re-initialize $conf with new settings. 
-        $conf = $utility->parse_config( 
+        $conf = $util->parse_config( 
             file  => "toaster-watcher.conf", 
             debug => $debug,
         );
@@ -196,7 +190,7 @@ sub all {
 	$setup->maildrop      ( );
 	$setup->vqadmin       ( );
 	$setup->qmailadmin    ( );
-	$qmail->netqmail      (conf=>$conf, debug=>$debug );
+	$qmail->netqmail      (debug=>$debug );
 	$setup->courier_imap  ( );
 	$setup->dovecot       ( );
 	$setup->sqwebmail     ( );
@@ -400,7 +394,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004-2006, The Network People, Inc. All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

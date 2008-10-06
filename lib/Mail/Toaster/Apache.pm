@@ -1,23 +1,18 @@
-#!/usr/bin/perl
-#
-# $Id: Apache.pm, matt Exp $
-#
-use strict;
-use warnings;
+#!perl
 
 package Mail::Toaster::Apache;
+our $VERSION = '5.06';
 
-use vars qw/ $VERSION /;
-$VERSION = '5.06';
+use strict;
+use warnings;
 
 use Carp;
 use English qw( -no_match_vars );
 use Params::Validate qw( :all );
 
 use lib "lib";
-
 use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new;
 
 sub new {
     my $class = shift;
@@ -89,24 +84,24 @@ still want Apache1, simply follow the instructions here: \n";
         $freebsd->rc_dot_conf_check( check=>"apache_enable", line=>'apache_enable="YES"' );
     }
 
-    $utility->chdir_source_dir( dir => "$src/www", debug=>0 );
+    $util->chdir_source_dir( dir => "$src/www", debug=>0 );
 
-    #$utility->chdir_source_dir( dir=>"$src/www", src=>$src, debug=>0);
+    #$util->chdir_source_dir( dir=>"$src/www", src=>$src, debug=>0);
 
     unless ( -e "$apache.tar.gz" ) {
-        $utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
+        $util->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
     }
 
     unless ( -e "$mod_perl.tar.gz" ) {
-        $utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
+        $util->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
     }
 
     unless ( -e "$mod_ssl.tar.gz" ) {
-        $utility->get_file("http://www.modssl.org/source/$mod_ssl.tar.gz");
+        $util->get_file("http://www.modssl.org/source/$mod_ssl.tar.gz");
     }
 
     unless ( -e $layout ) {
-        $utility->get_file("http://www.tnpi.net/internet/www/apache.layout");
+        $util->get_file("http://www.tnpi.net/internet/www/apache.layout");
         move( "apache.layout", $layout );
     }
 
@@ -114,44 +109,44 @@ still want Apache1, simply follow the instructions here: \n";
 
     foreach my $package ( $apache, $mod_perl, $mod_ssl ) {
         if ( -d $package ) {
-            my $r = $utility->source_warning( $package, 1 );
+            my $r = $util->source_warning( $package, 1 );
             unless ($r) { croak "sorry, I can't continue.\n" }
         }
-        $utility->archive_expand( archive => "$package.tar.gz" );
+        $util->archive_expand( archive => "$package.tar.gz" );
     }
 
     chdir($mod_ssl);
     if ( $OSNAME eq "darwin" ) {
-        $utility->syscmd( command => "./configure --with-apache=../$apache" );
+        $util->syscmd( command => "./configure --with-apache=../$apache" );
     }
     else {
-        $utility->syscmd( command =>
+        $util->syscmd( command =>
 "./configure --with-apache=../$apache --with-ssl=/usr --enable-shared=ssl --with-mm=/usr/local"
         );
     }
 
     chdir("../$mod_perl");
     if ( $OSNAME eq "darwin" ) {
-        $utility->syscmd( cmd =>
+        $util->syscmd( cmd =>
 "perl Makefile.PL APACHE_SRC=../$apache NO_HTTPD=1 USE_APACI=1 PREP_HTTPD=1 EVERYTHING=1"
         );
     }
     else {
-        $utility->syscmd( cmd =>
+        $util->syscmd( cmd =>
 "perl Makefile.PL DO_HTTPD=1 USE_APACI=1 APACHE_PREFIX=/usr/local EVERYTHING=1 APACI_ARGS='--server-uid=www, --server-gid=www, --enable-module=so --enable-module=most, --enable-shared=max --disable-shared=perl, --enable-module=perl, --with-layout=../$layout:FreeBSD, --without-confadjust'"
         );
     }
 
-    $utility->syscmd( command => "make" );
+    $util->syscmd( command => "make" );
 
     if ( $OSNAME eq "darwin" ) {
-        $utility->syscmd( command => "make install" );
+        $util->syscmd( command => "make install" );
         chdir("../$apache");
-        $utility->syscmd( command =>
+        $util->syscmd( command =>
 "./configure --with-layout=Darwin --enable-module=so --enable-module=ssl --enable-shared=ssl --activate-module=src/modules/perl/libperl.a --disable-shared=perl --without-execstrip"
         );
-        $utility->syscmd( command => "make" );
-        $utility->syscmd( command => "make install" );
+        $util->syscmd( command => "make" );
+        $util->syscmd( command => "make install" );
     }
 
     if ( -e "../$apache/src/httpd" ) {
@@ -199,7 +194,7 @@ sub install_apache2 {
     my $src    = $conf->{'toaster_src_dir'} || "$prefix/src";
     $src .= "/www";
 
-    $utility->chdir_source_dir( dir => $src, debug=>0 );
+    $util->chdir_source_dir( dir => $src, debug=>0 );
 
     if ( $OSNAME eq "freebsd" ) {
 
@@ -219,7 +214,7 @@ sub install_apache2 {
         # if some variant of apache 2 is installed
         my $r = $freebsd->is_port_installed( port => "apache-2", debug=>$debug );
         if ( $r ) {
-            $utility->_formatted( "install_apache2: installing v$ver ",
+            $util->_formatted( "install_apache2: installing v$ver ",
                 "ok ($r)" );
 
             # fixup Apache 2 installs
@@ -339,49 +334,49 @@ http://www.tnpi.net/internet/mail/toaster/darwin.shtml.\n";
     $mod_php = "php-" . $mod_php;
 
     unless ( -e "$apache.tar.gz" ) {
-        $utility->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
+        $util->get_file("http://www.apache.org/dist/httpd/$apache.tar.gz");
     }
 
     unless ( -e "$mod_perl.tar.gz" ) {
-        $utility->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
+        $util->get_file("http://perl.apache.org/dist/$mod_perl.tar.gz");
     }
 
     unless ( -e "$mod_php.tar.gz" ) {
-        $utility->get_file("http://us2.php.net/distributions/$mod_php.tar.gz");
+        $util->get_file("http://us2.php.net/distributions/$mod_php.tar.gz");
     }
 
     foreach my $package ( $apache, $mod_perl, $mod_php ) {
         if ( -d $package ) {
-            my $r = $utility->source_warning( $package, 1 );
+            my $r = $util->source_warning( $package, 1 );
             unless ($r) { croak "sorry, I can't continue.\n"; }
         }
-        $utility->archive_expand( archive => "$package.tar.gz" );
+        $util->archive_expand( archive => "$package.tar.gz" );
     }
 
     if ( -d "$src/$apache" ) {
         chdir("$src/$apache");
-        $utility->syscmd( command =>
+        $util->syscmd( command =>
 "./configure --enable-layout=Darwin --enable-modules=all --enable-mods-shared=all --enable-so"
         ) if ( $OSNAME eq "darwin" );
-        $utility->syscmd( command =>
+        $util->syscmd( command =>
 "./configure --enable-modules=all --enable-mods-shared=all --enable-so"
         );
-        $utility->syscmd( command => "make" );
-        $utility->syscmd( command => "make install" );
+        $util->syscmd( command => "make" );
+        $util->syscmd( command => "make install" );
     }
 
     if ( -d "$src/$mod_perl" ) {
         chdir("$src/$mod_perl");
-        $utility->syscmd( command => "perl Makefile.PL" );
-        $utility->syscmd( command => "make" );
-        $utility->syscmd( command => "make install" );
+        $util->syscmd( command => "perl Makefile.PL" );
+        $util->syscmd( command => "make" );
+        $util->syscmd( command => "make install" );
     }
 
     if ( -d "$src/$mod_php" ) {
         chdir("$src/$mod_php");
-        $utility->syscmd( command => "./configure" );
-        $utility->syscmd( command => "make" );
-        $utility->syscmd( command => "make install" );
+        $util->syscmd( command => "./configure" );
+        $util->syscmd( command => "make" );
+        $util->syscmd( command => "make install" );
     }
 
     print "Don't forget to add this to httpd.conf:  
@@ -405,8 +400,8 @@ sub startup {
 
     my ( $conf, $fatal, $debug ) = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
 
-    if ( $utility->is_process_running("httpd") ) {
-        $utility->_formatted( "apache->startup: starting Apache",
+    if ( $util->is_process_running("httpd") ) {
+        $util->_formatted( "apache->startup: starting Apache",
             "ok  (already started)" );
         return 1;
     }
@@ -422,37 +417,37 @@ sub startup {
         $freebsd->rc_dot_conf_check( 
             check=>"apache2ssl_enable", line=>'apache2ssl_enable="YES"', debug=>$debug );
 
-        unless ( $utility->is_process_running("httpd") ) {
+        unless ( $util->is_process_running("httpd") ) {
             my $etcdir = $conf->{'system_config_dir'} || "/usr/local/etc";
             if ( -x "$etcdir/rc.d/apache.sh" ) {
-                $utility->syscmd( command => "$etcdir/rc.d/apache.sh start", debug=>$debug );
+                $util->syscmd( command => "$etcdir/rc.d/apache.sh start", debug=>$debug );
             }
             if ( -x "$etcdir/rc.d/apache2.sh" ) {
-                $utility->syscmd( command => "$etcdir/rc.d/apache2.sh start", debug=>$debug );
+                $util->syscmd( command => "$etcdir/rc.d/apache2.sh start", debug=>$debug );
             }
             if ( -x "$etcdir/rc.d/apache22.sh" ) {
-                $utility->syscmd( command => "$etcdir/rc.d/apache22.sh start", debug=>$debug );
+                $util->syscmd( command => "$etcdir/rc.d/apache22.sh start", debug=>$debug );
             }
         }
     }
 
-    if ( $utility->is_process_running("httpd") ) {
-        $utility->_formatted( "apache->startup: starting Apache", "ok" );
+    if ( $util->is_process_running("httpd") ) {
+        $util->_formatted( "apache->startup: starting Apache", "ok" );
         return 1;
     };
 
-    my $apachectl = $utility->find_the_bin( bin => "apachectl", debug=>0 );
+    my $apachectl = $util->find_the_bin( bin => "apachectl", debug=>0 );
 
     if ( -x $apachectl ) {
         if ( $OSNAME eq "freebsd" ) {
-            $utility->syscmd( command => "$apachectl startssl", debug=>0 )
+            $util->syscmd( command => "$apachectl startssl", debug=>0 )
               ;    # if this one doesn't work
-            $utility->syscmd( command => "$apachectl start", debug=>0 );
+            $util->syscmd( command => "$apachectl start", debug=>0 );
         }    # this one will
         elsif ( $OSNAME eq "darwin" ) {
-            $utility->syscmd( command => "$apachectl start", debug=>0 );
+            $util->syscmd( command => "$apachectl start", debug=>0 );
         }
-        else { $utility->syscmd( command => "$apachectl start", debug=>0 ) }
+        else { $util->syscmd( command => "$apachectl start", debug=>0 ) }
     }
 }
 
@@ -467,12 +462,12 @@ sub apache2_fixups
 
     unless ( -d $htdocs ) {    # should exist
         print "ERROR: Interesting. What happened to your $htdocs directory? Since it does not exist, I will create it. Verify that the path in toaster-watcher.conf (toaster_http_docs) is set correctly.\n";
-        $utility->mkdir_system(dir=>$htdocs, debug=>0,fatal=>0);
+        $util->mkdir_system(dir=>$htdocs, debug=>0,fatal=>0);
     }
 
     unless ( -d $cgibin ) {    # should exist
         print "ERROR: What happened to your $cgibin directory? Since it does not exist, I will create it. Check to verify Is the path in toaster-watcher.conf (toaster_cgi_bin) set correctly?\n";
-        $utility->mkdir_system(dir=>$cgibin, debug=>0,fatal=>0);
+        $util->mkdir_system(dir=>$cgibin, debug=>0,fatal=>0);
     }
 
     if ( $OSNAME eq "freebsd" && $ver eq "22" && ! -d "$prefix/www/$ports_dir" ) {   # should exist
@@ -486,7 +481,7 @@ sub apache2_fixups
     };
 
     my $httpd_conf = $self->conf_get_dir(conf=>$conf);
-    my ($apache_conf_dir) = $utility->path_parse($httpd_conf);
+    my ($apache_conf_dir) = $util->path_parse($httpd_conf);
 
     my $file_to_write = "mail-toaster.conf";
     my $full_path;
@@ -509,7 +504,7 @@ sub apache2_fixups
     open my $MT_CONF, ">", "/tmp/$file_to_write";
 
     my $hostname = $conf->{'toaster_hostname'};
-    my $ips      = $utility->get_my_ips(only=>"first", debug=>0);
+    my $ips      = $util->get_my_ips(only=>"first", debug=>0);
     my $local_ip = $ips->[0];
     my $redirect_host = $hostname;
 
@@ -590,7 +585,7 @@ NameVirtualHost $local_ip:443
     Allow from all
 </Directory>
 
-# don't divilge our Apache version, to help protect us from scanners
+# don't divulge our Apache version, to help protect us from scanners
 # looking for vulnerable versions of Apache.
 ServerSignature Off
 ServerTokens ProductOnly
@@ -693,7 +688,7 @@ Alias /v-webmail/ "/usr/local/www/v-webmail/htdocs/"
 
     close $MT_CONF;
 
-    $utility->install_if_changed(
+    $util->install_if_changed(
         newfile  => "/tmp/$file_to_write",
         existing => $full_path,
         clean    => 1,
@@ -767,7 +762,7 @@ sub conf_get_dir
     my $apachectl = "$prefix/sbin/apachectl";
 
     unless ( -x $apachectl ) {
-        $apachectl = $utility->find_the_bin( bin => "apachectl", debug=>0, fatal=>0 );
+        $apachectl = $util->find_the_bin( bin => "apachectl", debug=>0, fatal=>0 );
 
         unless ( -x $apachectl ) {
             croak
@@ -846,7 +841,7 @@ sub apache_conf_patch {
     my $apacheconf = $self->conf_get_dir(conf=>$conf);
     my ($apacheetc) = $apacheconf =~ /(.*)\/httpd\.conf$/;
 
-    $utility->_formatted(
+    $util->_formatted(
         "apache_conf_patch: updating httpd.conf for Mail-Toaster");
 
     if ( $conf->{'install_apache'} == "21" ) {
@@ -870,7 +865,7 @@ sub apache_conf_patch {
         return;
     };
 
-    my @lines = $utility->file_read(file=>$apacheconf);
+    my @lines = $util->file_read(file=>$apacheconf);
     foreach my $line ( @lines ) {
         if ( $line =~ q{#Include etc/apache22/extra/httpd-default.conf} ) {
             $line = "Include etc/apache22/extra/httpd-default.conf";
@@ -887,7 +882,7 @@ sub apache_conf_patch {
             $line = '#ScriptAlias /cgi-bin/ "/usr/local/www/apache22/cgi-bin/"';
         };
     };
-    $utility->file_write( file=>$apacheconf, lines=>\@lines, debug=>$debug);
+    $util->file_write( file=>$apacheconf, lines=>\@lines, debug=>$debug);
 }
 
 sub install_ssl_certs {
@@ -904,7 +899,7 @@ sub install_ssl_certs {
 
     my ( $conf, $type, $debug ) = ( $p{'conf'}, $p{'type'}, $p{'debug'} );
 
-    $utility->_formatted(
+    $util->_formatted(
         "install_ssl_certs: installing self-signed SSL certs for Apache.")
       if $debug;
 
@@ -912,7 +907,7 @@ sub install_ssl_certs {
     my $etcdir = $conf->{'system_config_dir'} || "/usr/local/etc";
 
     my $apacheconf = $self->conf_get_dir(conf=>$conf);
-    my ($apacheetc) = $utility->path_parse($apacheconf);
+    my ($apacheetc) = $util->path_parse($apacheconf);
 
     print "   detected apache config dir $apacheetc.\n" if $debug;
 
@@ -925,18 +920,18 @@ sub install_ssl_certs {
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'} };
 
     print "   installing certificates into $crtdir.\n" if $debug;
-    unless ( -d $crtdir ) { $utility->mkdir_system( dir => $crtdir, debug=>$debug ); }
+    unless ( -d $crtdir ) { $util->mkdir_system( dir => $crtdir, debug=>$debug ); }
 
     my $keydir = "$apacheetc/ssl.key";
     if ( $conf->{'install_apache'} eq "22" ) { $keydir = $apacheetc; }
 
     print "\t installing keys into $keydir.\n" if $debug;
 
-    unless ( -d $crtdir ) { $utility->mkdir_system( dir => $keydir, debug=>$debug ); }
+    unless ( -d $crtdir ) { $util->mkdir_system( dir => $keydir, debug=>$debug ); }
 
     if ( $type && $type eq "rsa" ) {
         if ( -e "$crtdir/server.crt" ) {
-            $utility->_formatted( "   installing server.crt", "ok (already done)" );
+            $util->_formatted( "   installing server.crt", "ok (already done)" );
         }
         else {
             openssl_config_note();
@@ -959,7 +954,7 @@ sub install_ssl_certs {
             $self->install_rsa_cert( crtdir=>$crtdir, keydir=>$keydir, debug=>$debug );
         }
         else {
-            $utility->_formatted( "   installing server.crt", "ok (already done)" );
+            $util->_formatted( "   installing server.crt", "ok (already done)" );
         }
         unless ( -e "$crtdir/server-dsa.crt" ) {
 
@@ -982,24 +977,24 @@ sub restart {
 
     print "restarting apache.\n" if $vals->{'debug'};
 
-    my $sudo = $utility->sudo();
+    my $sudo = $util->sudo();
 
     if ( -x "/usr/local/etc/rc.d/apache2.sh" ) {
-        $utility->syscmd(
+        $util->syscmd(
             command => "$sudo /usr/local/etc/rc.d/apache2.sh stop" );
-        $utility->syscmd(
+        $util->syscmd(
             command => "$sudo /usr/local/etc/rc.d/apache2.sh start" );
     }
     elsif ( -x "/usr/local/etc/rc.d/apache.sh" ) {
-        $utility->syscmd(
+        $util->syscmd(
             command => "$sudo /usr/local/etc/rc.d/apache.sh stop" );
-        $utility->syscmd(
+        $util->syscmd(
             command => "$sudo /usr/local/etc/rc.d/apache.sh start" );
     }
     else {
-        my $apachectl = $utility->find_the_bin( bin => "apachectl" );
+        my $apachectl = $util->find_the_bin( bin => "apachectl" );
         if ( -x $apachectl ) {
-            $utility->syscmd( command => "$sudo $apachectl graceful" );
+            $util->syscmd( command => "$sudo $apachectl graceful" );
         }
         else {
             warn "WARNING: couldn't restart Apache!\n ";
@@ -1103,7 +1098,7 @@ sub vhost_create {
 
     if ( -f $vhosts_conf ) {
         print "appending to file: $vhosts_conf\n" if $vals->{'debug'};
-        $utility->file_write(
+        $util->file_write(
             file   => $vhosts_conf,
             lines  => \@lines,
             append => 1
@@ -1111,7 +1106,7 @@ sub vhost_create {
     }
     else {
         print "writing to file: $vhosts_conf\n" if $vals->{'debug'};
-        $utility->file_write( file => $vhosts_conf, lines => \@lines );
+        $util->file_write( file => $vhosts_conf, lines => \@lines );
     }
 
     $self->restart($vals);
@@ -1156,7 +1151,7 @@ sub vhost_enable {
     # write vhost definition to a file
     if ( -f $vhosts_conf ) {
         print "appending to file: $vhosts_conf\n" if $vals->{'debug'};
-        $utility->file_write(
+        $util->file_write(
             file   => $vhosts_conf,
             lines  => $match,
             append => 1
@@ -1164,7 +1159,7 @@ sub vhost_enable {
     }
     else {
         print "writing to file: $vhosts_conf\n" if $vals->{'debug'};
-        $utility->file_write( file => $vhosts_conf, lines => $match );
+        $util->file_write( file => $vhosts_conf, lines => $match );
     }
 
     $self->restart($vals);
@@ -1174,9 +1169,9 @@ sub vhost_enable {
 
         # chmod 755 the documentroot directory
         if ( $vals->{'documentroot'} && -d $vals->{'documentroot'} ) {
-            my $sudo = $utility->sudo();
-            my $chmod = $utility->find_the_bin( bin => "chmod" );
-            $utility->syscmd(
+            my $sudo = $util->sudo();
+            my $chmod = $util->find_the_bin( bin => "chmod" );
+            $util->syscmd(
                 command => "$sudo $chmod 755 $vals->{'documentroot'}" );
         }
     }
@@ -1207,7 +1202,7 @@ sub vhost_disable {
 
     print "Disabling: \n" . join( "\n", @$match ) . "\n";
 
-    $utility->file_write( file => "$vhosts_conf.new", lines => [$new] );
+    $util->file_write( file => "$vhosts_conf.new", lines => [$new] );
 
     # write out the .disabled file (append if existing)
     if ( -f "$vhosts_conf.disabled" ) {
@@ -1225,7 +1220,7 @@ sub vhost_disable {
             # if not, append it
             print "appending to file: $vhosts_conf.disabled\n"
               if $vals->{'debug'};
-            $utility->file_write(
+            $util->file_write(
                 file   => "$vhosts_conf.disabled",
                 lines  => $match,
                 append => 1
@@ -1234,13 +1229,13 @@ sub vhost_disable {
     }
     else {
         print "writing to file: $vhosts_conf.disabled\n" if $vals->{'debug'};
-        $utility->file_write(
+        $util->file_write(
             file  => "$vhosts_conf.disabled",
             lines => [$match]
         );
     }
 
-    my $sudo = $utility->sudo();
+    my $sudo = $util->sudo();
 
     if ( ( -s "$vhosts_conf.new" ) && ( -s "$vhosts_conf.disabled" ) ) {
         print "Yay, success!\n" if $vals->{'debug'};
@@ -1249,8 +1244,8 @@ sub vhost_disable {
             move( "$vhosts_conf.new", $vhosts_conf );
         }
         else {
-            my $mv = $utility->find_the_bin( bin => "move" );
-            $utility->syscmd(
+            my $mv = $util->find_the_bin( bin => "move" );
+            $util->syscmd(
                 command => "$sudo $mv $vhosts_conf.new $vhosts_conf" );
         }
     }
@@ -1266,8 +1261,8 @@ sub vhost_disable {
 
     # chmod 0 the HTML directory
     if ( $vals->{'documentroot'} && -d $vals->{'documentroot'} ) {
-        my $chmod = $utility->find_the_bin( bin => "chmod" );
-        $utility->syscmd( command => "$sudo $chmod 0 $vals->{'documentroot'}" );
+        my $chmod = $util->find_the_bin( bin => "chmod" );
+        $util->syscmd( command => "$sudo $chmod 0 $vals->{'documentroot'}" );
     }
 
     print "returning success or error\n" if $vals->{'debug'};
@@ -1308,8 +1303,8 @@ sub vhost_delete {
     # we'll write out @new and @drop and compare them to make sure
     # the two total the same size as the original
 
-    $utility->file_write( file => "$vhosts_conf.new",  lines => [$new] );
-    $utility->file_write( file => "$vhosts_conf.drop", lines => [$drop] );
+    $util->file_write( file => "$vhosts_conf.new",  lines => [$new] );
+    $util->file_write( file => "$vhosts_conf.drop", lines => [$drop] );
 
     if ( ( ( -s "$vhosts_conf.new" ) + ( -s "$vhosts_conf.drop" ) ) ==
         -s $vhosts_conf )
@@ -1471,7 +1466,7 @@ sub vhosts_get_match {
     if ( $vals->{'disabled'} ) { $vhosts_conf .= ".disabled" }
 
     print "reading in the vhosts file $vhosts_conf\n" if $vals->{'debug'};
-    my @lines = $utility->file_read($vhosts_conf);
+    my @lines = $util->file_read($vhosts_conf);
 
     my ( $in, $match, @new, @drop );
   LINE: foreach my $line (@lines) {
@@ -1564,7 +1559,7 @@ edit your openssl.cnf file. ";
 
     print "\n You can also run 'toaster_setup.pl -s ssl' to update your openssl.cnf file.\n\n";
 
-    if ( $utility->is_interactive ) {
+    if ( $util->is_interactive ) {
         print chr(7);
         sleep 3;
     };
@@ -1582,9 +1577,9 @@ sub install_dsa_cert {
     my $key = "server-dsa.key";
     my $csr = "server-dsa.csr";
 
-#$utility->syscmd( command=>"openssl gendsa 1024 > $keydir/$key" );
-#$utility->syscmd( command=>"openssl req -new -key $keydir/$key -out $crtdir/$csr" );
-#$utility->syscmd( command=>"openssl req -x509 -days 999 -key $keydir/$key -in $crtdir/$csr -out $crtdir/$crt" );
+#$util->syscmd( command=>"openssl gendsa 1024 > $keydir/$key" );
+#$util->syscmd( command=>"openssl req -new -key $keydir/$key -out $crtdir/$csr" );
+#$util->syscmd( command=>"openssl req -x509 -days 999 -key $keydir/$key -in $crtdir/$csr -out $crtdir/$crt" );
 
 #	$perl->module_load( {module=>"Crypt::OpenSSL::DSA", ports_name=>"p5-Crypt-OpenSSL-DSA", ports_group=>"security"} );
 #	require Crypt::OpenSSL::DSA;
@@ -1621,11 +1616,11 @@ sub install_rsa_cert {
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'} };
 
     if ( ! -d $keydir ) {
-        $utility->mkdir_system(dir=>$keydir, debug=>$debug);
+        $util->mkdir_system(dir=>$keydir, debug=>$debug);
     };
 
     if ( ! -d $crtdir ) {
-        $utility->mkdir_system(dir=>$crtdir, debug=>$debug);
+        $util->mkdir_system(dir=>$crtdir, debug=>$debug);
     };
 
     my $csr = "server.csr";
@@ -1633,7 +1628,7 @@ sub install_rsa_cert {
     my $key = "server.key";
 
     if ( ! -e "$keydir/$key" )  {
-        $utility->syscmd( 
+        $util->syscmd( 
             command => "openssl genrsa 1024 > $keydir/$key", 
             debug   => $debug,
         );
@@ -1645,7 +1640,7 @@ sub install_rsa_cert {
     };
 
     if ( ! -e "$crtdir/$csr") {
-        $utility->syscmd(
+        $util->syscmd(
             command => "openssl req -new -key $keydir/$key -out $crtdir/$csr", 
             debug   => $debug,
         );
@@ -1657,7 +1652,7 @@ sub install_rsa_cert {
     };
 
     if ( ! -e "$crtdir/$crt" ) {
-        $utility->syscmd( 
+        $util->syscmd( 
             command => "openssl req -x509 -days 999 -key $keydir/$key -in $crtdir/$csr -out $crtdir/$crt",
             debug   => $debug,
         );
@@ -1691,6 +1686,10 @@ Mail::Toaster::Apache - modules for installing, configuring and managing Apache
 
 Modules for working with Apache. Some are specific to Mail Toaster while most are generic, such as provisioning vhosts for an Apache 2 server. Using just these subs, Apache will be installed, SSL certs generated, and serving.
 
+
+=head1 VERSION
+
+5.06
 
 =head1 DESCRIPTION 
 
@@ -1904,7 +1903,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

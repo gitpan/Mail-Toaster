@@ -1,16 +1,12 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
-#
-# $Id: Ezmlm.pm, matt Exp $
-#
 
 package Mail::Toaster::Ezmlm;
 
-#use Carp;
-use vars qw($VERSION $perl $utility);
+our $VERSION = '5.03';
 
-$VERSION = '5.02';
+use vars qw($perl $util);
 
 use lib "lib";
 
@@ -18,7 +14,7 @@ use Params::Validate qw( :all );;
 use Pod::Usage;
 use English qw( -no_match_vars );
 
-use Mail::Toaster::Utility 5; $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Utility 5; $util = Mail::Toaster::Utility->new;
 require Mail::Toaster::Perl;  $perl    = Mail::Toaster::Perl->new;
 
 sub new {
@@ -115,7 +111,7 @@ sub footer {
 <hr> <p align="center"><font size="-2">
 		<a href="http://mail-toaster.org">Mail::Toaster::Ezmlm</a>
       $VERSION -
-		&copy; <a href="http://www.tnpi.net">The Network People, Inc.</a> 1999-2007 <br><br>
+		&copy; <a href="http://www.tnpi.net">The Network People, Inc.</a> 1999-2008 <br><br>
         <!--Donated to the toaster community by <a href="mailto:sam.mayes\@sudhian.com">Sam Mayes</a>--></font>
      </p>
   </body>
@@ -162,14 +158,14 @@ sub lists_get {
 
     print "now fetching a list of ezmlm lists..." if $debug;
 
-    foreach my $all ( $utility->get_dir_files( dir => $dir ) ) {
+    foreach my $all ( $util->get_dir_files( dir => $dir ) ) {
         next unless ( -d $all );
 
-        foreach my $second ( $utility->get_dir_files( dir => $all ) ) {
+        foreach my $second ( $util->get_dir_files( dir => $all ) ) {
             next unless ( -d $second );
             if ( $second =~ /subscribers$/ ) {
                 print "found one: $all, $second $br" if $debug;
-                my ( $path, $list_dir ) = $utility->path_parse($all);
+                my ( $path, $list_dir ) = $util->path_parse($all);
                 print "list name: $list_dir $br" if $debug;
                 $lists{$list_dir} = $all;
             }
@@ -239,7 +235,7 @@ sub process_cgi {
             debug      => $debug,
     );
 
-    my $conf = $utility->parse_config( file=>"toaster.conf", debug => 0 );
+    my $conf = $util->parse_config( file=>"toaster.conf", debug => 0 );
 
     #die "FAILURE: Could not find toaster.conf!\n" unless $conf;
 
@@ -400,7 +396,7 @@ sub process_shell {
     }
 
     if ( -r $list_file ) {
-        my @lines = $utility->file_read(file=>$list_file, debug=>$debug);
+        my @lines = $util->file_read(file=>$list_file, debug=>$debug);
         $requested = \@lines;
     }
     else {
@@ -535,6 +531,9 @@ __END__
 
 Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists
 
+=head1 VERSION
+
+5.02
 
 =head1 SYNOPSIS
 
@@ -665,7 +664,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2005-2006, The Network People, Inc.  All rights reserved.
+Copyright (c) 2005-2008, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

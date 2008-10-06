@@ -26,12 +26,11 @@ getopts('a:h:q:s:v');
 my $author = "Matt Simerson";
 my $email  = "matt\@tnpi.net";
 
-$VERSION = "1.10";
+$VERSION = "1.11";
 
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new();
 use Mail::Toaster::Qmail   5; my $qmail = Mail::Toaster::Qmail->new();
 
-my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
 my $debug = 0; $debug++ if $opt_v;
 
 print "           Qmail Queue Tool   v $VERSION\n\n";
@@ -45,13 +44,12 @@ Since you are not root, I am giving up. Have a nice day!\n";
 unless ($opt_a) { pod2usage(); die "\n"; }
 
 my $qcontrol =  $qmail->service_dir_get( 
-                    conf => $conf, 
                     prot => "send", 
                     debug => $debug,
                 );
 
 # Make sure the qmail queue directory is set correctly
-my $qdir = $qmail->queue_check( conf => $conf, debug => $debug, fatal=>0 );
+my $qdir = $qmail->queue_check( debug => $debug, fatal=>0 );
 exit 0 unless $qdir;
 
 # if a queue is specified, only check it.
@@ -120,7 +118,7 @@ sub message_delete {
 sub messages_delete {
     $qmail->check_control( dir => $qcontrol );
 
-    my $r = $qmail->send_stop( conf => $conf );
+    my $r = $qmail->send_stop();
     die "qmail-send wouldn't die!\n" if ($r);
 
     # we'll get passed an array of the local, remote, or both queues
@@ -148,7 +146,7 @@ sub messages_delete {
         }
     }
 
-    $qmail->send_start( conf => $conf );
+    $qmail->send_start();
 }
 
 sub message_expire {
@@ -259,7 +257,7 @@ sub message_print {
             print "CC:        $header->{'CC'}\n";
         }
         print "Date:      $header->{'Date'}\n";
-        my @lines = $utility->file_read( file => "$qdir/info/$id" );
+        my @lines = $util->file_read( file => "$qdir/info/$id" );
         chop $lines[0];
         print "Return Path: $lines[0]\n";
     }
@@ -282,7 +280,7 @@ sub headers_get {
     my ( $tree, $id ) = @_;
     my %hash;
 
-#    foreach my $line ( $utility->file_read( file => "$qdir/mess/$tree/$id", max_lines  => 40, max_length => 256, ) )
+#    foreach my $line ( $util->file_read( file => "$qdir/mess/$tree/$id", max_lines  => 40, max_length => 256, ) )
  
     my ($FILE, $header);
 
@@ -329,17 +327,17 @@ sub messages_get {
     }
 
     # eache queue has "buckets" within it that we need to iterate over
-    foreach my $queue_buckets ( $utility->get_dir_files( dir => $queue ) ) {
+    foreach my $queue_buckets ( $util->get_dir_files( dir => $queue ) ) {
 
         # within each bucket is files that contain the email address we
         # are trying to deliver to.
 
-        foreach my $file ( $utility->get_dir_files( dir => $queue_buckets ) ) {
+        foreach my $file ( $util->get_dir_files( dir => $queue_buckets ) ) {
 
             # id is the message id
-            ( $up1dir, $id )     = $utility->path_parse($file);
-            ( $up1dir, $bucket ) = $utility->path_parse($up1dir);
-            ( $up1dir, $queu )   = $utility->path_parse($up1dir);
+            ( $up1dir, $id )     = $util->path_parse($file);
+            ( $up1dir, $bucket ) = $util->path_parse($up1dir);
+            ( $up1dir, $queu )   = $util->path_parse($up1dir);
 
             print "messages_get: id: $id\n" if ($opt_v);
 
@@ -491,7 +489,7 @@ http://www.mail-toaster.org/
 
 =head1 COPYRIGHT
 
-Copyright 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2008, The Network People, Inc. All Rights Reserved.
 
 =cut
 

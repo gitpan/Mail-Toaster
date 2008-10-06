@@ -18,9 +18,9 @@ BEGIN {
 require_ok('Mail::Toaster::Utility');
 require_ok('Mail::Toaster::Setup');
 
-my $utility = Mail::Toaster::Utility->new;
+my $util = Mail::Toaster::Utility->new;
 # read in the .conf file
-my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
+my $conf = $util->parse_config( file => "toaster-watcher.conf", debug => 0 );
 
 # basic OO mechanism
 my $setup = Mail::Toaster::Setup->new(conf=>$conf);     # create an object

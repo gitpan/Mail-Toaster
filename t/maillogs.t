@@ -22,13 +22,12 @@ unless (-w "/var/log/mail")
 }
 plan 'no_plan';
 
-BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
 require_ok( 'Mail::Toaster::Utility' );
 
 # basic OO mechanism
-	my $utility = Mail::Toaster::Utility->new;                       # create an object
-	ok ( defined $utility, 'get Mail::Toaster::Utility object' );    # check it
-	ok ( $utility->isa('Mail::Toaster::Utility'), 'check object class' );
+	my $util = Mail::Toaster::Utility->new;                       # create an object
+	ok ( defined $util, 'get Mail::Toaster::Utility object' );    # check it
+	ok ( $util->isa('Mail::Toaster::Utility'), 'check object class' );
 
 my $maillogs_location = "bin/maillogs";
 
@@ -45,7 +44,7 @@ my @log_types = qw( smtp send rbl imap pop3 webmail spamassassin );
 
 foreach my $type (@log_types) {
     if ( $UID == 0 ) {
-        ok( $utility->syscmd(
+        ok( $util->syscmd(
                 command => "$maillogs_location $type",
                 fatal   => 0,
                 debug   => 0,
@@ -53,7 +52,7 @@ foreach my $type (@log_types) {
         );
     }
     else {
-        ok( ! $utility->syscmd(
+        ok( ! $util->syscmd(
                 command => "$maillogs_location -a list -s matt -h From ",
                 fatal => 0,
                 debug => 0,

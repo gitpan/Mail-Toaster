@@ -1,17 +1,10 @@
-#!/usr/bin/perl
+package Mail::Toaster::CGI;
+our $VERSION = '5.02';
+
 use strict;
 use warnings;
 
-#
-# $Id: CGI.pm,v 4.9 2005/06/10 22:54:12 matt Exp $
-#
-
-package Mail::Toaster::CGI;
-
 use Carp;
-use vars qw($VERSION);
-$VERSION = '5.02';
-
 use lib "lib";
 
 sub new {
@@ -529,6 +522,10 @@ __END__
 
 Mail::Toaster::CGI - a CGI application for logging into the various web components of a Mail Toaster.
 
+=head1 VERSION
+
+5.02
+
 =head1 SYNOPSIS
 
 A cgi application and HTML template for a standard mail page.
@@ -708,7 +705,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2006, The Network People, Inc.  All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

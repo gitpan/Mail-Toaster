@@ -1,23 +1,16 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
 
-#
-# $Id: Passwd.pm, matt Exp $
-#
-
 package Mail::Toaster::Passwd;
+our $VERSION = '5.07';
 
 use Carp;
-
-use vars qw/$VERSION/;
-$VERSION = '5.07';
-
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
 use lib "lib";
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new();
 use Mail::Toaster::Perl 5;    my $perl = Mail::Toaster::Perl->new;
 
 sub new {
@@ -31,7 +24,7 @@ sub show {
 
     my ( $self, $vals ) = @_;
 
-    unless ( $utility->is_hashref($vals) ) {
+    unless ( $util->is_hashref($vals) ) {
         print "invalid parameter(s) passed to \$passwd->show\n";
         return {
             'error_code' => 500,
@@ -47,8 +40,8 @@ sub show {
     }
 
     print "user_show: $user show function...\n" if $vals->{'debug'};
-    my $sudo = $utility->find_the_bin( bin => "sudo" );
-    $utility->syscmd( command => "$sudo quota $user" );
+    my $sudo = $util->find_the_bin( bin => "sudo" );
+    $util->syscmd( command => "$sudo quota $user" );
     return { 'error_code' => 100, 'error_desc' => 'all is well' };
 }
 
@@ -59,13 +52,13 @@ sub delete {
     my $r;
 
     my $user = $vals->{'user'};
-    my $sudo = $utility->sudo();
-    my $pw   = $utility->find_the_bin( bin => "pw" );
+    my $sudo = $util->sudo();
+    my $pw   = $util->find_the_bin( bin => "pw" );
 
     if ( $self->exist($user) )    # Make sure user exists
     {
         my $cmd = "$sudo $pw userdel -n $user -r";
-        if ( $utility->syscmd( command => $cmd ) ) {
+        if ( $util->syscmd( command => $cmd ) ) {
             $r = {
                 'error_code' => 200,
                 'error_desc' => "delete: success. $user has been deleted."
@@ -95,13 +88,13 @@ sub disable {
     my $r;
 
     my $user = $vals->{'user'};
-    my $sudo = $utility->sudo();
-    my $pw   = $utility->find_the_bin( bin => "pw" );
+    my $sudo = $util->sudo();
+    my $pw   = $util->find_the_bin( bin => "pw" );
 
     if ( getpwnam($user) && getpwnam($user) > 0 )    # Make sure user exists
     {
         my $cmd = "$sudo $pw usermod -n $user -e -1m";
-        if ( $utility->syscmd( command => $cmd ) ) {
+        if ( $util->syscmd( command => $cmd ) ) {
             $r = {
                 'error_code' => 200,
                 'error_desc' => "disable: success. $user has been disabled."
@@ -131,13 +124,13 @@ sub enable {
     my $r;
 
     my $user = $vals->{'user'};
-    my $sudo = $utility->sudo();
-    my $pw   = $utility->find_the_bin( bin => "pw" );
+    my $sudo = $util->sudo();
+    my $pw   = $util->find_the_bin( bin => "pw" );
 
     if ( getpwnam($user) && getpwnam($user) > 0 )    # Make sure user exists
     {
         my $cmd = "$sudo $pw usermod -n $user -e ''";
-        if ( $utility->syscmd( command => $cmd ) ) {
+        if ( $util->syscmd( command => $cmd ) ) {
             $r = {
                 'error_code' => 200,
                 'error_desc' => "enable: success. $user has been enabled."
@@ -223,7 +216,7 @@ sub sanity {
 
     if ( -r "/usr/local/etc/passwd.badpass" ) {
         my @lines =
-          $utility->file_read( file => "/usr/local/etc/passwd.badpass" );
+          $util->file_read( file => "/usr/local/etc/passwd.badpass" );
         foreach my $line (@lines) {
             chomp $line;
             if ( $pass eq $line ) {
@@ -244,12 +237,12 @@ sub BackupMasterPasswd {
 
     $file ||= "/etc/master.passwd";
 
-    my $sudo = $utility->sudo();
-    my $cp   = $utility->find_the_bin( bin => "cp", debug => 0 );
+    my $sudo = $util->sudo();
+    my $cp   = $util->find_the_bin( bin => "cp", debug => 0 );
     my $cmd  = $sudo;
     $cmd .= "$cp $file $file.bak";
 
-    $utility->syscmd( command => $cmd, debug => 0 );
+    $util->syscmd( command => $cmd, debug => 0 );
 
     #   this only works if we have root permissions
     #	use File::Copy;
@@ -286,7 +279,7 @@ sub VerifyMasterPasswd {
                 print
 "VerifyMasterPasswd: WARNING: new $passwd size ($new) is not larger than $old and we expected it to $change.\n"
                   if $debug;
-                $utility->file_archive( file => "$passwd.bak" );
+                $util->file_archive( file => "$passwd.bak" );
                 $r{'error_code'} = 500;
                 $r{'error_desc'} =
 "new $passwd size ($new) is not larger than $old and we expected it to $change.\n";
@@ -314,7 +307,7 @@ sub VerifyMasterPasswd {
                 $r{'error_code'} = 500;
                 $r{'error_desc'} =
 "new $passwd size ($new) is not smaller than $old and we expected it to $change.\n";
-                $utility->file_archive( file => "$passwd.bak" );
+                $util->file_archive( file => "$passwd.bak" );
                 return \%r;
             }
         }
@@ -363,22 +356,22 @@ sub creategroup {
     if ( $OSNAME eq "freebsd" ) {
 
         # use the pw tool to add the user
-        my $pw = $utility->find_the_bin( bin => "pw", debug => 0 );
+        my $pw = $util->find_the_bin( bin => "pw", debug => 0 );
 
         my $cmd = "$pw groupadd -n $group";
         $cmd .= " -g gid" if $gid;
 
-        $utility->syscmd( command => $cmd, debug => $debug );
+        $util->syscmd( command => $cmd, debug => $debug );
     }
     elsif ( $OSNAME eq "darwin" ) {
         print "creategroup: $group on detected MacOS (Darwin)\n" if $debug;
 
-        my $niutil = $utility->find_the_bin( bin => "niutil" );
-        $utility->syscmd( command => "$niutil -create . /groups/$group" );
-        $utility->syscmd(
+        my $niutil = $util->find_the_bin( bin => "niutil" );
+        $util->syscmd( command => "$niutil -create . /groups/$group" );
+        $util->syscmd(
             command => "$niutil -createprop . /groups/$group gid $gid" )
           if $gid;
-        $utility->syscmd(
+        $util->syscmd(
             command => "$niutil -createprop . /groups/$group passwd '*'" );
     }
     else {
@@ -438,7 +431,7 @@ sub user_add {
 
         # use sudo if we're not running as root
         unless ( $< eq 0 ) {
-            $sudo = $utility->find_the_bin( bin => "sudo",debug=>0 );
+            $sudo = $util->find_the_bin( bin => "sudo",debug=>0 );
             unless ( -x $sudo ) {
                 $r = {
                     'error_code' => 401,
@@ -453,7 +446,7 @@ sub user_add {
         # pw creates accounts using defaults from /etc/pw.conf
         # values passed to user_add will override the defaults
 
-        my $pw    = $utility->find_the_bin( bin => "pw",debug=>0 );
+        my $pw    = $util->find_the_bin( bin => "pw",debug=>0 );
         my $pwcmd = "$sudo $pw useradd -n $user ";
 
         $pwcmd .= "-d $homedir "                    if $homedir;
@@ -486,7 +479,7 @@ sub user_add {
         }
         else {
             print "\npw command is: \n$pwcmd -h-\n" if $debug;
-            $utility->syscmd( command => "$pwcmd -h-",debug=>0 );
+            $util->syscmd( command => "$pwcmd -h-",debug=>0 );
         }
 
         print "user_add: user add passed..." if $debug;
@@ -513,32 +506,32 @@ sub user_add {
     elsif ( $OSNAME eq "darwin" ) {
         print "user_add: $user on detected MacOS (Darwin)\n";
 
-        my $niutil = $utility->find_the_bin( bin => "niutil", debug => 0 );
-        $utility->syscmd(
+        my $niutil = $util->find_the_bin( bin => "niutil", debug => 0 );
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -create . /users/$user"
         );
-        $utility->syscmd(
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -createprop . /users/$user uid $uid"
         ) if $uid;
-        $utility->syscmd(
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -createprop . /users/$user gid $gid"
         ) if $gid;
-        $utility->syscmd(
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -createprop . /users/$user shell $shell"
         );
-        $utility->syscmd(
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -createprop . /users/$user home $homedir"
         ) if $homedir;
-        $utility->syscmd(
+        $util->syscmd(
             debug   => 0,
             command => "$niutil -createprop . /users/$user passwd '*'"
         );
-        $utility->syscmd( debug => 0, command => "chown -R $user $homedir" )
+        $util->syscmd( debug => 0, command => "chown -R $user $homedir" )
           if $homedir;
     }
     else {
@@ -564,23 +557,23 @@ sub user_archive {
 
     my ( $self, $user, $debug ) = @_;
 
-    my $tar  = $utility->find_the_bin( bin => "tar" );
-    my $sudo = $utility->find_the_bin( bin => "sudo" );
-    my $rm   = $utility->find_the_bin( bin => "rm" );
+    my $tar  = $util->find_the_bin( bin => "tar" );
+    my $sudo = $util->find_the_bin( bin => "sudo" );
+    my $rm   = $util->find_the_bin( bin => "rm" );
 
     unless ( $self->exist($user) ) {
-        $utility->graceful_exit( "400", "That user does not exist!" );
+        $util->graceful_exit( "400", "That user does not exist!" );
     }
 
     my $homedir = ( getpwnam($user) )[7];
     unless ( -d $homedir ) {
-        $utility->graceful_exit( "400", "The home directory does not exist!" );
+        $util->graceful_exit( "400", "The home directory does not exist!" );
     }
 
-    my ( $path, $userdir ) = $utility->path_parse($homedir);
+    my ( $path, $userdir ) = $util->path_parse($homedir);
 
     unless ( chdir($path) ) {
-        $utility->graceful_exit( "400", "couldn't cd to $path: $!\n" );
+        $util->graceful_exit( "400", "couldn't cd to $path: $!\n" );
     }
 
     if ( -e "$path/$user.tar.gz" && -d "$path/$user" ) {
@@ -638,7 +631,7 @@ sub user_sanity {
 
     if ( -r "/usr/local/etc/passwd.reserved" ) {
         my @lines =
-          $utility->file_read( file => "/usr/local/etc/passwd.reserved" );
+          $util->file_read( file => "/usr/local/etc/passwd.reserved" );
         foreach my $line (@lines) {
             chomp $line;
             if ( $user eq $line ) {
@@ -691,6 +684,9 @@ __END__
 
 Mail::Toaster::Passwd - add/delete entries from Unix /etc/passwd database
 
+=head1 VERSION
+
+5.07
 
 =head1 SYNOPSIS
 
@@ -930,7 +926,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

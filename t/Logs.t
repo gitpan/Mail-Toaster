@@ -17,8 +17,8 @@ BEGIN {
 }
 require_ok('Mail::Toaster::Logs');
 
-my $utility = Mail::Toaster::Utility->new;
-my $conf = $utility->parse_config( file=>"toaster.conf", debug=>0 );
+my $util = Mail::Toaster::Utility->new;
+my $conf = $util->parse_config( file=>"toaster.conf", debug=>0 );
 
 # basic OO mechanism
 my $log = Mail::Toaster::Logs->new(conf=>$conf);    # create an object
@@ -170,7 +170,7 @@ SKIP: {
 
     my $countfile = $log->set_countfile(prot=>"pop3");
 # counter_read
-    my ( $path, $file ) = $utility->path_parse($countfile);
+    my ( $path, $file ) = $util->path_parse($countfile);
     if ( -w $path ) {
         ok( $log->counter_read(file=>$countfile, debug=>0), 'counter_read');
     }

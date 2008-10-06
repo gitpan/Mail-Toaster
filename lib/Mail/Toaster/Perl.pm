@@ -1,22 +1,15 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
 
-#
-# $Id: Perl.pm, matt Exp $
-#
-
 package Mail::Toaster::Perl;
+our $VERSION = '5.05';
 
 use Carp;
 use English qw( -no_match_vars );
 use Params::Validate qw( :all);
 
-use vars qw($VERSION $err);
-
-$VERSION = '5.05';
-
-use lib "inc";
+use vars qw($err);
 use lib "lib";
 
 sub new {
@@ -67,10 +60,10 @@ it for full functionality.";
     my $version = "perl-5.8";
 
     require Mail::Toaster::Utility;
-    my $utility = Mail::Toaster::Utility->new;
+    my $util = Mail::Toaster::Utility->new;
 
     if (
-        $utility->yes_or_no(
+        $util->yes_or_no(
             question => "Would you like me to install 5.8?",
             timeout  => 20
         )
@@ -117,24 +110,24 @@ sub module_install {
 
 
     require Mail::Toaster::Utility;
-    my $utility = Mail::Toaster::Utility->new;
+    my $util = Mail::Toaster::Utility->new;
 
-    $utility->chdir_source_dir( dir => $src );
+    $util->chdir_source_dir( dir => $src );
 
-    #$utility->syscmd( command=>"rm -rf $module-*" );   # nuke any old versions
+    #$util->syscmd( command=>"rm -rf $module-*" );   # nuke any old versions
 
     print "checking for previous build sources.\n";
     if ( -d $module ) {
-        unless ( $utility->source_warning( package=>$module, src=>$src ) ) {
+        unless ( $util->source_warning( package=>$module, src=>$src ) ) {
             carp "\nmodule_install: OK then, skipping install.\n";
             return 0;
         }
         else {
-            $utility->syscmd( command => "rm -rf $module" );
+            $util->syscmd( command => "rm -rf $module" );
         }
     }
 
-    $utility->sources_get(
+    $util->sources_get(
         conf    => $conf,
         site    => $site,
         url     => $url,
@@ -142,12 +135,12 @@ sub module_install {
         debug   => $debug,
     );
 
-    $utility->archive_expand( archive => $module, debug => $debug )
+    $util->archive_expand( archive => $module, debug => $debug )
       or croak "Couldn't expand $module: $!\n";
 
     my $found;
     print "looking for $module in $src...";
-    foreach my $file ( $utility->get_dir_files( dir => $src ) ) {
+    foreach my $file ( $util->get_dir_files( dir => $src ) ) {
 
         next if ( $file !~ /$module-/ && $file !~ /$module/ );
         next if !-d $file;
@@ -164,14 +157,14 @@ sub module_install {
 
         print "installing with targets " . join( ", ", @$targets ) . "\n";
         foreach (@$targets) {
-            if ( ! $utility->syscmd( command => $_ , debug=>$debug ) ) {
+            if ( ! $util->syscmd( command => $_ , debug=>$debug ) ) {
                 carp "$_ failed!\n";
                 return;
             };;
         }
 
         chdir("..");
-        $utility->syscmd( command => "rm -rf $file", debug=>$debug );
+        $util->syscmd( command => "rm -rf $file", debug=>$debug );
         last;
     }
 
@@ -232,9 +225,9 @@ sub module_load {
     carp "\ncouldn't import $module: $EVAL_ERROR\n";    # show error
 
     require Mail::Toaster::Utility;
-    my $utility = Mail::Toaster::Utility->new;
+    my $util = Mail::Toaster::Utility->new;
 
-    if ( ! $p{'auto'} && ! $utility->yes_or_no(
+    if ( ! $p{'auto'} && ! $util->yes_or_no(
             question => "\n\nWould you like me to try installing $module: ",
             timeout  => $timer, )
     ) {
@@ -312,7 +305,7 @@ sub perl_install {
         = ( $p{'version'}, $p{'optional'}, $p{'debug'} );
 
     require Mail::Toaster::Utility;
-    my $utility = Mail::Toaster::Utility->new;
+    my $util = Mail::Toaster::Utility->new;
 
     if ( $OSNAME eq "freebsd" ) {
 
@@ -320,7 +313,7 @@ sub perl_install {
         my $freebsd = Mail::Toaster::FreeBSD->new();
 
         my $portupgrade =
-          $utility->find_the_bin( bin => "portupgrade", debug => 0 );
+          $util->find_the_bin( bin => "portupgrade", debug => 0 );
 
         my $port = $freebsd->is_port_installed( port => "perl" );
         if ( ! $port  ) {
@@ -332,25 +325,25 @@ sub perl_install {
                 check => "perl-5",
                 flags => $options
             );
-            $utility->syscmd( command => "/usr/local/bin/use.perl port" );
+            $util->syscmd( command => "/usr/local/bin/use.perl port" );
             return 1;
         };
         
         # try to upgrade
         if ( -x $portupgrade ) {
-            $utility->syscmd(
+            $util->syscmd(
                 command => "$portupgrade $port",
                 debug   => $debug
             );
             print
 "\n\nPerl has been upgraded. Now we must upgrade all the perl modules as well. This is going to take a while!\n\n";
             sleep 5;
-            $utility->syscmd(
+            $util->syscmd(
                 command =>
                   "$portupgrade -f `pkg_info | grep p5- | cut -d\" \" -f1`",
                 debug => $debug,
             );
-            $utility->syscmd( command =>
+            $util->syscmd( command =>
 "$portupgrade -f `pkg_info | grep rrdtool- | cut -d\" \" -f1`"
             );
         }
@@ -376,18 +369,18 @@ sub perl_install {
 
         if ( $] < 5.008001 ) {
             unless ( -e "$version.tar.gz" ) {
-                $utility->get_file(
+                $util->get_file(
                     "ftp://ftp.perl.org/pub/CPAN/src/$version.tar.gz");
             }
 
             if ( -d $version ) {
-                my $r = $utility->source_warning( package=>$version );
+                my $r = $util->source_warning( package=>$version );
             }
 
-            $utility->syscmd( command => "tar -xzf $version.tar.gz" );
+            $util->syscmd( command => "tar -xzf $version.tar.gz" );
 
             chdir($version);
-            my $replace = $utility->yes_or_no(
+            my $replace = $util->yes_or_no(
                 question => "\n\n    NOTICE!   \n
 Apple installs Perl in /usr/bin. I can install it there as well, overwriting Darwin's
 supplied Perl (5.6.0) or it can be installed in /usr/local/bin (The BSD Way). Some
@@ -398,16 +391,16 @@ Shall I overwrite the default Perl?"
             );
 
             if ($replace) {
-                $utility->syscmd( command => "./Configure -de -Dprefix=/usr" );
+                $util->syscmd( command => "./Configure -de -Dprefix=/usr" );
             }
             else { 
-                $utility->syscmd( command => "./Configure -de" ); 
+                $util->syscmd( command => "./Configure -de" ); 
             }
 
-            $utility->syscmd( command => "make" );
-            $utility->syscmd( command => "make test" );
+            $util->syscmd( command => "make" );
+            $util->syscmd( command => "make test" );
 
-            my $install = $utility->yes_or_no(
+            my $install = $util->yes_or_no(
                 question => "\n\n
 OK, I just finished running \"make test\" and the results are show above. You should see
 a success rate somewhere along the lines of 99.7% okay with only a couple failures. If that's
@@ -436,14 +429,14 @@ the case, just feed me a y and I'll install perl for you. Select n to cancel.\n\
                     move( $file, "$file.old" )
                       or carp "failed to remove $file\n";
                 }
-                $utility->syscmd( command =>
+                $util->syscmd( command =>
                       "$sudo find /Library/Perl -name '*.bundle' -exec rm {} \;"
                 );
-                $utility->syscmd( command =>
+                $util->syscmd( command =>
 "$sudo find /System/Library/Perl -name '*.bundle' -exec rm {} \;"
                 );
             }
-            $utility->syscmd( command => "$sudo make install" );
+            $util->syscmd( command => "$sudo make install" );
         }
     }
 }
@@ -469,6 +462,10 @@ __END__
 =head1 NAME
 
 Mail::Toaster::Perl - Perl specific functions for Mail Toaster
+
+=head1 VERSION
+
+5.05
 
 =head1 SYNOPSIS
 
@@ -641,7 +638,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

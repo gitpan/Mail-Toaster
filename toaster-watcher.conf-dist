@@ -22,7 +22,7 @@
 #            TOASTER
 ######################################
 
-toaster_os_release                 = RELENG_6_2
+toaster_os_release                 = RELENG_7_1
 toaster_version                    = 0               # ver, 0 = latest release
 toaster_hostname                   = mail.example.com
 toaster_admin_email                = postmaster@example.com
@@ -100,7 +100,7 @@ install_mysql_linuxthreads         = 0
 install_mysql_optimized            = 1
 install_mysql_dir                  = /var/db/mysql
 install_courier_imap               = port    # 0, ver, port (3.0.8)
-install_sqwebmail                  = port    # 0, ver, port (4.0.7)
+install_sqwebmail                  = 0       # 0, ver, port (4.0.7)
 install_dovecot                    = port    # 0, ver, port
 install_gnupg                      = port    # 0, port
 install_qmail                      = 0       # 0, ver       (1.03)
@@ -115,7 +115,7 @@ install_isoqlog                    = 2.2     # 0, ver, port
 install_portupgrade                = 1
 install_portaudit                  = 1
 install_openldap_client            = 0
-install_net_snmpd                  = 4       # 4, 5
+install_net_snmpd                  = 5       # 4, 5
 install_rrdutil                    = 1
 install_ezmlm                      = 5.1.0   # 0, ver, port
 install_ezmlm_cgi                  = 0
@@ -137,12 +137,12 @@ install_mail_filtering             = 1
 install_procmail                   = 0
 install_maildrop                   = 1       # 0, 1, ver
 install_spamassassin               = 1
-install_spamassassin_flags         = -v -x   # Add -q for per user SQL prefs
+install_spamassassin_flags         = -v -u spamd -H /var/spool/spamd -x # Add -q for per user SQL
 install_spamassassin_sql           = 0       # use AWL, bayes, and per-user prefs from MySQL
 install_spamassassin_dbuser        = spamassassin
 install_spamassassin_dbpass        = assSPAMing
 install_dspam                      = 0
-install_simscan                    = 1.2     # 0, ver
+install_simscan                    = 1.4.0   # 0, ver
 install_qmailscanner               = 0       # 0, ver       (1.25  as of 04/08/05)
 install_qmailscanner_stats         = 0       # 0, ver       (2.0.2 as of 02/02/05)
 install_clamav                     = port    # 0, port, ver (0.84  as of 05/02/05)
@@ -389,7 +389,7 @@ pop3_lookup_tcpremoteinfo          = 0
 pop3_dns_paranoia                  = 0
 pop3_dns_lookup_timeout            = 26
 pop3_verbose                       = 0
-pop3_ip_address_listen_on          = all
+pop3_listen_on_address             = all
 pop3_checkpasswd_bin               = vpopmail_home_dir/bin/vchkpw
 
 ##

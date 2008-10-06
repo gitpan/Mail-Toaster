@@ -1,11 +1,8 @@
 #/usr/bin/perl
 use strict;
 use warnings;
-use 5.008;
 
-#
-# $Id: $
-#
+use 5.008;
 
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -14,40 +11,14 @@ use English qw( -no_match_vars );
 
 $OUTPUT_AUTOFLUSH++;
 
-use lib "inc";
-use lib "lib";
 
 BEGIN {
     if ( ! eval "require Params::Validate" ) {
-        print "\n\tParams::Validate is not installed!\n\n";
-        print "Install it as follows:\n";
-
-        if ( $OSNAME eq "freebsd" ) {
-            print "
-   cd /usr/ports/devel/p5-Params-Validate
-   make install clean\n";
-        }
-        else {
-            print "
-   perl -MCPAN -e shell
-   > install Params::Validate
-   > quit\n";
-        };
-
-        print "then return this this directory and continue installing
-Mail::Toaster as follows:
-
-   cd -
-   perl Makefile.PL\n\n";
-        exit 0;
+        print "\n\tRequired dependencies are not installed!\n\n";
+        print "run 'make deps' to install them.\n\n";
     }
 }
 
-use Mail::Toaster          5; my $toaster = Mail::Toaster->new;
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new;
-
-my $conf    = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
-my $logdir  = $toaster->get_toaster_logs(conf=>$conf);
 my $confdir = set_conf_dir();
 
 sub MY::postamble { 
@@ -55,7 +26,6 @@ sub MY::postamble {
 'TNPITOASTER	=	/Users/Shared/Sites/www.tnpi.biz/internet/mail/toaster
 TNPIMAILLOG =   /Users/Shared/Sites/www.tnpi.biz/internet/mail/maillogs
 CONFDIR    =   ' . $confdir . '
-MAILLOG		=	' . $logdir . '
 MODULES		=	doc/modules
 MT		=	Mail::Toaster
 
@@ -88,11 +58,9 @@ docs:
 	pod2html --title="$(MT)::Mysql"   lib/Mail/Toaster/Mysql.pm    > $(MODULES)/Mysql.html
 	pod2html --title="$(MT)::Passwd"  lib/Mail/Toaster/Passwd.pm   > $(MODULES)/Passwd.html
 	pod2html --title="$(MT)::Perl"    lib/Mail/Toaster/Perl.pm     > $(MODULES)/Perl.html
-	pod2html --title="$(MT)::Provision" lib/Mail/Toaster/Provision.pm > $(MODULES)/Provision.html
 	pod2html --title="$(MT)::Qmail"   lib/Mail/Toaster/Qmail.pm    > $(MODULES)/Qmail.html
 	pod2html --title="$(MT)::Setup"   lib/Mail/Toaster/Setup.pm    > $(MODULES)/Setup.html
 	pod2html --title="$(MT)::Utility" lib/Mail/Toaster/Utility.pm  > $(MODULES)/Utility.html
-	pod2html --title="$(MT) mailadmin" bin/mailadmin               > doc/mailadmin.html
 
 	rm pod2htm*
 
@@ -105,12 +73,11 @@ cgi:
 	echo make cgi is deprecated! Use toaster_setup.pl -s webmail instead.
 
 deps:
-	bin/install_deps.sh
+	perl bin/install_deps.pl
 
 web:
 	install bin/toaster_setup.pl       $(TNPITOASTER)/
 	install cgi_files/index.cgi        $(TNPITOASTER)/index.cgi.txt
-	install bin/mailadmin              $(TNPITOASTER)/maildomain/mailadmin
 	install bin/toaster-watcher.pl     $(TNPITOASTER)/watcher/
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/watcher/toaster-watcher.conf
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/etc/toaster-watcher.conf
@@ -129,7 +96,6 @@ web:
 	install -m 0644 $(MODULES)/Mysql.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Passwd.html    $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Perl.html      $(TNPITOASTER)/modules/
-	install -m 0644 $(MODULES)/Provision.html $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Qmail.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Setup.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Utility.html   $(TNPITOASTER)/modules/
@@ -146,7 +112,6 @@ WriteMakefile(
 	'EXE_FILES'      => [ 'cgi_files/index.cgi', 
                           'bin/toaster_setup.pl', 
                           'bin/toaster-watcher.pl',
-					      'bin/mailadmin', 
                           'bin/maillogs', 
                           'bin/qqtool.pl',
                         ],
@@ -156,16 +121,18 @@ WriteMakefile(
 			'Date::Parse'     => 1, 
 			'Test::Simple'    => 0,
 			'Params::Validate' => .7,
-#			'Net::DNS'      => 0.20, 
-#			'Quota'         => 0,
+			'Net::DNS'        => 0.20, 
+			'Email::Valid'    => 0, 
+			'IO::Socket::SSL' => 0,
+			'Mail::Ezmlm'     => 0,
+            'version'         => 0,
 #			'vpopmail'      => 0, 
-#			'Email::Valid'  => 0, 
-#			'Mail::Ezmlm'   => 0,
 #			'HTML::Template' => 1,
 		},
 	AUTHOR            => 'Matt Simerson (matt@tnpi.net)',
 	ABSTRACT          => 'Mail::Toaster perl programs and modules',
-    PL_FILES          => {},
+	LICENSE           => 'bsd',
+	PL_FILES          => {},
 #	MAN1PODS          => [],
     dist              => { COMPRESS => 'gzip -9f', },
     clean            => {
@@ -183,7 +150,7 @@ sub set_conf_dir {
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2004-2007, The Network People, Inc. All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc. All rights reserved.
 
  
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:

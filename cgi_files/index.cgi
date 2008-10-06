@@ -1,13 +1,7 @@
 #!/usr/bin/perl
 use strict;
 
-#
-# $Id: index.cgi,v 4.01 matt Exp $
-#
-
-use vars qw/ $VERSION /;
-
-$VERSION = "5.02";
+our $VERSION = '5.03';
 
 use lib "lib";
 use lib "inc";
@@ -17,7 +11,7 @@ use CGI::Carp qw( fatalsToBrowser );
 
 use Mail::Toaster::Perl;      my $perl    = Mail::Toaster::Perl->new();
 use Mail::Toaster::CGI;       my $mt_cgi  = Mail::Toaster::CGI->new();
-use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new();
+use Mail::Toaster::Utility 1; my $util= Mail::Toaster::Utility->new();
 
 $perl->module_load( 
     module    =>"HTML::Template", 
@@ -39,7 +33,7 @@ my $host;
 my $debug    = 0;
 my $stats    = 0;
 
-my $conf     = $utility->parse_config( file=>"toaster.conf",debug=>$debug );
+my $conf     = $util->parse_config( file=>"toaster.conf",debug=>$debug );
 die "FAILURE: Could not find toaster.conf!\n" unless $conf;
 
 if    ( $save )                 { $editable = 0; }
@@ -156,7 +150,7 @@ Matt Simerson (matt@tnpi.net)
 
 =head1 LICENSE
 
-Copyright (c) 2004-2006, The Network People, Inc.
+Copyright (c) 2004-2008, The Network People, Inc.
 All rights reserved.
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

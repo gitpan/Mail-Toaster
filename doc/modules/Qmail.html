@@ -4,7 +4,7 @@
 <head>
 <title>Mail::Toaster::Qmail</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:root@omen.apple.com" />
+<link rev="made" href="mailto:matt@freebsd.matt" />
 </head>
 
 <body style="background-color: white">
@@ -48,7 +48,7 @@ Mail::Toaster:::Qmail - Qmail specific functions</pre>
 =head1 VERSION</pre>
 <pre>
 
-This documentation refers to &lt;Mail::Toaster::Qmail&gt; version 5.00</pre>
+5.06</pre>
 <pre>
 
 =head1 SYNOPSIS</pre>
@@ -93,18 +93,18 @@ An object of this class represents a means for interacting with qmail. There are
 
 <dd>
 <pre>
-        $qmail-&gt;build_pop3_run( conf=&gt;$conf, file=&gt;$file, debug=&gt;$debug) 
+        $qmail-&gt;build_pop3_run( file=&gt;$file, debug=&gt;$debug) 
                 ? print &quot;success&quot; : print &quot;failed&quot;;</pre>
 </dd>
 <dd>
-<p>Generate a supervise run file for qmail-pop3d. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see $utility-&gt;parse_config). I typically use it like this:</p>
+<p>Generate a supervise run file for qmail-pop3d. $file is the location of the file it's going to generate. I typically use it like this:</p>
 </dd>
 <dd>
 <pre>
   my $file = &quot;/tmp/toaster-watcher-pop3-runfile&quot;;
-  if ( $qmail-&gt;build_pop3_run( conf=&gt;$conf, file=&gt;$file ) )
+  if ( $qmail-&gt;build_pop3_run( file=&gt;$file ) )
   {
-    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;pop3&quot;, conf=&gt;$conf);
+    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;pop3&quot; );
   };</pre>
 </dd>
 <dd>
@@ -113,7 +113,6 @@ An object of this class represents a means for interacting with qmail. There are
 <dd>
 <pre>
  arguments required:
-    conf - as hashref with the contents of toaster-watcher.conf
     file - the temp file to construct</pre>
 </dd>
 <dd>
@@ -132,18 +131,10 @@ An object of this class represents a means for interacting with qmail. There are
 
 <dd>
 <pre>
-        $qmail-&gt;install_qmail_control_log_files( conf=&gt;$conf );</pre>
-</dd>
-<dd>
-<p>$conf is a hash of values. See $utility-&gt;parse_config or toaster-watcher.conf for config values.</p>
+        $qmail-&gt;install_qmail_control_log_files();</pre>
 </dd>
 <dd>
 <p>Installs the files that control your supervised processes logging. Typically this consists of qmail-smtpd, qmail-send, and qmail-pop3d. The generated files are:</p>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf</pre>
 </dd>
 <dd>
 <pre>
@@ -172,7 +163,7 @@ An object of this class represents a means for interacting with qmail. There are
 </dd>
 <dd>
 <pre>
-  if ( $qmail-&gt;build_smtp_run( conf=&gt;$conf, tmpfile=&gt;$file, debug=&gt;$debug ) )
+  if ( $qmail-&gt;build_smtp_run( tmpfile=&gt;$file, debug=&gt;$debug ) )
   {
     $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;smtp&quot;, debug=&gt;$debug );
   };</pre>
@@ -186,7 +177,6 @@ An object of this class represents a means for interacting with qmail. There are
 <dd>
 <pre>
  arguments optional:
-   conf  
    destination - where the tmpfile gets installed to. Defaults to $service/$prot/run
    prot     - one of (smtp, send, pop3, submit)
    debug
@@ -207,12 +197,7 @@ An object of this class represents a means for interacting with qmail. There are
 <dd>
 <pre>
  Usage:
-   $qmail-&gt;netqmail_virgin( conf=&gt;$conf, debug=&gt;1);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - a hash of values from toaster-watcher.conf</pre>
+   $qmail-&gt;netqmail_virgin( debug=&gt;1);</pre>
 </dd>
 <dd>
 <pre>
@@ -238,7 +223,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 
 <dd>
 <pre>
-  $qmail-&gt;restart( conf=&gt;$conf )</pre>
+  $qmail-&gt;restart()</pre>
 </dd>
 <dd>
 <p>Use to restart the qmail-send process. It will send qmail-send the TERM signal and then return.</p>
@@ -247,7 +232,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 
 <dd>
 <pre>
-        $qmail-&gt;send_start( conf=&gt;$conf ) - Start up the qmail-send process.</pre>
+        $qmail-&gt;send_start() - Start up the qmail-send process.</pre>
 </dd>
 <dd>
 <p>After starting up qmail-send, we verify that it's running before returning.</p>
@@ -256,7 +241,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 
 <dd>
 <pre>
-  $qmail-&gt;send_stop( conf=&gt;$conf )</pre>
+  $qmail-&gt;send_stop()</pre>
 </dd>
 <dd>
 <p>Use send_stop to quit the qmail-send process. It will send qmail-send the TERM signal and then wait until it's shut down before returning. If qmail-send fails to shut down within 100 seconds, then we force kill it, causing it to abort any outbound SMTP sessions that are active. This is safe, as qmail will attempt to deliver them again, and again until it succeeds.</p>
@@ -269,7 +254,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 <dd>
 <pre>
  Example
-   $qmail-&gt;service_dir_get( conf=&gt;$conf, prot=&gt;'smtp' );</pre>
+   $qmail-&gt;service_dir_get( prot=&gt;'smtp' );</pre>
 </dd>
 <dd>
 <pre>
@@ -279,7 +264,6 @@ queue_process - Tell qmail to process the queue immediately</pre>
 <dd>
 <pre>
  arguments optional:
-   conf - a hash of values from toaster-watcher.conf
    debug
    fatal</pre>
 </dd>
@@ -294,7 +278,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 
 <dd>
 <pre>
-  $qmail-&gt;smtpd_restart( conf=&gt;$conf, prot=&gt;&quot;smtp&quot;)</pre>
+  $qmail-&gt;smtpd_restart( prot=&gt;&quot;smtp&quot;)</pre>
 </dd>
 <dd>
 <p>Use smtpd_restart to restart the qmail-smtpd process. It will send qmail-smtpd the TERM signal causing it to exit. It will restart immediately because it's supervised.</p>
@@ -303,7 +287,7 @@ queue_process - Tell qmail to process the queue immediately</pre>
 
 <dd>
 <pre>
-  my $dir = $qmail-&gt;supervise_dir_get( conf=&gt;$conf, prot=&gt;&quot;smtp&quot; );</pre>
+  my $dir = $qmail-&gt;supervise_dir_get( prot=&gt;&quot;smtp&quot; );</pre>
 </dd>
 <dd>
 <p>This sub just sets the supervise directory used by the various qmail
@@ -364,7 +348,6 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  arguments optional:
-   conf  - conf settings from toaster-watcher.conf
    debug - print status messages</pre>
 </dd>
 <dd>
@@ -376,18 +359,18 @@ that are a different than mine, like a LWQ install.</p>
 
 <dd>
 <pre>
-  $qmail-&gt;build_send_run( conf=&gt;$conf, file=&gt;$file) ? print &quot;success&quot;;</pre>
+  $qmail-&gt;build_send_run( file=&gt;$file) ? print &quot;success&quot;;</pre>
 </dd>
 <dd>
-<p>build_send_run generates a supervise run file for qmail-send. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from toaster-watcher.conf. I typically use it like this:</p>
+<p>build_send_run generates a supervise run file for qmail-send. $file is the location of the file it's going to generate.</p>
 </dd>
 <dd>
 <pre>
   my $file = &quot;/tmp/toaster-watcher-send-runfile&quot;;
-  if ( $qmail-&gt;build_send_run( conf=&gt;$conf, file=&gt;$file ) )
+  if ( $qmail-&gt;build_send_run( file=&gt;$file ) )
   {
-    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;send&quot;, conf=&gt;$conf);
-    $qmail-&gt;restart($conf, $debug);
+    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;send&quot; );
+    $qmail-&gt;restart($debug);
   };</pre>
 </dd>
 <dd>
@@ -396,7 +379,6 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  arguments required:
-   conf - as hashref with the contents of toaster-watcher.conf
    file - the temp file to construct</pre>
 </dd>
 <dd>
@@ -415,17 +397,17 @@ that are a different than mine, like a LWQ install.</p>
 
 <dd>
 <pre>
-  if ( $qmail-&gt;build_smtp_run( conf=&gt;$conf, file=&gt;$file) ) { print &quot;success&quot; };</pre>
+  if ( $qmail-&gt;build_smtp_run( file=&gt;$file) ) { print &quot;success&quot; };</pre>
 </dd>
 <dd>
-<p>Generate a supervise run file for qmail-smtpd. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
+<p>Generate a supervise run file for qmail-smtpd. $file is the location of the file it's going to generate.</p>
 </dd>
 <dd>
 <pre>
   my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;
-  if ( $qmail-&gt;build_smtp_run( conf=&gt;$conf, file=&gt;$file ) )
+  if ( $qmail-&gt;build_smtp_run( file=&gt;$file ) )
   {
-    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;smtp&quot;, conf=&gt;$conf);
+    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;smtp&quot; );
   };</pre>
 </dd>
 <dd>
@@ -434,7 +416,6 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  arguments required:
-    conf - as hashref with the contents of toaster-watcher.conf
     file - the temp file to construct</pre>
 </dd>
 <dd>
@@ -453,17 +434,17 @@ that are a different than mine, like a LWQ install.</p>
 
 <dd>
 <pre>
-  if ( $qmail-&gt;build_submit_run( conf=&gt;$conf, file=&gt;$file ) ) { print &quot;success&quot;};</pre>
+  if ( $qmail-&gt;build_submit_run( file=&gt;$file ) ) { print &quot;success&quot;};</pre>
 </dd>
 <dd>
-<p>Generate a supervise run file for qmail-smtpd running on submit. $file is the location of the file it's going to generate. $conf is a list of configuration variables pulled from a config file (see ParseConfigfile). I typically use it like this:</p>
+<p>Generate a supervise run file for qmail-smtpd running on submit. $file is the location of the file it's going to generate.</p>
 </dd>
 <dd>
 <pre>
   my $file = &quot;/tmp/toaster-watcher-smtpd-runfile&quot;;
-  if ( $qmail-&gt;build_submit_run( conf=&gt;$conf, file=&gt;$file ) )
+  if ( $qmail-&gt;build_submit_run( file=&gt;$file ) )
   {
-    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;submit&quot;, conf=&gt;$conf);
+    $qmail-&gt;install_supervise_run( tmpfile=&gt;$file, prot=&gt;&quot;submit&quot; );
   };</pre>
 </dd>
 <dd>
@@ -472,7 +453,6 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  arguments required:
-    conf - as hashref with the contents of toaster-watcher.conf
     file - the temp file to construct</pre>
 </dd>
 <dd>
@@ -566,12 +546,7 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  Usage:
-   $qmail-&gt;config( conf=&gt;$conf);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - as hashref with the contents of toaster-watcher.conf</pre>
+   $qmail-&gt;config();</pre>
 </dd>
 <dd>
 <pre>
@@ -594,7 +569,7 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  Usage:
-   $qmail-&gt;control_create(conf=&gt;$conf);</pre>
+   $qmail-&gt;control_create();</pre>
 </dd>
 <dd>
 <pre>
@@ -614,11 +589,6 @@ that are a different than mine, like a LWQ install.</p>
                 queue -- shows status of queue
                 alrm -- same as doqueue
                 hup -- same as reload</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - as hashref with the contents of toaster-watcher.conf</pre>
 </dd>
 <dd>
 <pre>
@@ -668,15 +638,7 @@ that are a different than mine, like a LWQ install.</p>
 </dd>
 <dd>
 <pre>
-  my $r = $qmail-&gt;get_list_of_rbls( 
-     conf  =&gt; $hashref,
-     debug =&gt; $debug 
-  );</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - a hashref of values, usually the contents of toaster-watcher.conf</pre>
+  my $r = $qmail-&gt;get_list_of_rbls( debug =&gt; $debug );</pre>
 </dd>
 <dd>
 <pre>
@@ -693,15 +655,10 @@ that are a different than mine, like a LWQ install.</p>
 
 <dd>
 <pre>
-  my $selected = $qmail-&gt;get_list_of_rwls( conf=&gt;$conf, debug=&gt;$debug);</pre>
+  my $selected = $qmail-&gt;get_list_of_rwls( debug=&gt;$debug);</pre>
 </dd>
 <dd>
 <p>Here we collect a list of the RWLs from the configuration file that gets passed to us and return them.</p>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - a hashref, typically the contents of toaster-watcher.conf</pre>
 </dd>
 <dd>
 <pre>
@@ -722,12 +679,7 @@ that are a different than mine, like a LWQ install.</p>
 <dd>
 <pre>
  Usage:
-   $qmail-&gt;install_qmail( conf=&gt;$conf, debug=&gt;1);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - a hash of values from toaster-watcher.conf</pre>
+   $qmail-&gt;install_qmail( debug=&gt;1);</pre>
 </dd>
 <dd>
 <pre>
@@ -752,12 +704,7 @@ that are a different than mine, like a LWQ install.</p>
 </dd>
 <dd>
 <pre>
-  $qmail-&gt;install_qmail_control_files( conf=&gt;$conf, debug=&gt;$debug);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf - a hash of values from toaster-watcher.conf</pre>
+  $qmail-&gt;install_qmail_control_files( debug=&gt;$debug);</pre>
 </dd>
 <dd>
 <pre>
@@ -848,9 +795,9 @@ Matt Simerson  (<a href="mailto:matt@tnpi.net">matt@tnpi.net</a>)</a></h1>
 <p>
 </p>
 <hr />
-<h1><a name="licence_and_copyright_copyright__c___year__the_network_people__inc___info_tnpi_net___all_rights_reserved_">LICENCE AND COPYRIGHT
+<h1><a name="licence_and_copyright_copyright__c__20042008_the_network_people__inc___info_tnpi_net___all_rights_reserved_">LICENCE AND COPYRIGHT
  
-Copyright (c) &lt;year&gt; The Network People, Inc. (<a href="mailto:info@tnpi.net">info@tnpi.net</a>) All rights reserved.</a></h1>
+Copyright (c) 2004-2008 The Network People, Inc. (<a href="mailto:info@tnpi.net">info@tnpi.net</a>) All rights reserved.</a></h1>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
 </p>

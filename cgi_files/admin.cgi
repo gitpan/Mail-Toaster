@@ -8,14 +8,14 @@ use strict;
 
 use vars qw/ $VERSION /;
 
-$VERSION = "1.0";
+$VERSION = "1.01";
 
 use CGI qw(:standard);
 use CGI::Carp qw( fatalsToBrowser );
 
 use Mail::Toaster::Perl;      my $perl   = Mail::Toaster::Perl->new;
 use Mail::Toaster::CGI;       my $mt_cgi = Mail::Toaster::CGI->new;
-use Mail::Toaster::Utility 1; my $utility = Mail::Toaster::Utility->new;
+use Mail::Toaster::Utility 1; my $util= Mail::Toaster::Utility->new;
 
 $perl->module_load( module=>"HTML::Template", port_name=>"p5-HTML-Template", port_group=>"www" );
 
@@ -32,7 +32,7 @@ my $ssl      = $cgi->param('ssl');
 my ($host, $debug);
 my $stats    = 0;
 
-my $conf     = $utility->parse_config( file=>"toaster.conf",debug=>$debug );
+my $conf     = $util->parse_config( file=>"toaster.conf",debug=>$debug );
 die "FAILURE: Could not find toaster.conf!\n" unless $conf;
 
 if    ( $save )                 { $editable = 0; }
@@ -140,7 +140,7 @@ Matt Simerson (matt@tnpi.net)
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright (c) 2004-2006, The Network People, Inc. All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

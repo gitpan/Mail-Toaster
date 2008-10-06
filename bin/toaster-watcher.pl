@@ -8,11 +8,11 @@ use warnings;
 
 use vars qw/$VERSION/;
 
-$VERSION = "5.06";
+$VERSION = "5.07";
 
 use lib "lib";  
 
-use Mail::Toaster::Utility 5; my $utility = Mail::Toaster::Utility->new();    
+use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new();    
 use Mail::Toaster::Qmail   5; my $qmail = Mail::Toaster::Qmail->new();
 use Mail::Toaster          5; my $toaster = Mail::Toaster->new();
 
@@ -30,26 +30,26 @@ if ( $UID != 0 ) {
 };
 
 my $pidfile = "/var/run/toaster-watcher.pid";
-if ( ! $utility->pidfile_check( pidfile => $pidfile, fatal=>0, debug=>0 ) ) {
+if ( ! $util->pidfile_check( pidfile => $pidfile, fatal=>0, debug=>0 ) ) {
     carp "Another toaster-watcher is running,  I refuse to!\n";
     exit 500;
 };
 
-my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
+my $conf = $util->parse_config( file => "toaster-watcher.conf", debug => 0 );
 my $debug = $conf->{'toaster_debug'} || $opt_d || 0;
 
 if ($opt_v) { $debug = 1; print "$0 v$VERSION\n"; }
 
 my $logfile = $conf->{'toaster_watcher_log'};
 if ($logfile) {
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Starting up"],
         fatal => 0,
         debug => $debug,
     );
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Running toaster_check"],
@@ -59,13 +59,12 @@ if ($logfile) {
 }
 
 $qmail->config( 
-    conf       => $conf, 
     first_time => 0,
     debug      => $debug,
 );
 
 print "generating send/run..." if $debug;
-$utility->logfile_append(
+$util->logfile_append(
     file  => $logfile,
     prog  => "watcher",
     lines => ["Building send/run"],
@@ -73,18 +72,17 @@ $utility->logfile_append(
 )                              if $logfile;
 
 $file = "/tmp/toaster-watcher-send-runfile";
-if ( $qmail->build_send_run( conf => $conf, file => $file, debug => $debug ) ) {
+if ( $qmail->build_send_run( file => $file, debug => $debug ) ) {
     print "success.\n" if $debug;
     if (
         $qmail->install_supervise_run(
             tmpfile => $file,
             prot    => 'send',
             debug   => 0,
-            conf    => $conf
         ) == 1
       )
     {
-        $qmail->restart( conf=>$conf, debug=>$debug );
+        $qmail->restart( debug=>$debug );
     }
 }
 else { print "FAILED.\n" if $debug; }
@@ -92,7 +90,7 @@ else { print "FAILED.\n" if $debug; }
 # if qpop3d is our selected pop3 daemon ...
 if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
     print "generating pop3/run..." if $debug;
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Building pop3/run"],
@@ -100,7 +98,7 @@ if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
     ) if $logfile;
 
     $file = "/tmp/toaster-watcher-pop3-runfile";
-    if ( $qmail->build_pop3_run( conf => $conf, file => $file, debug => $debug )
+    if ( $qmail->build_pop3_run( file => $file, debug => $debug )
       )
     {
         print "success.\n" if $debug;
@@ -108,14 +106,13 @@ if ( $conf->{'pop3_daemon'} eq "qpop3d" ) {
             tmpfile => $file,
             prot    => 'pop3',
             debug   => $debug,
-            conf    => $conf,
         );
     }
     else { print "FAILED.\n" if $debug; }
 }
 
 print "generating smtp/run..." if $debug;
-$utility->logfile_append(
+$util->logfile_append(
     file  => $logfile,
     prog  => "watcher",
     lines => ["Building smtp/run"],
@@ -124,24 +121,23 @@ $utility->logfile_append(
 
 $file = "/tmp/toaster-watcher-smtpd-runfile";
 
-if ( $qmail->build_smtp_run( conf => $conf, file => $file, debug => $debug ) ) {
+if ( $qmail->build_smtp_run( file => $file, debug => $debug ) ) {
     print "success.\n" if $debug;
     if (
         $qmail->install_supervise_run(
             tmpfile => $file,
             prot    => 'smtp',
             debug   => $debug,
-            conf    => $conf
         )
       )
     {
-        $qmail->smtpd_restart( conf => $conf, prot => "smtp", debug => $debug );
+        $qmail->smtpd_restart( prot => "smtp", debug => $debug );
     }
 }
 else { print "FAILED.\n" if $debug; }
 
 if ( $conf->{'submit_enable'} ) {
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Building submit/run"],
@@ -152,7 +148,6 @@ if ( $conf->{'submit_enable'} ) {
     $file = "/tmp/toaster-watcher-submit-runfile";
     if (
         $qmail->build_submit_run(
-            conf  => $conf,
             file  => $file,
             debug => $debug,
         )
@@ -164,12 +159,10 @@ if ( $conf->{'submit_enable'} ) {
                 tmpfile => $file,
                 prot    => 'submit',
                 debug   => $debug,
-                conf    => $conf,
             )
           )
         {
             $qmail->smtpd_restart(
-                conf  => $conf,
                 prot  => "submit",
                 debug => $debug,
             );
@@ -178,14 +171,14 @@ if ( $conf->{'submit_enable'} ) {
     else { print "FAILED.\n" if $debug; }
 }
 
-$toaster->toaster_check( conf=>$conf, debug=>$debug );
-$toaster->service_symlinks( conf=>$conf, debug=>$debug );
+$toaster->toaster_check( debug=>$debug );
+$toaster->service_symlinks( debug=>$debug );
 
 if ( $conf->{'vpopmail_roaming_users'} ) {
     my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
     if ( -x "$vpopdir/bin/clearopensmtp" ) {
         print "running clearopensmtp..." if $debug;
-        $utility->syscmd( command => "$vpopdir/bin/clearopensmtp", debug=>$debug );
+        $util->syscmd( command => "$vpopdir/bin/clearopensmtp", debug=>$debug );
         print "done.\n " if $debug;
     }
     else {
@@ -194,9 +187,9 @@ if ( $conf->{'vpopmail_roaming_users'} ) {
 }
 
 if ( $conf->{'install_isoqlog'} ) {
-    my $isoqlog = $utility->find_the_bin( bin => "isoqlog", debug=>0 );
+    my $isoqlog = $util->find_the_bin( bin => "isoqlog", debug=>0 );
     if ( -x $isoqlog ) {
-        $utility->syscmd( command => "$isoqlog >/dev/null", debug=>$debug );
+        $util->syscmd( command => "$isoqlog >/dev/null", debug=>$debug );
     }
 }
 
@@ -208,7 +201,7 @@ if ( $conf->{'install_rrdutil'} ) {
 
 if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} ) {
     print "checking qmail-scanner quarantine.\n" if $debug;
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Processing the qmail-scanner quarantine"],
@@ -218,7 +211,7 @@ if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} ) {
     my $qs_debug = $conf->{'qs_quarantine_verbose'};
     if ( $debug && !$qs_debug ) { $qs_debug++ }
 
-    my @list = $qmail->get_qmailscanner_virus_sender_ips( $conf, $qs_debug );
+    my @list = $qmail->get_qmailscanner_virus_sender_ips( $qs_debug );
 
     my $count = @list;
     if ( $count && $qs_debug ) {
@@ -226,54 +219,54 @@ if ( $conf->{'install_qmailscanner'} && $conf->{'qs_quarantine_process'} ) {
     }
 
     if ( $conf->{'qs_block_virus_senders'} ) {
-        $qmail->UpdateVirusBlocks( conf => $conf, ips => \@list );
+        $qmail->UpdateVirusBlocks( ips => \@list );
     }
 }
 
 if ( $conf->{'maildir_clean_interval'} ) {
     print "cleaning mailbox messages..." if ($debug);
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["Cleaning mailbox messages"],
         debug => 0,
     ) if $logfile;
 
-    $toaster->clean_mailboxes( conf => $conf, debug => $debug );
+    $toaster->clean_mailboxes( debug => $debug );
     print "done.\n" if ($debug);
 }
 
 if ( $conf->{'maildir_learn_interval'} ) {
     print "learning mailbox messages..." if ($debug);
-    $utility->logfile_append(
+    $util->logfile_append(
         file  => $logfile,
         prog  => "watcher",
         lines => ["learning mailbox messages"],
         debug => 0,
     ) if $logfile;
 
-    $toaster->learn_mailboxes( conf => $conf, debug => $debug );
+    $toaster->learn_mailboxes( debug => $debug );
     print "done.\n" if ($debug);
 }
 
 # rebuild ssl temp keys for qmail
-$utility->logfile_append(
+$util->logfile_append(
     file  => $logfile,
     prog  => "watcher",
     lines => ["rebuilding SSL temp keys"],
     debug => 0,
 ) if $logfile;
-$qmail->rebuild_ssl_temp_keys( conf => $conf, debug => 0 );
+$qmail->rebuild_ssl_temp_keys( debug => 0 );
 
 if ( -x "/var/qmail/bin/simscanmk" ) {
 
     # this needs to be done, but quietly
-    #	$utility->syscmd( command=>"/var/qmail/bin/simscanmk" );
-    #	$utility->syscmd( command=>"/var/qmail/bin/simscanmk -g" );
+    #	$util->syscmd( command=>"/var/qmail/bin/simscanmk" );
+    #	$util->syscmd( command=>"/var/qmail/bin/simscanmk -g" );
 }
 
 unlink $pidfile;
-$utility->logfile_append(
+$util->logfile_append(
     file  => $logfile,
     prog  => "watcher",
     lines => ["Exiting\n"],
@@ -289,6 +282,9 @@ __END__
 
 toaster-watcher.pl - monitors and configure various aspects of a qmail toaster
 
+=head1 VERSION
+
+5.07
 
 =head1 SYNOPSIS
 

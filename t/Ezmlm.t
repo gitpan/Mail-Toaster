@@ -1,7 +1,3 @@
-#!/usr/bin/perl
-#
-# $Id: Ezmlm.t,v 4.2 2005/05/10 02:28:44 matt Exp $
-#
 use strict;
 use warnings;
 
@@ -20,13 +16,8 @@ else {
     plan 'no_plan';
 };
 
-BEGIN {
-    use_ok( 'Mail::Toaster::Ezmlm' );
-    use_ok( 'Mail::Toaster::Utility' );
-}
+require_ok( 'Mail::Toaster::Utility' );
 require_ok( 'Mail::Toaster::Ezmlm' );
-
-# let the testing begin
 
 # basic OO mechanism
 	my $ezmlm = Mail::Toaster::Ezmlm->new;                       # create an object
@@ -34,8 +25,8 @@ require_ok( 'Mail::Toaster::Ezmlm' );
 	ok ( $ezmlm->isa('Mail::Toaster::Ezmlm'), 'check object class' );
 
 
-my $utility = Mail::Toaster::Utility->new();
-my $conf = $utility->parse_config( 
+my $util = Mail::Toaster::Utility->new();
+my $conf = $util->parse_config( 
     file  => "toaster-watcher.conf", 
     debug => 0,
 );

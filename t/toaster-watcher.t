@@ -35,10 +35,10 @@ my $toaster = Mail::Toaster->new;    # create an object
 ok( defined $toaster, 'get Mail::Toaster object' );    # check it
 ok( $toaster->isa('Mail::Toaster'), 'check object class' );    # is it the right
 
-my $utility = Mail::Toaster::Utility->new;
+my $util = Mail::Toaster::Utility->new;
 my $qmail   = Mail::Toaster::Qmail->new;
 
-my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
+my $conf = $util->parse_config( file => "toaster-watcher.conf", debug => 0 );
 ok( $conf, 'parse_config' );
 
 my $setup   = Mail::Toaster::Setup->new(conf=>$conf);
@@ -55,12 +55,11 @@ if (   !-w "/tmp"
 
 # build a pop3/run file in /tmp
 my $file = "/tmp/pop3.txt";
-$r = $qmail->build_pop3_run( conf => $conf, file => $file, debug => 0 );
+$r = $qmail->build_pop3_run( file => $file, debug => 0 );
 if ($r) {
     ok( $r, 'build_pop3_run' );
     ok(
         $qmail->install_supervise_run(
-            conf    => $conf,
             tmpfile => $file,
             prot    => "pop3",
             test_ok => 1,
@@ -71,12 +70,11 @@ if ($r) {
 
 # build a submit/run file in /tmp
 $file = "/tmp/submit.txt";
-$r = $qmail->build_submit_run( conf => $conf, file => $file, debug => 0, fatal=>0 );
+$r = $qmail->build_submit_run( file => $file, debug => 0, fatal=>0 );
 if ($r) {
     ok( $r, 'build_submit_run' );
     ok(
         $qmail->install_supervise_run(
-            conf    => $conf,
             tmpfile => $file,
             prot    => "submit",
             test_ok => 1,
@@ -87,12 +85,11 @@ if ($r) {
 
 # build a send/run file in /tmp
 $file = "/tmp/send.txt";
-$r = $qmail->build_send_run( conf => $conf, file => $file, debug => 0, fatal=>0 );
+$r = $qmail->build_send_run( file => $file, debug => 0, fatal=>0 );
 if ($r) {
     ok( $r, 'build_send_run' );
     ok(
         $qmail->install_supervise_run(
-            conf    => $conf,
             tmpfile => $file,
             prot    => "send",
             fatal   => 0,
@@ -105,12 +102,11 @@ if ($r) {
 
 # build a smtp/run file in /tmp
 $file = "/tmp/smtp.txt";
-$r = $qmail->build_smtp_run( conf => $conf, file => $file, debug => 0, fatal=>0 );
+$r = $qmail->build_smtp_run( file => $file, debug => 0, fatal=>0 );
 if ($r) {
     ok( $r, 'build_smtp_run' );
     ok(
         $qmail->install_supervise_run(
-            conf    => $conf,
             tmpfile => $file,
             prot    => "smtp",
             fatal   => 0,
@@ -124,7 +120,6 @@ if ($r) {
 # build a * /log/run file in /tmp
 ok(
     $qmail->install_qmail_control_log_files(
-        conf    => $conf,
         debug   => 0,
         test_ok => 1,
     ),
@@ -132,31 +127,27 @@ ok(
 );
 
 # test the supervised directories
-if ( $toaster->supervised_dir_test( conf => $conf, prot => "smtp", debug => 0 ) ) {
+if ( $toaster->supervised_dir_test( prot => "smtp", debug => 0 ) ) {
     ok(
-        $toaster->supervised_dir_test( conf => $conf, prot => "smtp", debug => 0 ),
+        $toaster->supervised_dir_test( prot => "smtp", debug => 0 ),
         'dir supervise/smtp'
     );
     ok(
-        $toaster->supervised_dir_test( conf => $conf, prot => "send", debug => 0 ),
+        $toaster->supervised_dir_test( prot => "send", debug => 0 ),
         'dir supervise/send'
     );
     ok(
-        $toaster->supervised_dir_test( conf => $conf, prot => "pop3", debug => 0 ),
+        $toaster->supervised_dir_test( prot => "pop3", debug => 0 ),
         'dir supervise/pop3'
     );
     ok(
-        $toaster->supervised_dir_test(
-            conf  => $conf,
-            prot  => "submit",
-            debug => 0,
-        ),
+        $toaster->supervised_dir_test( prot  => "submit", debug => 0,),
         'dir supervise/submit'
     );
 };
 
 ok( $setup->startup_script( debug => 0, test_ok=>1 ), 'startup_script' );
 
-ok( $toaster->service_symlinks( conf=>$conf, debug=>0 ), 'service_symlinks' );
+ok( $toaster->service_symlinks( debug=>0 ), 'service_symlinks' );
 
 ok( chdir($initial_working_directory), 'reset working directory' );

@@ -2,7 +2,7 @@
 use strict;
 
 #
-# $Id: migrate.pl 586 2007-10-23 23:48:14Z matt $
+# $Id: migrate.pl 674 2008-10-05 19:43:50Z matt $
 #
 
 =head1 NAME
@@ -34,8 +34,9 @@ July 7, 06 - merged in some automation additions. use with caution.
 
 =cut
 
+use lib 'lib';
 use Mail::Toaster::Mysql;   my $mysql = new Mail::Toaster::Mysql;
-use Mail::Toaster::Utility; my $utility = new Mail::Toaster::Utility;
+use Mail::Toaster::Utility; my $util = new Mail::Toaster::Utility;
 
 my ($type, $domain, $newhost) = @ARGV;
 my $vpopdir = "/usr/local/vpopmail";
@@ -64,13 +65,13 @@ sub migrate_vpopmail
 	my $postmaster = add_postmaster(undef, $domain, $host, @users);  # show the domain creation cmd
 	add_emails(undef, $domain, $host, @users);    # the email accounts to add
 
-	if ( $utility->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) 
+	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) 
 	{
 		# does the domain directory exist on the other end?
-		unless ( $utility->syscmd(cmd=>"ssh $host test -d $vpopdir/domains/$domain", debug=>0)) {
+		unless ( $util->syscmd(cmd=>"ssh $host test -d $vpopdir/domains/$domain", debug=>0)) {
 			$exists++;
 			print "target directory already exists on $host!\n\tmoving it out of the way...";
-			$utility->syscmd(cmd=>"ssh $host mv $vpopdir/domains/$domain $vpopdir/domains/$domain.bak", debug=>0);
+			$util->syscmd(cmd=>"ssh $host mv $vpopdir/domains/$domain $vpopdir/domains/$domain.bak", debug=>0);
 			print "done.\n";
 		};
 
@@ -83,7 +84,7 @@ sub migrate_vpopmail
 	};
 
 	# this test could/should be automated!
-	unless ( $utility->yes_or_no( q=>"\nhas the previous task completed successfully (w/o errors)? ", force=>1) ) {
+	unless ( $util->yes_or_no( q=>"\nhas the previous task completed successfully (w/o errors)? ", force=>1) ) {
 		die "ok, bombing out!\n";
 	};
 
@@ -125,7 +126,7 @@ sub add_emails
 
 		print "  $cmd \n";
 		if ( $do ) {
-			$utility->syscmd(cmd=>"ssh $host $cmd", debug=>0);
+			$util->syscmd(cmd=>"ssh $host $cmd", debug=>0);
 		}
 	};
 };
@@ -139,7 +140,7 @@ sub add_postmaster
 		my $cmd = "$vpopdir/bin/vadddomain $domain $_->{'pw_clear_passwd'}";
 		print "  $cmd\n";
 		if ( $do ) {
-			$utility->syscmd(cmd=>"ssh $host $cmd", debug=>0); # add the domain on the new server.
+			$util->syscmd(cmd=>"ssh $host $cmd", debug=>0); # add the domain on the new server.
 			return 1;
 		};
 	};
@@ -185,7 +186,7 @@ sub add_domain_to_smtproutes
 
 	if  ( ! `grep $domain /var/qmail/control/smtproutes` ) {
 		print "missing.\nadding $domain to smtproutes...";
-		$utility->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
+		$util->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
 	};
 
 	if ( `grep $domain /var/qmail/control/smtproutes`) {
@@ -208,7 +209,7 @@ test email
 testing
 .\n\nand make sure it gets delivered properly.";
 
-	unless ( $utility->yes_or_no( q=>"\nhave you completed the previous task successfully?", force=>1) ) {
+	unless ( $util->yes_or_no( q=>"\nhave you completed the previous task successfully?", force=>1) ) {
 		die "ok, bombing out!\n";
 	};
 };
@@ -220,11 +221,11 @@ sub delete_domain
 	print "now delete the domain from the (old) server with:\n";
 	print "\n  $vpopdir/bin/vdeldomain $domain";
 
-	if ( $utility->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
-		$utility->syscmd(cmd=>"$vpopdir/bin/vdeldomain $domain", debug=>0);
+	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
+		$util->syscmd(cmd=>"$vpopdir/bin/vdeldomain $domain", debug=>0);
 	};
 
-	unless ( $utility->yes_or_no( q=>"\nhave you completed the previous task successfully?", force=>1) ) {
+	unless ( $util->yes_or_no( q=>"\nhave you completed the previous task successfully?", force=>1) ) {
 		die "ok, bombing out!\n";
 	};
 };
@@ -238,8 +239,8 @@ sub verify_domain_exists_in_rcpthosts
 	$r ? print "ok.\n" : print "FAILED.\n";
 
 	unless ($r) {
-		if ($utility->yes_or_no( q=>"shall I fix that for you?", force=>1) ){
-			$utility->file_write(file=>"/var/qmail/control/rcpthosts", lines=>[$domain], append=>1);
+		if ($util->yes_or_no( q=>"shall I fix that for you?", force=>1) ){
+			$util->file_write(file=>"/var/qmail/control/rcpthosts", lines=>[$domain], append=>1);
 		};
 	};
 };
@@ -253,8 +254,8 @@ sub verify_domain_exists_in_smtproutes
 	$r ? print "ok.\n" : print "FAILED.\n";
 
 	unless ($r) {
-		if ($utility->yes_or_no( q=>"shall I do that for you?", force=>1) ){
-			$utility->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
+		if ($util->yes_or_no( q=>"shall I do that for you?", force=>1) ){
+			$util->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
 		};
 	};
 };
@@ -268,20 +269,20 @@ sub rsync_mailboxes_to_new
 		my $cleanup = "rm -r $vpopdir/domains/$domain";
 		my $clean2  = "mv $vpopdir/domains/$domain.bak $vpopdir/domains/$domain";
 		print "   $cleanup\n";
-		$utility->syscmd(cmd=>"ssh $host $cleanup", debug=>0);
+		$util->syscmd(cmd=>"ssh $host $cleanup", debug=>0);
 		print "   $clean2\n";
-		$utility->syscmd(cmd=>"ssh $host $clean2", debug=>0);
+		$util->syscmd(cmd=>"ssh $host $clean2", debug=>0);
 	};
 
 	my $cmd = "rsync -av -e ssh --delete $vpopdir/domains/$domain $host:$vpopdir/domains/";
 
 	print "rsync the maildirs from this (old) server to the new one with:\n\n   $cmd \n\n";
 
-	if ( $utility->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
-		$utility->syscmd(cmd=>$cmd, debug=>0);
+	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
+		$util->syscmd(cmd=>$cmd, debug=>0);
 	};
 
-	unless ( $utility->yes_or_no( q=>"\nhas the previous task completed successfully?", force=>1) ) {
+	unless ( $util->yes_or_no( q=>"\nhas the previous task completed successfully?", force=>1) ) {
 		die "ok, bombing out!\n";
 	};
 };
@@ -309,7 +310,7 @@ sub _check_my_cnf
 
     my ($homedir) = (getpwuid ($<))[7];
 
-	unless ( $utility->is_readable( file=>"$homedir/.my.cnf" ) )
+	unless ( $util->is_readable( file=>"$homedir/.my.cnf" ) )
 	{
 		print "\nHey bubba, I need to connect to your MySQL server as the root or vpopmail user. To facilitate this, I expect a configured ~/.my.cnf file. This file format is the same as the mysql client uses and properly configured might look like this:
 
@@ -351,8 +352,17 @@ Matt Simerson  C<< <matt@tnpi.net> >>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2006-2007, Matt Simerson C<< <matt@tnpi.net> >>. All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc. C<< <info@tnpi.net> >>. All rights reserved.
 
-This module is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself. See L<perlartistic>.
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+Redistributions of source code must retain the above copyright notice, this list of conditions and the follo
+wing disclaimer.
+
+Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the fo
+llowing disclaimer in the documentation and/or other materials provided with the distribution.
+
+Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED ANDON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
 

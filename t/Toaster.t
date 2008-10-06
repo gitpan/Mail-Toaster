@@ -18,42 +18,40 @@ require_ok('Mail::Toaster::Utility');
 
 
 # basic OO mechanism
-my $toaster = Mail::Toaster->new;    # create an object
-ok( defined $toaster, 'get Mail::Toaster object' );          # check it
+my $toaster = Mail::Toaster->new;
+ok( defined $toaster, 'get Mail::Toaster object' );
 ok( $toaster->isa('Mail::Toaster'), 'check object class' );
 
-my $utility = Mail::Toaster::Utility->new;
-ok( defined $utility, 'get Mail::Toaster::Utility object' );
-ok( $utility->isa('Mail::Toaster::Utility'), 'check object class' );
+my $util = Mail::Toaster::Utility->new;
+ok( defined $util, 'get Mail::Toaster::Utility object' );
+ok( $util->isa('Mail::Toaster::Utility'), 'check object class' );
 
 # parse_config
-my $conf = $utility->parse_config( file => "toaster-watcher.conf", debug => 0 );
+my $conf = $util->parse_config( file => "toaster-watcher.conf", debug => 0 );
 ok( $conf, 'parse_config' );
 
 # toaster_check
-ok( $toaster->toaster_check( conf => $conf, debug => 0 ), 'toaster_check' );
+ok( $toaster->toaster_check( debug => 0 ), 'toaster_check' );
 
 if ( $UID == 0 ) {
 
 # learn_mailboxes
     if ( -d $conf->{'qmail_log_base'} ) {
         ok( $toaster->learn_mailboxes( 
-            conf => $conf, 
             fatal => 0,
             test_ok => 1, 
         ), 'learn_mailboxes' );
 
 # clean_mailboxes
-        ok( $toaster->clean_mailboxes( conf => $conf, test_ok=>1, fatal => 0 ),
+        ok( $toaster->clean_mailboxes( test_ok=>1, fatal => 0 ),
             'clean_mailboxes' );
     }
     else {
         # these should fail if the toaster logs are not set up yet
-        ok( ! $toaster->clean_mailboxes( conf => $conf, fatal => 0 ),
+        ok( ! $toaster->clean_mailboxes( fatal => 0 ),
             'clean_mailboxes' );
 
         ok( ! $toaster->learn_mailboxes( 
-            conf => $conf, 
             fatal => 0,
             test_ok => 0, 
         ), 'learn_mailboxes' );
@@ -63,7 +61,6 @@ if ( $UID == 0 ) {
 # maildir_clean_spam
 ok(
     !$toaster->maildir_clean_spam(
-        conf  => $conf,
         path  => '/home/domains/example.com/user',
         debug => 0,
     ),
@@ -76,18 +73,17 @@ my $assign = "$qdir/users/assign";
 my $assign_size = -s $assign;
 
 if ( -r $assign && $assign_size > 10 ) {
-    ok( $toaster->get_maildir_paths( conf => $conf, fatal => 0 ),
+    ok( $toaster->get_maildir_paths( fatal => 0 ),
         'get_maildir_paths' );
 }
 else {
-    ok( !$toaster->get_maildir_paths( conf => $conf, fatal => 0 , debug=>0 ),
+    ok( !$toaster->get_maildir_paths( fatal => 0 , debug=>0 ),
         'get_maildir_paths' );
 }
 
 # maildir_learn_spam
 ok(
     !$toaster->maildir_learn_spam(
-        conf  => $conf,
         path  => '/home/example.com/user',
         debug => 0,
     ),
@@ -97,7 +93,6 @@ ok(
 # maildir_clean_trash
 ok(
     !$toaster->maildir_clean_trash(
-        conf => $conf,
         path => '/home/example.com/user',
     ),
     'maildir_clean_trash'
@@ -106,7 +101,6 @@ ok(
 # maidir_clean_sent
 ok(
     !$toaster->maidir_clean_sent(
-        conf => $conf,
         path => '/home/example.com/user',
     ),
     'maidir_clean_sent'
@@ -115,7 +109,6 @@ ok(
 # maildir_clean_new
 ok(
     !$toaster->maildir_clean_new(
-        conf => $conf,
         path => '/home/example.com/user',
     ),
     'maildir_clean_new'
@@ -124,7 +117,6 @@ ok(
 # maildir_clean_ham
 ok(
     !$toaster->maildir_clean_ham(
-        conf => $conf,
         path => '/home/example.com/user',
     ),
     'maildir_clean_ham'
@@ -133,29 +125,27 @@ ok(
 # maildir_learn_ham
 ok(
     !$toaster->maildir_learn_ham(
-        conf => $conf,
         path => '/home/example.com/user',
     ),
     'maildir_learn_ham'
 );
 
 # service_dir_create
-ok( $toaster->service_dir_create( conf => $conf, fatal => 0, test_ok => 1 ),
+ok( $toaster->service_dir_create( fatal => 0, test_ok => 1 ),
     'service_dir_create' );
 
 # service_dir_test
 if ( -d "/var/service" ) {
-    ok( $toaster->service_dir_test( conf => $conf ), 'service_dir_test' );
+    ok( $toaster->service_dir_test(), 'service_dir_test' );
 }
 
 # supervise_dirs_create
-ok( $toaster->supervise_dirs_create( conf => $conf, debug => 0, test_ok => 1 ),
+ok( $toaster->supervise_dirs_create( debug => 0, test_ok => 1 ),
     'supervise_dirs_create' );
 
 # supervised_dir_test
 ok(
     $toaster->supervised_dir_test(
-        conf    => $conf,
         prot    => 'smtp',
         test_ok => 1,
         debug   => 0
@@ -165,7 +155,6 @@ ok(
 
 ok(
     $toaster->supervised_dir_test(
-        conf    => $conf,
         prot    => 'submit',
         test_ok => 1,
         debug   => 0
@@ -175,7 +164,6 @@ ok(
 
 ok(
     $toaster->supervised_dir_test(
-        conf    => $conf,
         prot    => 'send',
         test_ok => 1,
         debug   => 0
@@ -184,7 +172,7 @@ ok(
 );
 
 # test_processes
-ok( $toaster->test_processes( conf => $conf, debug => 0 ), 'test_processes' );
+ok( $toaster->test_processes( debug => 0 ), 'test_processes' );
 
 # email_send
 
@@ -199,29 +187,26 @@ ok( $toaster->test_processes( conf => $conf, debug => 0 ), 'test_processes' );
 # email_send_spam
 
 # get_toaster_htdocs
-ok( $toaster->get_toaster_htdocs( conf => $conf ), 'get_toaster_htdocs' );
 ok( $toaster->get_toaster_htdocs(), 'get_toaster_htdocs' );
 
 # get_toaster_cgibin
-ok( $toaster->get_toaster_cgibin( conf => $conf ), 'get_toaster_cgibin' );
 ok( $toaster->get_toaster_cgibin(), 'get_toaster_cgibin' );
 
 # supervised_do_not_edit_notice
-ok( $toaster->supervised_do_not_edit_notice( conf => $conf ),
+ok( $toaster->supervised_do_not_edit_notice(),
     'supervised_do_not_edit_notice' );
 
 # supervised_hostname
 ok(
-    $toaster->supervised_hostname( conf => $conf, prot => "smtpd", debug => 0, fatal=>0 ),
+    $toaster->supervised_hostname( prot => "smtpd", debug => 0, fatal=>0 ),
     'supervised_hostname smtpd'
 );
 ok(
-    $toaster->supervised_hostname( conf => $conf, prot => "pop3", debug => 0, fatal=>0 ),
+    $toaster->supervised_hostname( prot => "pop3", debug => 0, fatal=>0 ),
     'supervised_hostname pop3'
 );
 ok(
     $toaster->supervised_hostname(
-        conf  => $conf,
         prot  => "submit",
         debug => 0
     ),
@@ -229,18 +214,17 @@ ok(
 );
 
 # supervised_multilog
-if ( $utility->find_the_bin( bin => "setuidgid", debug=>0, fatal=>0 ) ) {
+if ( $util->find_the_bin( bin => "setuidgid", debug=>0, fatal=>0 ) ) {
     ok(
-        $toaster->supervised_multilog( conf => $conf, prot => "smtpd", debug => 0, fatal=>0 ),
+        $toaster->supervised_multilog( prot => "smtpd", debug => 0, fatal=>0 ),
         'supervised_multilog smtpd'
     );
     ok(
-        $toaster->supervised_multilog( conf => $conf, prot => "pop3", debug => 0, fatal=>0 ),
+        $toaster->supervised_multilog( prot => "pop3", debug => 0, fatal=>0 ),
         'supervised_multilog pop3'
     );
     ok(
         $toaster->supervised_multilog(
-            conf  => $conf,
             prot  => "submit",
             debug => 0, 
             fatal => 0,
@@ -251,16 +235,15 @@ if ( $utility->find_the_bin( bin => "setuidgid", debug=>0, fatal=>0 ) ) {
 
 # supervised_log_method
 ok(
-    $toaster->supervised_log_method( conf => $conf, prot => "smtpd", debug => 0 ),
+    $toaster->supervised_log_method( prot => "smtpd", debug => 0 ),
     'supervised_log_method smtpd'
 );
 ok(
-    $toaster->supervised_log_method( conf => $conf, prot => "pop3", debug => 0 ),
+    $toaster->supervised_log_method( prot => "pop3", debug => 0 ),
     'supervised_log_method pop3'
 );
 ok(
     $toaster->supervised_log_method(
-        conf  => $conf,
         prot  => "submit",
         debug => 0
     ),

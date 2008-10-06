@@ -1,16 +1,12 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
-#use diagnostics;
 # the output of warnings and diagnostics should not be enabled in production.
 # the SNMP daemon depends on the output of maillogs, so we need to return
 # nothing or valid counters.
 
-#
-# $Id: Logs.pm, Exp $
-#
-
 package Mail::Toaster::Logs;
+our $VERSION = "5.10";
 
 use lib "lib";
 
@@ -21,11 +17,10 @@ use Getopt::Std;
 use Params::Validate qw( :all);
 use Pod::Usage;
 
-use vars qw( $VERSION $spam_ref $count_ref );
-$VERSION = "5.07";
+use vars qw( $spam_ref $count_ref );
 
 use Mail::Toaster::Utility 5; 
-my $utility = Mail::Toaster::Utility->new;
+my $util = Mail::Toaster::Utility->new;
 
 sub new {
     my $class = shift;
@@ -56,17 +51,23 @@ sub report_yesterdays_activity {
     my $qmailanalog_dir = $self->find_qmailanalog();
     return unless ( $qmailanalog_dir );
 
-    my $log = $self->get_yesterdays_send_log();
+    my $log = $self->get_yesterdays_smtp_log();
     if ( ! -s $log ) {
-        carp "no log file for yesterday found!\n";
+        carp "no smtp log file for yesterday found!\n";
+        return;
+    };
+
+    $log = $self->get_yesterdays_send_log();
+    if ( ! -s $log ) {
+        carp "no send log file for yesterday found!\n";
         return;
     };
 
     print "processing log: $log\n" if $debug;
 
-    my $cat = $log =~ m/\.bz2$/ ? $utility->find_the_bin( bin => "bzcat",debug=>0 )
-            : $log =~ m/\.gz$/  ? $utility->find_the_bin( bin => "gzcat",debug=>0 )
-            : $utility->find_the_bin(bin=>"cat", debug=>0)
+    my $cat = $log =~ m/\.bz2$/ ? $util->find_the_bin( bin => "bzcat",debug=>0 )
+            : $log =~ m/\.gz$/  ? $util->find_the_bin( bin => "gzcat",debug=>0 )
+            : $util->find_the_bin(bin=>"cat", debug=>0)
             ;
 
     print "calculating overall stats with:\n" if $debug;
@@ -86,7 +87,7 @@ sub report_yesterdays_activity {
     my $deferrals =
       `$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zdeferrals`;
 
-    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>0,debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
     my $date = "$yy.$mm.$dd";
     print "date: $yy.$mm.$dd\n" if $debug;
 
@@ -220,7 +221,7 @@ sub get_yesterdays_send_log {
                 || "/var/log/mail";
 
     # set up our date variables for today
-    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>0,debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
 
     # where todays logs are being archived
     my $log = "$logbase/$yy/$mm/$dd/sendlog";
@@ -233,11 +234,45 @@ sub get_yesterdays_send_log {
     # where yesterdays logs are being archived
     print "report_yesterdays_activity: updating yesterdays symlink for sendlogs\n"
         if $debug;
-    ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>1,debug=>$debug);
+    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1,debug=>$debug);
     $log = "$logbase/$yy/$mm/$dd/sendlog.gz";
 
     unlink("$logbase/sendlog.gz") if ( -l "$logbase/sendlog.gz" );
     symlink( $log, "$logbase/sendlog.gz" );
+
+    return $log;
+};
+
+sub get_yesterdays_smtp_log {
+
+    my $self  = shift;
+    my $conf  = $self->{'conf'};
+    my $debug = $self->{'debug'};
+
+    my $logbase = $conf->{'logs_base'}   # some form of multilog logging
+        || $conf->{'qmail_log_base'}
+        || "/var/log/mail";
+
+    # set up our date variables for today
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
+
+    # where todays logs are being archived
+    my $log = "$logbase/$yy/$mm/$dd/smtplog";
+
+    print "report_yesterdays_activity: updating todays symlink for smtplogs\n"
+        if $debug;
+    unlink("$logbase/smtplog") if ( -l "$logbase/smtplog" );
+    symlink( $log, "$logbase/smtplog" );
+
+    # where yesterdays logs are being archived
+    print "report_yesterdays_activity: updating yesterdays symlink for smtplogs\n"
+        if $debug;
+
+    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1,debug=>$debug);
+    $log = "$logbase/$yy/$mm/$dd/smtplog.gz";
+
+    unlink("$logbase/smtplog.gz") if ( -l "$logbase/smtplog.gz" );
+    symlink( $log, "$logbase/smtplog.gz" );
 
     return $log;
 };
@@ -548,7 +583,7 @@ sub send_count {
 
     # update multilog (this is normally off on toaster.conf)
     if ( $conf->{'logs_isoqlog'} && $UID == 0 ) {
-        $utility->syscmd( command => "isoqlog", debug=>$debug, fatal=>0 );
+        $util->syscmd( command => "isoqlog", debug=>$debug, fatal=>0 );
     }
 
     $self->compress_yesterdays_logs( file=>"sendlog" );
@@ -1055,8 +1090,8 @@ sub qms_count {
         return 1;
     }
 
-    my $grep = $utility->find_the_bin(bin=>"grep", debug=>0);
-    my $wc   = $utility->find_the_bin(bin=>"wc", debug=>0);
+    my $grep = $util->find_the_bin(bin=>"grep", debug=>0);
+    my $wc   = $util->find_the_bin(bin=>"wc", debug=>0);
 
     $qs_clean = `$grep " qmail-scanner" @$logfiles | $grep "Clear:" | $wc -l`;
     $qs_clean = $qs_clean * 1;
@@ -1181,7 +1216,7 @@ sub compress_yesterdays_logs {
 
     $debug = $p{'debug'};
 
-    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>1, debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1, debug=>$debug);
 
     my $logbase = $conf->{'logs_base'} || "/var/log/mail";
     my $log     = "$logbase/$yy/$mm/$dd/$file";
@@ -1196,14 +1231,14 @@ sub compress_yesterdays_logs {
         return 1;
     };
 
-    if ( ! $utility->is_writable(file=>"$log.gz",fatal=>0,debug=>$debug) ) {
+    if ( ! $util->is_writable(file=>"$log.gz",fatal=>0,debug=>$debug) ) {
         carp "could not compress $log because I do not have write permissions!";
         return;
     };
 
     print "   Compressing the logfile $log..." if $debug;
     
-    if ( $utility->syscmd( command=>"gzip $log", debug=>$debug, fatal=>$fatal) ) {
+    if ( $util->syscmd( command=>"gzip $log", debug=>$debug, fatal=>$fatal) ) {
         print "done.\n\n" if $debug;
         return 1;
     };
@@ -1230,7 +1265,7 @@ sub purge_last_months_logs {
 
     my $fatal = $p{'fatal'};
 
-    my ( $dd, $mm, $yy ) = $utility->get_the_date(bump=>31, debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>31, debug=>$debug);
 
     if ( ! $mm || !$yy ) {
         carp "purge_last_months_logs: ERROR: get_the_date returned invalid values!";
@@ -1283,7 +1318,7 @@ sub rotate_supervised_logs {
             carp  "the run file in the log direcory $_ is missing!";
             next  DIR;
         };
-        $utility->syscmd( command => "svc -a $_", debug=>0, fatal=>0 );
+        $util->syscmd( command => "svc -a $_", debug=>0, fatal=>0 );
     };
     return 1;
 }
@@ -1673,7 +1708,7 @@ sub counter_read {
     if ( ! -e $file ) {
         carp "\nWARN: the file $file is missing! I will try to create it." if $debug;
 
-        if ( ! $utility->is_writable(file=>$file,debug=>0,fatal=>0) ) {
+        if ( ! $util->is_writable(file=>$file,debug=>0,fatal=>0) ) {
             carp "FAILED.\n $file does not exist and the user $UID has "
                 . "insufficent privileges to create it!" if $debug;
             return;
@@ -1687,13 +1722,13 @@ sub counter_read {
         my $user = $self->{'conf'}->{'logs_user'} || "qmaill";
         my $group = $self->{'conf'}->{'logs_group'} || "qnofiles";
 
-        $utility->file_chown( file=>$file, uid=>$user, gid=>$group, debug=>0);
+        $util->file_chown( file=>$file, uid=>$user, gid=>$group, debug=>0);
 
         print "done.\n";
         return;
     }
     
-    my @lines = $utility->file_read( file => $file, debug=>$debug );
+    my @lines = $util->file_read( file => $file, debug=>$debug );
 
     foreach (@lines) {
         my ($description, $count) = split( ":", $_ );
@@ -1727,8 +1762,8 @@ sub counter_write {
 
     if ( -d $log ) { print "FAILURE: counter_write $log is a directory!\n"; }
 
-    unless ( $utility->is_writable( file => $log, debug => 0, fatal=>$fatal ) ) {
-        $utility->_formatted( "counter_write: $log is not writable", "FAILED" );
+    unless ( $util->is_writable( file => $log, debug => 0, fatal=>$fatal ) ) {
+        $util->_formatted( "counter_write: $log is not writable", "FAILED" );
         return;
     }
 
@@ -1757,7 +1792,7 @@ sub counter_write {
         #print Data::Dumper::Dumper ($values_ref); 
     };
 
-    return $utility->file_write( 
+    return $util->file_write( 
         file  => $log, 
         lines => \@lines, 
         debug => $debug,
@@ -1789,7 +1824,7 @@ sub get_cronolog_handle {
         return;
     }
 
-    my $cronolog = $utility->find_the_bin( bin => "cronolog", debug=>0, fatal=>0 );
+    my $cronolog = $util->find_the_bin( bin => "cronolog", debug=>0, fatal=>0 );
     if ( ! $cronolog || !-x $cronolog) {
         carp "cronolog could not be found. Please install it!";
         return;
@@ -1798,7 +1833,7 @@ sub get_cronolog_handle {
     my $tai64nlocal;
 
     if ( $conf->{'logs_archive_untai'} ) {
-        my $taibin = $utility->find_the_bin( bin=>"tai64nlocal",debug=>0, fatal=>0 );
+        my $taibin = $util->find_the_bin( bin=>"tai64nlocal",debug=>0, fatal=>0 );
 
         if ( ! $taibin ) {
             carp "tai64nlocal is selected in toaster.conf but cannot be found!";
@@ -1881,6 +1916,10 @@ __END__
 =head1 NAME
 
 Mail::Toaster::Logs - objects and functions for interacting with email logs
+
+=head1 NAME
+
+5.10
 
 =head1 SYNOPSIS
 
@@ -2147,7 +2186,7 @@ The following are relevant man/perldoc pages:
 
 =head1 COPYRIGHT
 
-Copyright (c) 2004-2006, The Network People, Inc. All rights reserved.
+Copyright (c) 2004-2008, The Network People, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

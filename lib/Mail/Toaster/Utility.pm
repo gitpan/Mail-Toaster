@@ -1,15 +1,8 @@
-#!/usr/bin/perl
-use strict;
-use warnings;
-#use diagnostics;
-
-#
-# $Id: Utility.pm, matt Exp $
-#
-
 package Mail::Toaster::Utility;
 
-use lib "inc";
+use strict;
+use warnings;
+
 use lib "lib";
 
 use Cwd;
@@ -18,10 +11,9 @@ use English qw( -no_match_vars );
 use File::Copy;
 use Params::Validate qw(:all);
 use Scalar::Util qw( openhandle );
-#use Smart::Comments;
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.07';
+$VERSION = '5.10';
 
 sub new {
     my ( $class, $name ) = @_;
@@ -1436,7 +1428,7 @@ sub get_file { my $self = shift; return $self->file_get(@_) }
 sub get_my_ips {
 
 ############################################
-# Usage      : @list_of_ips_ref = $utility->get_my_ips();
+# Usage      : @list_of_ips_ref = $util->get_my_ips();
 # Purpose    : get a list of IP addresses on local interfaces
 # Returns    : an arrayref of IP addresses
 # Parameters : only - can be one of: first, last
@@ -1801,7 +1793,7 @@ sub install_from_source_php {
 
 =begin install_from_sources_php
 
-  $utility->install_from_sources_php();
+  $util->install_from_sources_php();
 
 Downloads a PHP program and installs it. Not completed.
 
@@ -3319,8 +3311,7 @@ So, for now I use Params::Validate and I expect it will be a good solution. I ju
     return 1;
 }
 
-sub yes_or_no
-{
+sub yes_or_no {
     my $self = shift;
 
     # parameter validation here
@@ -3403,8 +3394,7 @@ sub yes_or_no
     $response eq "y" ? return 1 : return 0;
 }
 
-sub _incomplete_feature
-{
+sub _incomplete_feature {
 
     my ( $self, $args ) = @_;
 
@@ -3416,8 +3406,7 @@ sub _incomplete_feature
 
 }
 
-sub _invalid_params
-{
+sub _invalid_params {
 
 =begin _invalid_params
 
@@ -3465,7 +3454,7 @@ prints out an error message and exits.
 sub _formatted {
 
 ############################################
-# Usage      : $utility->_formatted( "tried this", "ok");
+# Usage      : $util->_formatted( "tried this", "ok");
 # Purpose    : print nicely formatted status messages
 # Returns    : tried this...............................ok
 # Parameters : message - what your are reporting on
@@ -3523,13 +3512,16 @@ __END__
 
 Mail::Toaster::Utility - a collection of utility subroutines for sysadmin tasks
 
+=head1 VERSION
+
+5.10
 
 =head1 SYNOPSIS
 
   use Mail::Toaster::Utility;
-  my $utility = Mail::Toaster::Utility->new;
+  my $util = Mail::Toaster::Utility->new;
 
-  $utility->file_write($file, @lines);
+  $util->file_write($file, @lines);
 
 This is just one of the many handy little methods I have amassed here. Rather than try to remember all of the best ways to code certain functions and then attempt to remember them, I have consolidated years of experience and countless references from Learning Perl, Programming Perl, Perl Best Practices, and many other sources into these subroutines.
 
@@ -3567,7 +3559,7 @@ To use any of the methods below, you must first create a utility object. The met
 
   ############################################
   # Usage      : use Mail::Toaster::Utility;
-  #            : my $utility = Mail::Toaster::Utility->new;
+  #            : my $util = Mail::Toaster::Utility->new;
   # Purpose    : create a new Mail::Toaster::Utility object
   # Returns    : a bona fide object
   # Parameters : none
@@ -3580,7 +3572,7 @@ To use any of the methods below, you must first create a utility object. The met
 Get a response from the user. If the user responds, their response is returned. If not, then the default response is returned. If no default was supplied, 0 is returned.
 
   ############################################
-  # Usage      :  my $answer = $utility->answer(
+  # Usage      :  my $answer = $util->answer(
   #  		           question => "Would you like fries with that",
   #  		           default  => "SuperSized!",
   #  		           timeout  => 30  
@@ -3606,7 +3598,7 @@ Get a response from the user. If the user responds, their response is returned. 
 Decompresses a variety of archive formats using your systems built in tools.
 
   ############### archive_expand ##################
-  # Usage      : $utility->archive_expand(
+  # Usage      : $util->archive_expand(
   #            :     archive => 'example.tar.bz2' );
   # Purpose    : test the archiver, determine its contents, and then
   #              use the best available means to expand it.
@@ -3620,7 +3612,7 @@ Decompresses a variety of archive formats using your systems built in tools.
 Changes the current working directory to the supplied one. Creates it if it does not exist. Tries to create the directory using perl's builtin mkdir, then the system mkdir, and finally the system mkdir with sudo. 
 
   ############ chdir_source_dir ###################
-  # Usage      : $utility->chdir_source_dir( dir=>"/usr/local/src" );
+  # Usage      : $util->chdir_source_dir( dir=>"/usr/local/src" );
   # Purpose    : prepare a location to build source files in
   # Returns    : 0 - failure,  1 - success
   # Parameters : S - dir - a directory to build programs in
@@ -3631,7 +3623,7 @@ Changes the current working directory to the supplied one. Creates it if it does
 Checks the ownership on all home directories to see if they are owned by their respective users in /etc/password. Offers to repair the permissions on incorrectly owned directories. This is useful when someone that knows better does something like "chown -R user /home /user" and fouls things up.
 
   ######### check_homedir_ownership ############
-  # Usage      : $utility->check_homedir_ownership();
+  # Usage      : $util->check_homedir_ownership();
   # Purpose    : repair user homedir ownership
   # Returns    : 0 - failure,  1 - success
   # Parameters :
@@ -3651,7 +3643,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 
 
   ############### chown_system #################
-  # Usage      : $utility->chown_system( dir=>"/tmp/example", user=>'matt' );
+  # Usage      : $util->chown_system( dir=>"/tmp/example", user=>'matt' );
   # Purpose    : change the ownership of a file or directory
   # Returns    : 0 - failure,  1 - success
   # Parameters : S - dir    - the directory to chown
@@ -3666,7 +3658,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 
 
   ############## clean_tmp_dir ################
-  # Usage      : $utility->clean_tmp_dir( dir=>$dir );
+  # Usage      : $util->clean_tmp_dir( dir=>$dir );
   # Purpose    : clean up old build stuff before rebuilding
   # Returns    : 0 - failure,  1 - success
   # Parameters : S - $dir - a directory or file. 
@@ -3677,7 +3669,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 =item drives_get_mounted
 
   ############# drives_get_mounted ############
-  # Usage      : my $mounts = $utility->drives_get_mounted();
+  # Usage      : my $mounts = $util->drives_get_mounted();
   # Purpose    : Uses mount to fetch a list of mounted drive/partitions
   # Returns    : a hashref of mounted slices and their mount points.
 
@@ -3687,7 +3679,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 
   ############### file_archive #################
   # Purpose    : Make a backup copy of a file by copying the file to $file.timestamp.
-  # Usage      : my $archived_file = $utility->file_archive( file=>$file );
+  # Usage      : my $archived_file = $util->file_archive( file=>$file );
   # Returns    : the filename of the backup file, or 0 on failure.
   # Parameters : S - file - the filname to be backed up
   # Comments   : none
@@ -3697,7 +3689,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 
 Set the permissions (ugo-rwx) of a file. Will use the native perl methods (by default) but can also use system calls and prepend sudo if additional permissions are needed.
 
-  $utility->file_chmod(
+  $util->file_chmod(
 		file_or_dir => '/etc/resolv.conf',
 		mode => '0755',
 		sudo => $sudo
@@ -3708,7 +3700,7 @@ Set the permissions (ugo-rwx) of a file. Will use the native perl methods (by de
    mode   - the permissions (numeric)
 
  arguments optional:
-   sudo  - the output of $utility->sudo
+   sudo  - the output of $util->sudo
    fatal - die on errors? (default: on)
    debug
 
@@ -3721,7 +3713,7 @@ Set the permissions (ugo-rwx) of a file. Will use the native perl methods (by de
 
 Set the ownership (user and group) of a file. Will use the native perl methods (by default) but can also use system calls and prepend sudo if additional permissions are needed.
 
-  $utility->file_chown(
+  $util->file_chown(
 		file_or_dir => '/etc/resolv.conf',
 		uid => 'root',
 		gid => 'wheel',
@@ -3736,7 +3728,7 @@ Set the ownership (user and group) of a file. Will use the native perl methods (
  arguments optional:
    file  - alias for file_or_dir
    dir   - alias for file_or_dir
-   sudo  - the output of $utility->sudo
+   sudo  - the output of $util->sudo
    fatal - die on errors? (default: on)
    debug
 
@@ -3748,7 +3740,7 @@ Set the ownership (user and group) of a file. Will use the native perl methods (
 =item file_delete
 
   ############################################
-  # Usage      : $utility->file_delete( file=>$file );
+  # Usage      : $util->file_delete( file=>$file );
   # Purpose    : Deletes a file.
   # Returns    : 0 - failure, 1 - success
   # Parameters 
@@ -3761,7 +3753,7 @@ Set the ownership (user and group) of a file. Will use the native perl methods (
 
 =item file_get
 
-   $utility->file_get( url=>$url, debug=>1 );
+   $util->file_get( url=>$url, debug=>1 );
 
 Use the standard URL fetching utility (fetch, curl, wget) for your OS to download a file from the $url handed to us.
 
@@ -3787,9 +3779,9 @@ compares the mtime on two files to determine if one is newer than another.
 
  usage:
    my @lines = "1", "2", "3";  # named array
-   $utility->file_write ( file=>"/tmp/foo", lines=>\@lines );   
+   $util->file_write ( file=>"/tmp/foo", lines=>\@lines );   
         or
-   $utility->file_write ( file=>"/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
+   $util->file_write ( file=>"/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
 
  required arguments:
    mode - the files permissions mode
@@ -3807,7 +3799,7 @@ compares the mtime on two files to determine if one is newer than another.
 
 Reads in a file, and returns it in an array. All lines in the array are chomped.
 
-   my @lines = $utility->file_read( file=>$file, max_lines=>100 )
+   my @lines = $util->file_read( file=>$file, max_lines=>100 )
 
  arguments required:
    file - the file to read in
@@ -3827,9 +3819,9 @@ Reads in a file, and returns it in an array. All lines in the array are chomped.
 
  usage:
    my @lines = "1", "2", "3";  # named array
-   $utility->file_write ( file=>"/tmp/foo", lines=>\@lines );   
+   $util->file_write ( file=>"/tmp/foo", lines=>\@lines );   
         or
-   $utility->file_write ( file=>"/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
+   $util->file_write ( file=>"/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
 
  required arguments:
    file - the file path you want to write to
@@ -3848,9 +3840,9 @@ Reads in a file, and returns it in an array. All lines in the array are chomped.
 
 Determine if the files are different. $type is assumed to be text unless you set it otherwise. For anthing but text files, we do a MD5 checksum on the files to determine if they are different or not.
 
-   $utility->files_diff( f1=>$file1,f2=>$file2,type=>'text',debug=>1 );
+   $util->files_diff( f1=>$file1,f2=>$file2,type=>'text',debug=>1 );
 
-   if ( $utility->files_diff( f1=>"foo", f2=>"bar" ) )
+   if ( $util->files_diff( f1=>"foo", f2=>"bar" ) )
    {
        print "different!\n";
    };
@@ -3885,7 +3877,7 @@ If that fails, then go prowling around the drive and look in all the usual place
 Finally, if none of those work, then check the working directory for the named .conf file, or a .conf-dist. 
 
 Example:
-  my $twconf = $utility->find_config (
+  my $twconf = $util->find_config (
 	  file   => 'toaster-watcher.conf', 
 	  etcdir => '/usr/local/etc',
 	)
@@ -3907,11 +3899,11 @@ Example:
 
 Check all the "normal" locations for a binary that should be on the system and returns the full path to the binary.
 
-   $utility->find_the_bin( program=>'dos2unix', dir=>'/opt/local/bin' );
+   $util->find_the_bin( program=>'dos2unix', dir=>'/opt/local/bin' );
 
 Example: 
 
-   my $apachectl = $utility->find_the_bin( program=>"apachectl", dir=>"/usr/local/sbin" );
+   my $apachectl = $util->find_the_bin( program=>"apachectl", dir=>"/usr/local/sbin" );
 
 
  arguments required:
@@ -3939,7 +3931,7 @@ returns an arrayref of IP addresses on local interfaces.
 
 Verify if a process is running or not.
 
-   $utility->is_process_running($process) ? print "yes" : print "no";
+   $util->is_process_running($process) ? print "yes" : print "no";
 
 $process is the name as it would appear in the process table.
 
@@ -3949,7 +3941,7 @@ $process is the name as it would appear in the process table.
 
 
   ############################################
-  # Usage      : $utility->is_readable( file=>$file );
+  # Usage      : $util->is_readable( file=>$file );
   # Purpose    : ????
   # Returns    : 0 = no (not reabable), 1 = yes
   # Parameters : S - file - a path name to a file
@@ -3968,7 +3960,7 @@ $process is the name as it would appear in the process table.
 If the file exists, it checks to see if it is writable. If the file does not exist, it checks to see if the enclosing directory is writable. 
 
   ############################################
-  # Usage      : $utility->is_writable(file =>"/tmp/boogers");
+  # Usage      : $util->is_writable(file =>"/tmp/boogers");
   # Purpose    : make sure a file is writable
   # Returns    : 0 - no (not writable), 1 - yes (is writeable)
   # Parameters : S - file - a path name to a file
@@ -3979,7 +3971,7 @@ If the file exists, it checks to see if it is writable. If the file does not exi
 
 
   ############ fstab_list ###################
-  # Usage      : $utility->fstab_list;
+  # Usage      : $util->fstab_list;
   # Purpose    : Fetch a list of drives that are mountable from /etc/fstab.
   # Returns    : an arrayref
   # Comments   : used in backup.pl
@@ -3988,7 +3980,7 @@ If the file exists, it checks to see if it is writable. If the file does not exi
 
 =item get_dir_files
 
-   $utility->get_dir_files( dir=>$dir, debug=>1 )
+   $util->get_dir_files( dir=>$dir, debug=>1 )
 
  required arguments:
    dir - a directory
@@ -4006,7 +3998,7 @@ If the file exists, it checks to see if it is writable. If the file does not exi
 
 Returns the date split into a easy to work with set of strings. 
 
-   $utility->get_the_date( bump=>$bump, debug=>$debug )
+   $util->get_the_date( bump=>$bump, debug=>$debug )
 
  required arguments:
    none
@@ -4024,7 +4016,7 @@ Returns the date split into a easy to work with set of strings.
 	$mn = minutes
 	$ss = seconds
 
-	my ($dd, $mm, $yy, $lm, $hh, $mn, $ss) = $utility->get_the_date();
+	my ($dd, $mm, $yy, $lm, $hh, $mn, $ss) = $util->get_the_date();
 
 
 =item graceful_exit
@@ -4035,7 +4027,7 @@ do not use, legacy sub
 
 Compares two text files. If the newer file is different than the existing one, it installs it.
 
-  $utility->install_if_changed(
+  $util->install_if_changed(
 		newfile  => '/etc/resolv.conf.new';
 		existing => '/etc/resolv.conf';
 		mode     => '0755',
@@ -4066,7 +4058,7 @@ Compares two text files. If the newer file is different than the existing one, i
 
   usage:
 
-	$utility->install_from_source(
+	$util->install_from_source(
 		package => 'simscan-1.07',
    	    site    => 'http://www.inter7.com',
 		url     => '/simscan/',
@@ -4105,7 +4097,7 @@ Downloads a PHP program and installs it. This function is not completed due to l
 
 Checks whatever object is passed to it to see if it is an arrayref.
 
-   $utility->is_arrayref($testme, $debug);
+   $util->is_arrayref($testme, $debug);
 
 Enable debugging to see helpful error messages.
 
@@ -4114,7 +4106,7 @@ Enable debugging to see helpful error messages.
 
 Most methods pass parameters around inside hashrefs. Unfortunately, if you try accessing a hashref method and the object isn't a hashref, it generates a fatal exception. This traps that exception and prints a useful error message.
 
-   $utility->is_hashref($hashref, $debug);
+   $util->is_hashref($hashref, $debug);
 
 
 =item is_interactive
@@ -4124,11 +4116,11 @@ tests to determine if the running process is attached to a terminal.
 
 =item logfile_append
 
-   $utility->logfile_append( file=>$file, lines=>\@lines )
+   $util->logfile_append( file=>$file, lines=>\@lines )
 
 Pass a filename and an array ref and it will append a timestamp and the array contents to the file. Here's a working example:
 
-   $utility->logfile_append( file=>$file, prog=>"proggy", lines=>["Starting up", "Shutting down"] )
+   $util->logfile_append( file=>$file, prog=>"proggy", lines=>["Starting up", "Shutting down"] )
 
 That will append a line like this to the log file:
 
@@ -4151,7 +4143,7 @@ That will append a line like this to the log file:
 
 =item mailtoaster
 
-   $utility->mailtoaster();
+   $util->mailtoaster();
 
 Downloads and installs Mail::Toaster.
 
@@ -4162,7 +4154,7 @@ A good idea, poorly implemented.
 
 =item mkdir_system
 
-   $utility->mkdir_system( dir => $dir, debug=>$debug );
+   $util->mkdir_system( dir => $dir, debug=>$debug );
 
 creates a directory using the system mkdir binary. Can also make levels of directories (-p) and utilize sudo if necessary to escalate.
 
@@ -4172,7 +4164,7 @@ parses a conf file line and returns the key and value.
 
 =item path_parse
 
-   my ($up1dir, $userdir) = $utility->path_parse($dir)
+   my ($up1dir, $userdir) = $util->path_parse($dir)
 
 Takes a path like "/usr/home/matt" and returns "/usr/home" and "matt"
 
@@ -4182,7 +4174,7 @@ You (and I) should be using File::Basename instead as it is more portable.
 =item parse_config
 
  Example:
-   my $tconf = $utility->parse_config( file=>'toaster.conf' );
+   my $tconf = $util->parse_config( file=>'toaster.conf' );
 
  required parameters:
    file   - a configuration file to load settings from
@@ -4202,7 +4194,7 @@ You (and I) should be using File::Basename instead as it is more portable.
 
 pidfile_check is a process management method. It will check to make sure an existing pidfile does not exist and if not, it will create the pidfile.
 
-   $pidfile = $utility->pidfile_check( pidfile=>"/var/run/program.pid" );
+   $pidfile = $util->pidfile_check( pidfile=>"/var/run/program.pid" );
 
 The above example is all you need to do to add process checking (avoiding multiple daemons running at the same time) to a program or script. This is used in toaster-watcher.pl and rrdutil. toaster-watcher normally completes a run in a few seconds and is run every 5 minutes. 
 
@@ -4213,7 +4205,7 @@ However, toaster-watcher can be configured to do things like expire old messages
 
 Example:
 
-	my $pidfile = $utility->pidfile_check( pidfile=>"/var/run/changeme.pid" );
+	my $pidfile = $util->pidfile_check( pidfile=>"/var/run/changeme.pid" );
 	unless ($pidfile) {
 		warn "WARNING: couldn't create a process id file!: $!\n";
 		exit 0;
@@ -4228,7 +4220,7 @@ Example:
 Prints out a string with the regexp match bracketed. Credit to Damien Conway from Perl Best Practices.
 
  Example:
-    $utility->regexp_test( 
+    $util->regexp_test( 
 		exp    => 'toast', 
 		string => 'mailtoaster rocks',
 	);
@@ -4247,7 +4239,7 @@ Checks to see if the old build sources are present. If they are, offer to remove
 
  Usage:
 
-   $utility->source_warning( 
+   $util->source_warning( 
 		package => "Mail-Toaster-4.10", 
 		clean   => 1, 
 		src     => "/usr/local/src" 
@@ -4292,9 +4284,9 @@ This sub proved quite useful during 2005 as many packages began to be distribute
 
 =item sudo
 
-   my $sudo = $utility->sudo();
+   my $sudo = $util->sudo();
 
-   $utility->syscmd( command=>"$sudo rm /etc/root-owned-file" );
+   $util->syscmd( command=>"$sudo rm /etc/root-owned-file" );
 
 Often you want to run a script as an unprivileged user. However, the script may need elevated privileges for a plethora of reasons. Rather than running the script suid, or as root, configure sudo allowing the script to run system commands with appropriate permissions.
 
@@ -4314,7 +4306,7 @@ If sudo is not installed and you're running as root, it'll offer to install sudo
 
    Just a little wrapper around system calls, that returns any failure codes and prints out the error(s) if present. A bit of sanity testing is also done to make sure the command to execute is safe. 
 
-      my $r = $utility->syscmd( command=>"gzip /tmp/example.txt" );
+      my $r = $util->syscmd( command=>"gzip /tmp/example.txt" );
       $r ? print "ok!\n" : print "not ok.\n";
 
     arguments required:
@@ -4360,7 +4352,7 @@ If you set 'required' and 'optional', it will also check to verify no additional
 
 =item yes_or_no
 
-  my $r = $utility->yes_or_no( 
+  my $r = $util->yes_or_no( 
       question => "Would you like fries with that?",
       timeout  => 30
   );
@@ -4412,7 +4404,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

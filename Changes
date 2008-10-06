@@ -1,4 +1,39 @@
 Mail Toaster Changes
+  5.12 -
+       ripped out Provision.pm, bin/sysadmin, bin/useradmin, bin/webadmin
+       ripped out Build.PL & inc/*
+       bumped toaster_os_release to 7.1 in t-w.conf
+       updated META.yml
+       Makefile.PL, removed Mail::Toaster dependency
+       removed portsdb from portsnap sub and 'all' target 
+       install_deps.pl installs a few more dependencies
+       removed openssl stable bits from -s pre target
+
+  5.11 - Aug 20, 2008
+       use current (instead of stable) openssl port
+       added test for permissions on toaster.conf
+       added =head1 VERSION to modules
+       rewrote bin/install_deps.pl in perl (was sh)
+       Toaster.pm loads in $conf when ->new is called.
+       Setup.pm loads in $conf from $toaser->{conf}
+       renamed pop3_ip_address_listen_on to pop3_listen_on_address
+        in toaster-watcher.conf
+       created _set_config accessors in Qmail.pm and Setup.pm
+       renamed $utility to $util globally
+       bumped (c) year to 2008
+       install_sqwebmail defaults to 0 now
+       net_snmpd defaults to v5 now
+       updated dovecot.conf patch to v1.1.3
+       deleted Setup->mattbundle
+
+  5.10 - Apr 17, 2008
+       disable apache2_fixups until it can be fixed
+       renamed item_installdsacert to item_install_dsa_cert
+       update copyrights to 2008
+       added the function "get_yesterdays_smtp_log" which provides the same functionality 
+         as get_yesterdays_send_log. -- patch from Georg von Itzenplitz
+       Mysql.pm - honor $debug setting in DBD & DBD install subs
+
   5.09 - Nov   , 2007
        playing Kwalitee (http://cpants.perl.org/highscores/)
        added 'use warnings' pragma to several modules
@@ -12,7 +47,7 @@ Mail Toaster Changes
                 - don't pass mysql args to FreeBSD port install, no loger
                   necessary and doing so causes port build to fail
        Utility.pm - added missing pod doc for file_mode
-
+  
   5.08 - Nov 21, 2007
        tw.conf: added rbl psbl.surriel.com
        tw.conf: added rwl list.dnswl.org
@@ -59,7 +94,7 @@ Mail Toaster Changes
      Put the contents of "openssl ciphers" into
        /var/qmail/control/tlsserverciphers. Should resolve some
        openssl issues.
-
+ 
   5.05 - Feb 7, 2007
      Extensive updates for Darwin and Linux platforms
      Support for Yahoo DomainKeys
@@ -126,7 +161,7 @@ Mail Toaster Changes
         - installing phpmyadmin attempted to install php4-gd
           despite install_php = 5.
      *.pm - updated calls to darwin->port_install to reflect an internal
-          API change.
+          API change. 
 
   5.03 - Nov 8, 2006
      Logs.pm - comment out a print statement that caused a snmp counting error in maillogs
@@ -250,7 +285,7 @@ Mail Toaster Changes
          added pod doc for has_module
 
     Setup.pm
-         phpmyadmin_install was not passing $conf
+         phpmyadmin_install was not passing $conf 
 
     Utility.pm
         Fixed a bug in mailtoaster sub that prevented it from finding the

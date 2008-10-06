@@ -4,7 +4,7 @@
 <head>
 <title>Mail::Toaster</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:root@omen.apple.com" />
+<link rev="made" href="mailto:matt@freebsd.matt" />
 </head>
 
 <body style="background-color: white">
@@ -42,7 +42,7 @@
 <h1><a name="version">VERSION</a></h1>
 <pre>
 
-This documentation refers to Mail::Toaster version 5.00</pre>
+5.11</pre>
 <p>
 </p>
 <hr />
@@ -61,27 +61,21 @@ This documentation refers to Mail::Toaster version 5.00</pre>
     use Mail::Toaster;
     my $toaster = Mail::Toaster-&gt;new;
     
-    my $conf = $utility-&gt;parse_config( file=&gt;&quot;toaster-watcher.conf&quot;);</pre>
-<pre>
     # verify that processes are all running and complain if not
-    $toaster-&gt;toaster_check(conf=&gt;$conf);</pre>
+    $toaster-&gt;toaster_check();</pre>
 <pre>
     # get a list of all maildirs on the system
-    my @all_maildirs = $toaster-&gt;get_maildir_paths( conf=&gt;$conf);
+    my @all_maildirs = $toaster-&gt;get_maildir_paths();
     
     # clean up old messages over X days old
-    $toaster-&gt;clean_mailboxes( conf=&gt;$conf);
+    $toaster-&gt;clean_mailboxes();
     
     # clean up messages in Trash folders that exceed X days
     foreach my $maildir ( @all_maildirs ) {
-        $toaster-&gt;maildir_clean_trash( 
-            conf =&gt; $conf, 
-            path =&gt; $maildir,
-        );
-    };
-    
-These functions can all be called indivually, see the working
-examples in the aforementioned scripts or the t/Toaster.t file.</pre>
+        $toaster-&gt;maildir_clean_trash( path =&gt; $maildir );
+    };</pre>
+<p>These functions can all be called indivually, see the working
+examples in the aforementioned scripts or the t/Toaster.t file.</p>
 <p>
 </p>
 <hr />
@@ -120,10 +114,9 @@ context to help them understand the methods that are subsequently described.</pr
 <dd>
 <pre>
   ############################################
-  # Usage      : $toaster-&gt;toaster_check(conf=&gt;$conf);
+  # Usage      : $toaster-&gt;toaster_check();
   # Purpose    : Runs a series of tests to inform admins of server problems
   # Returns    : prints out a series of test failures
-  # Parameters : conf - a hashref of values from toaster-watcher.conf
   # Throws     : no exceptions
   # See Also   : toaster-watcher.pl
   # Comments   : 
@@ -145,10 +138,9 @@ Performs the following tests:</pre>
 <dd>
 <pre>
   ############################################
-  # Usage      : $toaster-&gt;learn_mailboxes( conf=&gt;$conf );
+  # Usage      : $toaster-&gt;learn_mailboxes();
   # Purpose    : train SpamAssassin bayesian filters with your ham &amp; spam
   # Returns    : 0 - failure, 1 - success
-  # Parameters : conf 
   # See Also   : n/a
   # Comments   :</pre>
 </dd>
@@ -160,10 +152,9 @@ Performs the following tests:</pre>
 <dd>
 <pre>
   ############# clean_mailboxes ##############
-  # Usage      : $toaster-&gt;clean_mailboxes( conf=&gt;$conf );
+  # Usage      : $toaster-&gt;clean_mailboxes();
   # Purpose    : cleaning out old mail messages from user mailboxes
   # Returns    : 0 - failure, 1 - success
-  # Parameters : conf
   # See Also   : n/a
   # Comments   :</pre>
 </dd>
@@ -178,16 +169,15 @@ Performs the following tests:</pre>
 <dd>
 <pre>
   ############ email_send ####################
-  # Usage      : $toaster-&gt;email_send(conf=&gt;$conf, type=&gt;&quot;clean&quot; );
-  #            : $toaster-&gt;email_send(conf=&gt;$conf, type=&gt;&quot;spam&quot;  );
-  #            : $toaster-&gt;email_send(conf=&gt;$conf, type=&gt;&quot;attach&quot;);
-  #            : $toaster-&gt;email_send(conf=&gt;$conf, type=&gt;&quot;virus&quot; );
-  #            : $toaster-&gt;email_send(conf=&gt;$conf, type=&gt;&quot;clam&quot;  );
+  # Usage      : $toaster-&gt;email_send(type=&gt;&quot;clean&quot; );
+  #            : $toaster-&gt;email_send(type=&gt;&quot;spam&quot;  );
+  #            : $toaster-&gt;email_send(type=&gt;&quot;attach&quot;);
+  #            : $toaster-&gt;email_send(type=&gt;&quot;virus&quot; );
+  #            : $toaster-&gt;email_send(type=&gt;&quot;clam&quot;  );
   #
   # Purpose    : send test emails to test the content scanner
   # Returns    : 1 on success
-  # Parameters : conf
-  #            : type (clean, spam, attach, virus, clam)
+  # Parameters : type (clean, spam, attach, virus, clam)
   # See Also   : email_send_[clean|spam|...]</pre>
 </dd>
 <dd>
@@ -263,13 +253,11 @@ Performs the following tests:</pre>
 <pre>
   ########### maildir_clean_spam #############
   # Usage      : $toaster-&gt;maildir_clean_spam( 
-  #                  conf =&gt; $conf, 
   #                  path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : Removes spam that exceeds age as defined in t-w.conf.
   # Returns    : 0 - failure, 1 - success
-  # Parameters : conf
-  #            : path - path to a maildir</pre>
+  # Parameters : path - path to a maildir</pre>
 </dd>
 <dd>
 <p>results in the Spam folder of a maildir with messages older than X days removed.</p>
@@ -279,10 +267,9 @@ Performs the following tests:</pre>
 <dd>
 <pre>
   ############################################
-  # Usage      : $toaster-&gt;get_maildir_paths( conf =&gt; $conf )
+  # Usage      : $toaster-&gt;get_maildir_paths()
   # Purpose    : build a list of email dirs to perform actions upon
   # Returns    : an array listing every maildir on a Mail::Toaster
-  # Parameters : conf
   # Throws     : exception on failure, or 0 if fatal=&gt;0</pre>
 </dd>
 <dd>
@@ -294,15 +281,13 @@ Performs the following tests:</pre>
 <pre>
   ############################################
   # Usage      : $toaster-&gt;maildir_learn_spam( 
-  #                  conf =&gt; $conf, 
   #                  path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : find spam messages newer than the last spam learning run
   # Returns    : 0 - failure, 1 - success
   # Results    : matching spam messages are appended to a tmpfile to be
   #              fed to sa-learn via the caller.
-  # Parameters : conf
-  #            : path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions
   # See Also   : learn_mailboxes
   # Comments   : this is for a single mailbox</pre>
@@ -313,14 +298,12 @@ Performs the following tests:</pre>
 <pre>
   ############################################
   # Usage      : $toaster-&gt;maildir_clean_trash( 
-  #                 conf =&gt; $conf, 
   #                 path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : expire old messages in Trash folders
   # Returns    : 0 - failure, 1 - success
   # Results    : a Trash folder with messages older than X days pruned
-  # Parameters : conf
-  #              path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions</pre>
 </dd>
 <dd>
@@ -332,14 +315,12 @@ Performs the following tests:</pre>
 <pre>
   ############################################
   # Usage      : $toaster-&gt;maidir_clean_sent(
-  #                 conf =&gt; $conf, 
   #                 path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : expire old messages in Sent folders
   # Returns    : 0 - failure, 1 - success
   # Results    : messages over X days in Sent folders are deleted
-  # Parameters : conf
-  #              path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions</pre>
 </dd>
 <dt><strong><a name="item_maildir_clean_new">maildir_clean_new</a></strong>
@@ -348,13 +329,11 @@ Performs the following tests:</pre>
 <pre>
   ############ maildir_clean_new #############
   # Usage      : $toaster-&gt;maildir_clean_new(
-  #                 conf =&gt; $conf, 
   #                 path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : expire unread messages older than X days
   # Returns    : 0 - failure, 1 - success
-  # Parameters : conf
-  #              path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions</pre>
 </dd>
 <dd>
@@ -367,14 +346,12 @@ Performs the following tests:</pre>
 <pre>
   ############################################
   # Usage      : $toaster-&gt;maildir_clean_ham(
-  #                 conf =&gt; $conf, 
   #                 path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : prune read email messages
   # Returns    : 0 - failure, 1 - success
   # Results    : an INBOX minus read messages older than X days
-  # Parameters : conf
-  #              path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions</pre>
 </dd>
 <dt><strong><a name="item_maildir_learn_ham">maildir_learn_ham</a></strong>
@@ -383,15 +360,13 @@ Performs the following tests:</pre>
 <pre>
   ############################################
   # Usage      : $toaster-&gt;maildir_learn_ham(
-  #                 conf =&gt; $conf, 
   #                 path =&gt; '/home/domains/example.com/user',
   #              );
   # Purpose    : find ham messages newer than the last learning run
   # Returns    : 0 - failure, 1 - success
   # Results    : matching ham messages are appended to a tmpfile to be
   #              fed to sa-learn via the caller.
-  # Parameters : conf
-  #              path - path to a maildir
+  # Parameters : path - path to a maildir
   # Throws     : no exceptions
   # See Also   : learn_mailboxes
   # Comments   : this is for a single mailbox</pre>
@@ -403,7 +378,7 @@ Performs the following tests:</pre>
 </dd>
 <dd>
 <pre>
-        $toaster-&gt;service_dir_create(conf=&gt;$conf);</pre>
+        $toaster-&gt;service_dir_create();</pre>
 </dd>
 <dd>
 <p>Also sets the permissions to 775.</p>
@@ -416,7 +391,7 @@ Performs the following tests:</pre>
 </dd>
 <dd>
 <pre>
-        $toaster-&gt;service_dir_test(conf=&gt;$conf);</pre>
+        $toaster-&gt;service_dir_test();</pre>
 </dd>
 <dd>
 <p>Also sets the permissions to 775.</p>
@@ -429,7 +404,7 @@ Performs the following tests:</pre>
 </dd>
 <dd>
 <pre>
-    $toaster-&gt;service_symlinks(conf=&gt;$conf, );</pre>
+    $toaster-&gt;service_symlinks();</pre>
 </dd>
 <dd>
 <p>This populates the supervised service directory (default: /var/service) with symlinks to the supervise control directories (typically /var/qmail/supervise/). Creates and sets permissions on the following directories and files:</p>
@@ -449,7 +424,7 @@ Performs the following tests:</pre>
 </dd>
 <dd>
 <pre>
-        $toaster-&gt;supervise_dirs_create(conf=&gt;$conf, debug=&gt;$debug);</pre>
+        $toaster-&gt;supervise_dirs_create(debug=&gt;$debug);</pre>
 </dd>
 <dd>
 <p>The default directories created are:</p>
@@ -482,7 +457,6 @@ Performs the following tests:</pre>
 <dd>
 <pre>
  arguments required:
-    conf
     prot - a protocol to check (smtp, pop3, send, submit)</pre>
 </dd>
 <dd>
@@ -505,12 +479,7 @@ Performs the following tests:</pre>
 <dd>
 <pre>
  usage:
-    $toaster-&gt;test_processes(conf=&gt;$conf);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-    conf</pre>
+    $toaster-&gt;test_processes();</pre>
 </dd>
 <dd>
 <pre>
@@ -580,7 +549,7 @@ Patches are welcome.</pre>
 </p>
 <hr />
 <h1><a name="licence_and_copyright">LICENCE AND COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2006, The Network People, Inc. <code>&lt;matt@tnpi.net&gt;</code>. All rights reserved.</p>
+<p>Copyright (c) 2004-2008, The Network People, Inc. <code>&lt;matt@tnpi.net&gt;</code>. All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.

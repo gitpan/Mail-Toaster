@@ -21,8 +21,8 @@ require_ok( 'Mail::Toaster::Utility' );
 	ok ( defined $apache, 'get Mail::Toaster::Apache object' ); # check it
 	ok ( $apache->isa('Mail::Toaster::Apache'), 'check object class' ); # the right class?
 
-	my $utility = Mail::Toaster::Utility->new;
-	my $conf = $utility->parse_config(
+	my $util = Mail::Toaster::Utility->new;
+	my $conf = $util->parse_config(
             file  => "toaster-watcher.conf",
             debug => 0,
         );
@@ -37,7 +37,7 @@ require_ok( 'Mail::Toaster::Utility' );
 
 # freebsd_extras
 
-    my $apachectl = $utility->find_the_bin(bin=>"apachectl", fatal=>0,debug=>0);
+    my $apachectl = $util->find_the_bin(bin=>"apachectl", fatal=>0,debug=>0);
     if ( $apachectl && -x $apachectl ) {
         ok ( -x $apachectl, 'apachectl exists' );
 

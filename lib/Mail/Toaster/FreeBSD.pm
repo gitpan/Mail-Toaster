@@ -1,10 +1,6 @@
 #!/usr/bin/perl
 package Mail::Toaster::FreeBSD;
 
-#
-# $Id: $
-#
-
 use strict;
 use warnings;
 
@@ -12,13 +8,14 @@ use Cwd;
 use Carp;
 use Params::Validate qw( :all );;
 
-use vars qw($VERSION $err);
-$VERSION = '5.06';
+our $VERSION = '5.07';
 
 use lib "lib";
 
-require Mail::Toaster::Utility; my $utility = Mail::Toaster::Utility->new;
+require Mail::Toaster::Utility; my $util = Mail::Toaster::Utility->new;
 require Mail::Toaster::Perl;    my $perl    = Mail::Toaster::Perl->new;
+
+use vars qw($err);
 
 1;
 
@@ -54,7 +51,7 @@ sub cvsup_select_host {
     if ( $cvshost && $cvshost ne "fastest" ) { return $cvshost; }
 
     # host is set to "fastest"
-    my $fastest = $utility->find_the_bin(
+    my $fastest = $util->find_the_bin(
         bin   => "fastest_cvsup",
         debug => $debug,
         fatal => 0,
@@ -80,7 +77,7 @@ sub cvsup_select_host {
                 no_update => 1,
             );
             $fastest =
-              $utility->find_the_bin( bin => "fastest_cvsup", fatal => 0,debug=>0 );
+              $util->find_the_bin( bin => "fastest_cvsup", fatal => 0,debug=>0 );
         }
         else {
             print "ERROR: fastest_cvsup port is not available to install from ports.\n";
@@ -95,7 +92,7 @@ sub cvsup_select_host {
     };
 
     $country_code ||=
-      $utility->answer( q => "what's your two digit country code?" );
+      $util->answer( q => "what's your two digit country code?" );
     $cvshost = `$fastest -Q -c $country_code`;
     chomp $cvshost;
     return $cvshost;
@@ -123,10 +120,10 @@ sub drive_spin_down {
 
     # first, see if the drive exists!
 
-    my $camcontrol = $utility->find_the_bin( bin => "camcontrol",debug=>0 );
+    my $camcontrol = $util->find_the_bin( bin => "camcontrol",debug=>0 );
     if ( -x $camcontrol ) {
         print "spinning down backup drive $drive...";
-        $utility->syscmd( command => "$camcontrol stop $drive",debug=>0 );
+        $util->syscmd( command => "$camcontrol stop $drive",debug=>0 );
         print "done.\n";
         return 1;
     }
@@ -140,7 +137,7 @@ sub get_version {
     my $self = shift;
     my $debug = shift;
 
-    my $uname = $utility->find_the_bin(bin=>"uname",debug=>0);
+    my $uname = $util->find_the_bin(bin=>"uname",debug=>0);
     print "found uname: $uname\n" if $debug;
 
     my $version = `$uname -r`;
@@ -173,8 +170,8 @@ sub is_port_installed {
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    my $pkg_info = $utility->find_the_bin( debug => $debug, bin => "pkg_info", fatal=>$fatal );
-    my $grep     = $utility->find_the_bin( debug => $debug, bin => "grep", fatal=>$fatal );
+    my $pkg_info = $util->find_the_bin( debug => $debug, bin => "pkg_info", fatal=>$fatal );
+    my $grep     = $util->find_the_bin( debug => $debug, bin => "grep", fatal=>$fatal );
 
     return unless ( $pkg_info && $grep);
 
@@ -211,7 +208,7 @@ sub install_cvsup {
 
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
-    my $cvsupbin = $utility->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
+    my $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
     if ( $cvsupbin && -x $cvsupbin) {
         return $cvsupbin 
     };
@@ -220,7 +217,7 @@ sub install_cvsup {
     $self->package_install( port => "cvsup-without-gui", debug=>$debug, fatal=>0 );
 
     # check for it again
-    $cvsupbin = $utility->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
+    $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
     return $cvsupbin if ( $cvsupbin && -x $cvsupbin );
 
     # since package install failed, try installing via the port
@@ -232,7 +229,7 @@ sub install_cvsup {
         no_update=>1, 
     );
 
-    $cvsupbin = $utility->find_the_bin( 
+    $cvsupbin = $util->find_the_bin( 
         bin => "cvsup", 
         debug=>$debug, 
         fatal=>$fatal,
@@ -315,7 +312,7 @@ sub jail_create {
         = ( $p{'ip'}, $p{'hostname'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
 
     if ( ! $ip || $ip eq "10.0.1.160" ) {
-        $ip = $utility->answer(
+        $ip = $util->answer(
             question => "ip address",
             default => $ip,
         );
@@ -323,25 +320,25 @@ sub jail_create {
 
     $hostname ||= $self->jail_get_hostname( ip=>$ip, debug=>$debug );
 
-    $dir ||=  $utility->answer(
+    $dir ||=  $util->answer(
           question => "jail root directory",
           default => "/usr/jails"
       );
      
-    my $ifconfig = $utility->find_the_bin( bin=>'ifconfig',debug=>0 );
+    my $ifconfig = $util->find_the_bin( bin=>'ifconfig',debug=>0 );
     unless (`$ifconfig | grep $ip`) {    # there's probably a better way
         croak "Hey! That IP isn't available on any network interface!\n";
     }
 
     unless ( -d "$dir/$ip" ) {
-        $utility->syscmd( command => "mkdir -p $dir/$ip",debug=>0 );
+        $util->syscmd( command => "mkdir -p $dir/$ip",debug=>0 );
     }
 
     $self->jail_install_world( dir=>$dir, ip=>$ip );
     $self->jail_postinstall_setup(dir=>$dir, ip=>$ip, hostname=>$hostname);
 
     print "\a";
-    if ( $utility->yes_or_no(
+    if ( $util->yes_or_no(
             question => "Would you like ports installed?",
             timeout  => 300,
         )
@@ -352,7 +349,7 @@ sub jail_create {
 
 
     print "\a";
-    if ( $utility->yes_or_no(
+    if ( $util->yes_or_no(
             question => "Install Matt tweaks",
             timeout  => 300,
         )
@@ -361,20 +358,20 @@ sub jail_create {
         my $home = "/home/matt";
 
         if ( -d $home ) {
-            $utility->syscmd(
+            $util->syscmd(
                 command => "rsync -aW --exclude html $home $dir/$ip/usr/home",
                 debug=>0,
             );
         }
         if ( -f "/usr/local/etc/sudoers" ) {
-            $utility->syscmd( command => "mkdir -p $dir/$ip/usr/local/etc",debug=>0 );
-            $utility->syscmd( 
+            $util->syscmd( command => "mkdir -p $dir/$ip/usr/local/etc",debug=>0 );
+            $util->syscmd( 
                 command =>"rsync -aW /usr/local/etc/sudoers $dir/$ip/usr/local/etc/sudoers", 
                 debug=>0,
             );
         }
 
-        $utility->syscmd( 
+        $util->syscmd( 
             command => "jail $dir/$ip $hostname $ip /usr/sbin/pkg_add -r sudo rsync perl" , 
             debug=>0,
         );
@@ -402,13 +399,13 @@ Ssh into the jail from another terminal. Once successfully logged in with root p
 
 Read the jail man pages for more details.\n\n";
 
-    if ( $utility->yes_or_no(
+    if ( $util->yes_or_no(
             question => "Do you want to start a shell in the jail?",
             timeout  => 300, )
       )
     {
         print "starting: jail $dir/$ip $hostname $ip /bin/tcsh\n";
-        $utility->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh" , debug=>0);
+        $util->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh" , debug=>0);
     }
     else {
         print "to run:\n\n\tjail $dir/$ip $hostname $ip /bin/tcsh\n\n";
@@ -430,10 +427,10 @@ sub jail_delete {
     my ( $ip, $jail_home, $fatal, $debug )
         = ( $p{'ip'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
 
-    $ip ||= $utility->answer( q => "IP address", default => "10.0.1.160" );
+    $ip ||= $util->answer( q => "IP address", default => "10.0.1.160" );
 
 
-    $jail_home ||= $utility->answer(
+    $jail_home ||= $util->answer(
         q       => "jail root directory",
         default => "/usr/jails"
     );
@@ -441,54 +438,54 @@ sub jail_delete {
     unless ( -d "$jail_home/$ip" ) { croak "The jail dir $jail_home/$ip doesn't exist!\n" }
 
     if ( -e "$jail_home/$ip/etc/rc.shutdown" ) {
-        $utility->syscmd( command => "$jail_home/$ip/etc/rc.shutdown" , debug=>0);
+        $util->syscmd( command => "$jail_home/$ip/etc/rc.shutdown" , debug=>0);
     }
 
-    my $jexec = $utility->find_the_bin( bin => "jexec" );
+    my $jexec = $util->find_the_bin( bin => "jexec" );
     if ( -x $jexec ) {
-        my $jls = $utility->find_the_bin( bin => "jls" );
-        $utility->syscmd( command => "jls" , debug=>0);
+        my $jls = $util->find_the_bin( bin => "jls" );
+        $util->syscmd( command => "jls" , debug=>0);
 
-        my $ans = $utility->answer(
+        my $ans = $util->answer(
             q       => "\nWhich jail do you want to delete?",
             timeout => 60
         );
         if ( $ans > 0 ) {
-            $utility->syscmd( command => "$jexec $ans kill -TERM -1" , debug=>0);
+            $util->syscmd( command => "$jexec $ans kill -TERM -1" , debug=>0);
         }
     }
 
-    my $mounts = $utility->drives_get_mounted( debug => $debug );
+    my $mounts = $util->drives_get_mounted( debug => $debug );
 
     if ( $mounts->{"$jail_home/$ip/dev"} ) {
         print "unmounting $jail_home/ip/dev\n";
-        $utility->syscmd( command => "umount $jail_home/$ip/dev" , debug=>0);
+        $util->syscmd( command => "umount $jail_home/$ip/dev" , debug=>0);
     }
 
     if ( $mounts->{"$jail_home/$ip/proc"} ) {
         print "unmounting $jail_home/ip/proc\n";
-        $utility->syscmd( command => "umount $jail_home/$ip/proc" , debug=>0);
+        $util->syscmd( command => "umount $jail_home/$ip/proc" , debug=>0);
     }
 
-    $mounts = $utility->drives_get_mounted( debug => $debug );
+    $mounts = $util->drives_get_mounted( debug => $debug );
 
     if ( $mounts->{"$jail_home/$ip/dev"} ) {
         print "NOTICE: force unmounting $jail_home/ip/dev\n";
-        $utility->syscmd( command => "umount -f $jail_home/$ip/dev" , debug=>0);
+        $util->syscmd( command => "umount -f $jail_home/$ip/dev" , debug=>0);
     }
 
     if ( $mounts->{"$jail_home/$ip/proc"} ) {
         print "NOTICE: force unmounting $jail_home/ip/proc\n";
-        $utility->syscmd( command => "umount -f $jail_home/$ip/proc" , debug=>0);
+        $util->syscmd( command => "umount -f $jail_home/$ip/proc" , debug=>0);
     }
 
     print "nuking jail: $jail_home/$ip\n";
-    my $rm      = $utility->find_the_bin( bin => "rm" );
-    my $chflags = $utility->find_the_bin( bin => "chflags" );
+    my $rm      = $util->find_the_bin( bin => "rm" );
+    my $chflags = $util->find_the_bin( bin => "chflags" );
 
-    $utility->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
-    $utility->syscmd( command => "$chflags -R noschg $jail_home/$ip" , debug=>0);
-    $utility->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
+    $util->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
+    $util->syscmd( command => "$chflags -R noschg $jail_home/$ip" , debug=>0);
+    $util->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
 }
 
 sub jail_get_hostname {
@@ -533,18 +530,18 @@ sub jail_install_ports {
         = ( $p{'ip'}, $p{'dir'}, $p{'fatal'}, $p{'debug'} );
 
 
-    my $rsyncbin = $utility->find_the_bin( bin => "rsync", debug=>0 );
+    my $rsyncbin = $util->find_the_bin( bin => "rsync", debug=>0 );
     unless ($rsyncbin) {
         unless ( $self->package_install( port => "rsync", debug=>0 ) ) {
             $self->port_install( port => "rsync", base=>"net", debug=>0 );
         };
-        $rsyncbin = $utility->find_the_bin( bin => "rsync", debug=>0 );
+        $rsyncbin = $util->find_the_bin( bin => "rsync", debug=>0 );
     }
     unless ( -x $rsyncbin ) {
         croak "sorry, rsync could not be found or installed!\n";
     }
 
-    my $limit = $utility->yes_or_no(
+    my $limit = $util->yes_or_no(
         question => "\n\nTo speed up the process, we can copy only the ports \n"
             . "required by Mail::Toaster. Shall I limit the ports tree?",
         timeout=> 60,
@@ -563,21 +560,21 @@ sub jail_install_ports {
             x11-themes x11-wm };
         my %skip_hash = map { $_ => 1 } @skip_array;
 
-        foreach ( $utility->get_dir_files( dir => "/usr/ports" ) ) {
+        foreach ( $util->get_dir_files( dir => "/usr/ports" ) ) {
             next if defined $skip_hash{$_};
 
             print "rsync -aW $_ $dir/$ip/usr/ports/ \n";
 
-            $utility->syscmd(
+            $util->syscmd(
                 command => "rsync -aW $_ $dir/$ip/usr/ports/",
                 debug  => 0,
             );
         }
     }
     else {
-        foreach ( $utility->get_dir_files( dir => "/usr/ports" ) ) {
+        foreach ( $util->get_dir_files( dir => "/usr/ports" ) ) {
             print "rsync -aW $_ $dir/$ip/usr/ports/ \n";
-            $utility->syscmd(
+            $util->syscmd(
                 command => "rsync -aW $_ $dir/$ip/usr/ports/",debug=>0 );
         }
     }
@@ -602,7 +599,7 @@ sub jail_install_world {
       or croak
 "Yikes, no /usr/src exists! You must have the FreeBSD sources downloaded to proceed!";
 
-    if ( ! $utility->yes_or_no(question=>"Do you have a fresh world built?") ) 
+    if ( ! $util->yes_or_no(question=>"Do you have a fresh world built?") ) 
     {
         print <<"EO_FRESH_WORLD";
    In order to build a jail, you need a fresh world built. That typically
@@ -617,25 +614,25 @@ sub jail_install_world {
 
 EO_FRESH_WORLD
 
-        if ( ! $utility->yes_or_no(question=>"Would you like me to do so now?") ) {
+        if ( ! $util->yes_or_no(question=>"Would you like me to do so now?") ) {
             croak "Sorry, I cannot continue.\n"; 
         };
 
-        $utility->syscmd(
+        $util->syscmd(
              command => "make -DNOCLEAN world DESTDIR=$dir/$ip", 
              debug=>0,
         );
     }
     else {
-        $utility->syscmd( 
+        $util->syscmd( 
             command => "make installworld DESTDIR=$dir/$ip", 
             debug   => 0,
         );
     };
 
     chdir("etc");
-    $utility->syscmd( command => "make distribution DESTDIR=$dir/$ip", debug=>0 );
-    $utility->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
+    $util->syscmd( command => "make distribution DESTDIR=$dir/$ip", debug=>0 );
+    $util->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
 }
 
 sub jail_postinstall_setup {
@@ -655,11 +652,11 @@ sub jail_postinstall_setup {
     symlink( "dev/null", "kernel" );
 
     mkdir "$dir/$ip/stand", oct('0755');
-    $utility->file_chmod( file => "$dir/$ip/stand", mode => '0755' );
+    $util->file_chmod( file => "$dir/$ip/stand", mode => '0755' );
 
-    $utility->file_write( file => "$dir/$ip/etc/fstab", lines => [""] );
+    $util->file_write( file => "$dir/$ip/etc/fstab", lines => [""] );
 
-    $utility->file_write( 
+    $util->file_write( 
         file => "$dir/$ip/etc/rc.conf", 
         lines => [ 
                 'rpcbind_enable="NO"',
@@ -672,7 +669,7 @@ sub jail_postinstall_setup {
         );
 
     my $hostname = $p{'hostname'} || $self->jail_get_hostname( ip=>$ip, debug=>0 );
-    $utility->file_write(
+    $util->file_write(
         file   => "$dir/$ip/etc/hosts",
         lines  => ["$ip $hostname"],
         append => 1
@@ -688,22 +685,22 @@ sub jail_postinstall_setup {
     );
 
     foreach my $copy ( @copies ) { 
-        $utility->syscmd( 
+        $util->syscmd( 
             command => "cp " .$copy->{'source'} . " " . $copy->{'dest'}, 
             debug   => 0,
         );
     };
 
-    my @lines = $utility->file_read( file => "$dir/$ip/etc/ssh/sshd_config" );
+    my @lines = $util->file_read( file => "$dir/$ip/etc/ssh/sshd_config" );
     foreach my $line (@lines) {
         $line = "ListenAddress $ip" if ( $line =~ /#ListenAddress 0.0.0.0/ );
     }
-    $utility->file_write(
+    $util->file_write(
         file  => "$dir/$ip/etc/ssh/sshd_config",
         lines => \@lines
     );
 
-    $utility->syscmd( command => "mount -t procfs proc $dir/$ip/proc",debug=>0 );
+    $util->syscmd( command => "mount -t procfs proc $dir/$ip/proc",debug=>0 );
 };
 
 sub jail_start {
@@ -723,13 +720,13 @@ sub jail_start {
         = ( $p{'ip'}, $p{'hostname'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
  
     if ( ! $ip || $ip eq "10.0.1.160" ) {
-        $ip = $utility->answer(
+        $ip = $util->answer(
             question => "ip address",
             default => $ip,
         );
     };
 
-    $dir ||= $utility->answer(
+    $dir ||= $util->answer(
         q       => "jail root directory",
         default => "/usr/jails"
     );
@@ -738,23 +735,23 @@ sub jail_start {
     
     print "hostname: $hostname\n";
 
-    $utility->chdir_source_dir( dir => "/usr/src" );
+    $util->chdir_source_dir( dir => "/usr/src" );
     unless ( -d "$dir/$ip" ) { croak "The jail dir $dir/$ip doesn't exist!\n" }
 
-    my $mounts = $utility->drives_get_mounted( debug => $debug );
+    my $mounts = $util->drives_get_mounted( debug => $debug );
 
     unless ( $mounts->{"$dir/$ip/dev"} ) {
         print "mounting $dir/ip/dev\n";
-        $utility->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
+        $util->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
     }
 
     unless ( $mounts->{"$dir/$ip/proc"} ) {
         print "mounting $dir/ip/proc\n";
-        $utility->syscmd( command => "mount -t procfs proc $dir/$ip/proc", debug=>0 );
+        $util->syscmd( command => "mount -t procfs proc $dir/$ip/proc", debug=>0 );
     }
 
     print "starting jail: jail $dir/$ip $hostname $ip /bin/tcsh\n";
-    $utility->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh", debug=>0 );
+    $util->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh", debug=>0 );
 }
 
 sub package_install {
@@ -782,7 +779,7 @@ sub package_install {
         return;
     }
 
-    $utility->_formatted("package_install: checking if $package is installed")
+    $util->_formatted("package_install: checking if $package is installed")
       if $debug;
      
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
@@ -804,13 +801,13 @@ sub package_install {
     print "package_install: installing $package....\n" if $debug;
     $ENV{"PACKAGESITE"} = $pkg_url if $pkg_url;
 
-    my $pkg_add = $utility->find_the_bin( bin => "pkg_add", debug=>$debug, fatal=>$fatal );
+    my $pkg_add = $util->find_the_bin( bin => "pkg_add", debug=>$debug, fatal=>$fatal );
     if ( ! $pkg_add || ! -x $pkg_add ) {
         carp "couldn't find pkg_add, giving up.";
         return;
     };
 
-    my $r2 = $utility->syscmd( command => "$pkg_add -r $package" , debug=>0);
+    my $r2 = $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
 
     if   (!$r2) { print "\t pkg_add failed\t "; }
     else        { print "\t pkg_add success\t " if $debug }
@@ -828,7 +825,7 @@ sub package_install {
     {
         print "package_install: Failed #1, trying alternate package site.\n";
         $ENV{"PACKAGEROOT"} = "ftp://ftp2.freebsd.org";
-        $utility->syscmd( command => "$pkg_add -r $package" , debug=>0);
+        $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
 
         unless (
             $self->is_port_installed(
@@ -842,7 +839,7 @@ sub package_install {
             print
               "package_install: Failed #2, trying alternate package site.\n";
             $ENV{"PACKAGEROOT"} = "ftp://ftp3.freebsd.org";
-            $utility->syscmd( command => "$pkg_add -r $package" , debug=>0);
+            $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
 
             unless (
                 $self->is_port_installed(
@@ -856,7 +853,7 @@ sub package_install {
                 print
 "package_install: Failed #3, trying alternate package site.\n";
                 $ENV{"PACKAGEROOT"} = "ftp://ftp4.freebsd.org";
-                $utility->syscmd( command => "$pkg_add -r $package" , debug=>0);
+                $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
             }
         }
     }
@@ -919,7 +916,7 @@ sub port_install {
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
     unless ( -d $dir ) {
-        $utility->_formatted( "port_install: $dir does not exist for $port",
+        $util->_formatted( "port_install: $dir does not exist for $port",
             "FAILED" );
         croak if $fatal;
         return;
@@ -931,8 +928,8 @@ sub port_install {
             fatal => $fatal,
         );
     if ( $registered_as  ) {
-        $utility->_formatted( "port_install: $port", "ok ($registered_as)" );
-        #$utility->_formatted( "port_install: $port", "ok ($registered_as)" ) if $debug;
+        $util->_formatted( "port_install: $port", "ok ($registered_as)" );
+        #$util->_formatted( "port_install: $port", "ok ($registered_as)" ) if $debug;
         return 1;
     }
 
@@ -966,9 +963,9 @@ sub port_install {
 
     if ( $port eq "qmail" ) {
 
-        $utility->syscmd( command => "make install; make clean", debug=>$debug );
+        $util->syscmd( command => "make install; make clean", debug=>$debug );
 
-        #$utility->syscmd( command=>"make install; make enable-qmail; make clean" );
+        #$util->syscmd( command=>"make install; make enable-qmail; make clean" );
 
         # remove that pesky qmail startup file
         # we run qmail under daemontools
@@ -981,24 +978,24 @@ sub port_install {
         }
     }
     elsif ( $port eq "ezmlm-idx" ) {
-        $utility->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
         copy( "work/ezmlm-0.53/ezmlmrc", "/usr/local/bin" );
-        $utility->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
     }
     elsif ( $port eq "sqwebmail" ) {
         print "running: make $make_defines install\n";
-        $utility->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
         chdir("$dir/work");
-        my @list = $utility->get_dir_files( dir => "." );
+        my @list = $util->get_dir_files( dir => "." );
         chdir( $list[0] );
-        $utility->syscmd( command => "make install-configure", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make install-configure", debug=>$debug, fatal=>$fatal );
         chdir($dir);
-        $utility->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
     }
     elsif ( $port eq "fastest_cvsup" ) {
         print "running: make; make install clean\n";
-        $utility->syscmd( command => "make", fatal=>0, debug=>$debug, fatal=>$fatal );
-        $utility->syscmd( command => "make install clean", debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make", fatal=>0, debug=>$debug, fatal=>$fatal );
+        $util->syscmd( command => "make install clean", debug=>$debug, fatal=>$fatal );
     }
     else {
         # reset our PATH, to make sure we use our system supplied tools
@@ -1023,11 +1020,11 @@ sub port_install {
         );
 
     if ($registered_as) {
-        $utility->_formatted( "port_install: $port install", "ok ($registered_as)" );
+        $util->_formatted( "port_install: $port install", "ok ($registered_as)" );
         return 1;
     }
 
-    $utility->_formatted( "port_install: $port install", "FAILED" );
+    $util->_formatted( "port_install: $port install", "FAILED" );
     print <<"EO_PORT_TRY_MANUAL";
 
     Automatic installation of port $port failed! You can try to install $port manually
@@ -1090,10 +1087,10 @@ sub port_options {
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
     if ( !-d "/var/db/ports/$port" ) {
-        $utility->mkdir_system(dir=>"/var/db/ports/$port", debug=>0, fatal=>$fatal);
+        $util->mkdir_system(dir=>"/var/db/ports/$port", debug=>0, fatal=>$fatal);
     };
 
-    $utility->file_write(file=>"/var/db/ports/$port/options", lines=>[$opts], debug=>0, fatal=>$fatal);
+    $util->file_write(file=>"/var/db/ports/$port/options", lines=>[$opts], debug=>0, fatal=>$fatal);
 };
 
 sub portsdb_Uu {
@@ -1120,7 +1117,7 @@ sub portsdb_Uu {
     sleep 2;
 
     if ( !
-        $utility->yes_or_no(
+        $util->yes_or_no(
             question => "\n\nWould you like me to run portsdb -Fu",
             timeout  => 60,
         )
@@ -1129,14 +1126,14 @@ sub portsdb_Uu {
         return 1;
     }
 
-    my $portsdb = $utility->find_the_bin( bin => "portsdb", debug=>0,fatal=>0 );
+    my $portsdb = $util->find_the_bin( bin => "portsdb", debug=>0,fatal=>0 );
     unless ( $portsdb && -x $portsdb ) {
         print "\a";  # bell
         print "
         ATTENTION: I could not find portsdb, which means that portugprade
         is not installed.\n";
 
-        if ( ! $utility->yes_or_no( 
+        if ( ! $util->yes_or_no( 
                 question=>"Would you like me to install it now",
             )
         ) {
@@ -1146,8 +1143,8 @@ sub portsdb_Uu {
         $self->install_portupgrade(debug=>$debug, fatal=>$fatal);
     };
 
-    $portsdb = $utility->find_the_bin( bin => "portsdb", debug=>0 );
-    $utility->syscmd( command => "$portsdb -Fu", debug=>$debug );
+    $portsdb = $util->find_the_bin( bin => "portsdb", debug=>0 );
+    $util->syscmd( command => "$portsdb -Fu", debug=>$debug );
 };
 
 sub ports_check_age {
@@ -1210,13 +1207,13 @@ sub ports_update {
     my $days_old = int( (-M "/usr/ports") + 0.5);
     print "\n\nports_update: Your ports tree has not been updated in $days_old days.";
     unless (
-        $utility->yes_or_no(
+        $util->yes_or_no(
             timeout  => 60,
             question => "\nWould you like me to update it for you?:"
         )
       )
     {
-        $utility->_formatted( "ports_update: updating FreeBSD ports tree",
+        $util->_formatted( "ports_update: updating FreeBSD ports tree",
             "skipped" );
         return;
     }
@@ -1231,7 +1228,7 @@ sub ports_update {
     my $cvsupbin = $self->install_cvsup( debug=>$debug, fatal=>$fatal );
 
     unless ( -e $supfile ) {
-        $utility->file_get( url => "$toaster/etc/cvsup-ports", debug=>$debug );
+        $util->file_get( url => "$toaster/etc/cvsup-ports", debug=>$debug );
         move( "cvsup-ports", $supfile ) or croak "$!";
     }
 
@@ -1242,11 +1239,11 @@ sub ports_update {
     $cmd .= "$supfile";
 
     print "selecting the fastest cvsup host...\n";
-    $utility->syscmd( command => $cmd, debug=>0 , fatal=>$fatal );
+    $util->syscmd( command => $cmd, debug=>0 , fatal=>$fatal );
 
     # download the latest index file
     #chdir("/usr/ports")
-    $utility->syscmd( command => "cd /usr/ports; make fetchindex", debug => 0, fatal=>$fatal);
+    $util->syscmd( command => "cd /usr/ports; make fetchindex", debug => 0, fatal=>$fatal);
 
     # install portupgrade
     if ( $conf->{'install_portupgrade'} ) {
@@ -1254,7 +1251,7 @@ sub ports_update {
     }
 
     # optionally run portsdb
-    $self->portsdb_Uu(debug=>$debug, fatal=>$fatal);
+    #$self->portsdb_Uu(debug=>$debug, fatal=>$fatal);
 
     print "\n
 
@@ -1291,7 +1288,7 @@ sub portsnap {
     if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
 
     # should be installed already on FreeBSD 5.5 and 6.x
-    my $portsnap = $utility->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
+    my $portsnap = $util->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
     my $ps_conf  = "/usr/local/etc/portsnap.conf";
 
     unless ( $portsnap && -x $portsnap ) {
@@ -1312,7 +1309,7 @@ sub portsnap {
             };
         };
 
-        $portsnap = $utility->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
+        $portsnap = $util->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
         unless ( $portsnap && -x $portsnap ) {
             $err = "portsnap is not installed (correctly). I cannot go on!";
             croak $err if $fatal;
@@ -1326,7 +1323,7 @@ sub portsnap {
     };
 
     # grabs the latest updates from the portsnap servers
-    $utility->syscmd( cmd=>"portsnap fetch", debug=>0, fatal=>$fatal );
+    $util->syscmd( cmd=>"portsnap fetch", debug=>0, fatal=>$fatal );
 
     if ( ! -e "/usr/ports/.portsnap.INDEX" ) {
         print "\a
@@ -1335,13 +1332,11 @@ sub portsnap {
     doing a cvsup and require less bandwidth (good for you, and the FreeBSD 
     servers). So, please be patient.\n\n";
         sleep 2;
-        $utility->syscmd( cmd=>"$portsnap extract", debug=>0, fatal=>$fatal );
+        $util->syscmd( cmd=>"$portsnap extract", debug=>0, fatal=>$fatal );
     }
     else {
-        $utility->syscmd( cmd=>"$portsnap update", debug=>0, fatal=>$fatal );
+        $util->syscmd( cmd=>"$portsnap update", debug=>0, fatal=>$fatal );
     };
-
-    $self->portsdb_Uu(debug=>$debug, fatal=>$fatal);
 
     return 1;
 }
@@ -1367,7 +1362,7 @@ sub rc_dot_conf_check {
     my $file = "/etc/rc.conf";
     return 1 if `grep $check $file`;
 
-    $utility->file_write( 
+    $util->file_write( 
         file   => $file, 
         lines  => [$line], 
         append => 1, 
@@ -1412,7 +1407,7 @@ sub source_update {
 
     print "\n\nsource_update: Getting ready to update your sources!\n\n";
 
-    my $cvsupbin = $utility->find_the_bin( bin => "cvsup",debug=>0,fatal=>0 );
+    my $cvsupbin = $util->find_the_bin( bin => "cvsup",debug=>0,fatal=>0 );
     unless ( $cvsupbin && -x $cvsupbin ) {
         
         print "source_update: cvsup isn't installed. I'll fix that.\n";
@@ -1425,7 +1420,7 @@ sub source_update {
         {
             $self->port_install( port => "cvsup-without-gui", base => "net", debug=>$debug, fatal=>$fatal );
         }
-        $cvsupbin = $utility->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>$fatal );
+        $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>$fatal );
     }
 
     my $etcdir = $conf->{'system_config_dir'}     || "/usr/local/etc";
@@ -1477,14 +1472,14 @@ edit toaster-watcher.conf and set toaster_os_release in the following format:
               . "*default delete use-rel-suffix\n"
               . "src-all\n";
 
-    $utility->file_write(
+    $util->file_write(
         file => "$tmp/sources",
         lines => \@lines,
         debug => $debug,
         fatal => $fatal,
     );
 
-    $utility->install_if_changed(
+    $util->install_if_changed(
         newfile  => "$tmp/sources",
         existing => "$etcdir/$supfile",
         debug    => $debug,
@@ -1497,7 +1492,7 @@ edit toaster-watcher.conf and set toaster_os_release in the following format:
        $cmd .= "-h $cvshost " if $cvshost;
        $cmd .= "$etcdir/$supfile";
     
-    $utility->syscmd( command => $cmd, debug=>$debug, fatal=>$fatal );
+    $util->syscmd( command => $cmd, debug=>$debug, fatal=>$fatal );
 
     print "\n\n
 \tAt this point I recommend that you:
@@ -1524,6 +1519,9 @@ __END__
 
 Mail::Toaster::FreeBSD - FreeBSD specific Mail::Toaster functions.
 
+=head1 VERSION
+
+5.07
 
 =head1 SYNOPSIS
 
@@ -1811,7 +1809,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT
 
-Copyright 2003-2007, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

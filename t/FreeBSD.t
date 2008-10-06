@@ -1,11 +1,12 @@
-#!/usr/bin/perl
+
 use strict;
 use warnings;
+
 use English qw( -no_match_vars );
 use Test::More;
 
-use lib "inc";
 use lib "lib";
+use lib "inc";
 
 if ( $OSNAME ne "freebsd" ) {
     plan skip_all => "FreeBSD tests skipped on " . $OSNAME;
@@ -14,10 +15,6 @@ else {
     plan 'no_plan';
 };
 
-BEGIN { 
-    use_ok( 'Mail::Toaster::FreeBSD' );
-    use_ok( 'Mail::Toaster::Utility' );
-};
 require_ok( 'Mail::Toaster::FreeBSD' );
 require_ok( 'Mail::Toaster::Utility' );
 
@@ -29,8 +26,8 @@ ok ( $freebsd->isa('Mail::Toaster::FreeBSD'), 'check object class' );
 
 
 # most subs expect $conf to be passed to them
-my $utility = Mail::Toaster::Utility->new;
-my $conf = $utility->parse_config( file=>"toaster-watcher.conf", debug=>0 );
+my $util = Mail::Toaster::Utility->new;
+my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
 
 # cvsup_select_host
 	ok ( $freebsd->cvsup_select_host( conf=>$conf, test_ok=>1,debug=>0 ), 'cvsup_select_host');

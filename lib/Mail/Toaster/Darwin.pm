@@ -1,24 +1,15 @@
-#!/usr/bin/perl
+package Mail::Toaster::Darwin;
+our $VERSION = '5.04';
+
 use strict;
 use warnings;
-
-#
-# $Id: Darwin.pm, matt Exp $
-#
-
-package Mail::Toaster::Darwin;
 
 use Carp;
 use Params::Validate qw(:all);
 
-use vars qw($VERSION);
-$VERSION = '5.04';
-
-use lib "inc";
 use lib "lib";
-
 use Mail::Toaster::Utility 5;
-my $utility = Mail::Toaster::Utility->new();
+my $util = Mail::Toaster::Utility->new();
 
 sub new {
 
@@ -47,7 +38,7 @@ sub port_install {
 
     print "port_install: installing $port_name...";
 
-    my $port_bin = $utility->find_the_bin( bin => "port", fatal => 0 );
+    my $port_bin = $util->find_the_bin( bin => "port", fatal => 0 );
 
     unless ( -x $port_bin ) {
         print "FAILED: please install DarwinPorts!\n";
@@ -57,7 +48,7 @@ sub port_install {
     my $cmd = "$port_bin install $port_name";
     $cmd .= " $opts" if (defined $opts && $opts);
     
-    return $utility->syscmd( command => $cmd , debug=>0 );
+    return $util->syscmd( command => $cmd , debug=>0 );
 }
 
 sub ports_check_age {
@@ -76,7 +67,7 @@ sub ports_check_age {
 
 sub ports_update {
 
-    my $cvsbin = $utility->find_the_bin( bin => "cvs",fatal=>0, debug=>0 );
+    my $cvsbin = $util->find_the_bin( bin => "cvs",fatal=>0, debug=>0 );
 
     unless ( -x $cvsbin ) {
         die "FATAL: could not find cvs, please install Developer Tools!\n";
@@ -97,7 +88,7 @@ sub ports_update {
     if ( -d $portsdir ) {
 
         print "\n\nports_update: You might want to update your ports tree!\n\n";
-        if ( ! $utility->yes_or_no(
+        if ( ! $util->yes_or_no(
                question=>"\n\nWould you like me to do it for you?" ) )
         {
             print "ok then, skipping update.\n";
@@ -105,8 +96,8 @@ sub ports_update {
         }
 
         # the new way
-        my $bin = $utility->find_the_bin( bin => "port", debug=>0 );
-        $utility->syscmd( command => "$bin -d sync", debug=>0 );
+        my $bin = $util->find_the_bin( bin => "port", debug=>0 );
+        $util->syscmd( command => "$bin -d sync", debug=>0 );
 
         #	 the old way
         #chdir($portsdir);
@@ -114,13 +105,13 @@ sub ports_update {
         #print "\n\nthe CVS password is blank, just hit return at the prompt)\n\n";
 
         #my $cmd = 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-        #$utility->syscmd( command=>$cmd );
-        #$utility->syscmd( command=>'cvs -q -z3 update -dP' );
+        #$util->syscmd( command=>$cmd );
+        #$util->syscmd( command=>'cvs -q -z3 update -dP' );
 
         #	if ( -x "/opt/local/bin/portindex") { #
-        #		$utility->syscmd( command=>"/opt/local/bin/portindex" ); }
+        #		$util->syscmd( command=>"/opt/local/bin/portindex" ); }
         #	elsif ( -x "/usr/local/bin/portindex" ) { #
-        #		$utility->syscmd( command=>"/usr/local/bin/portindex" );
+        #		$util->syscmd( command=>"/usr/local/bin/portindex" );
         #	};
     }
     else {
@@ -139,7 +130,7 @@ EO_NO_PORTS
 ;
 
         unless (
-            $utility->yes_or_no(
+            $util->yes_or_no(
                 q=>"Do you want me to try and set up darwin ports for you?")
           )
         {
@@ -147,42 +138,42 @@ EO_NO_PORTS
             exit 0;
         }
 
-        $utility->chdir_source_dir( dir => "/usr", debug=>0 );
+        $util->chdir_source_dir( dir => "/usr", debug=>0 );
 
         print
           "\n\nthe CVS password is blank, just hit return at the prompt\n\n";
 
         my $cmd =
 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od login';
-        $utility->syscmd( command => $cmd, debug=>0 );
+        $util->syscmd( command => $cmd, debug=>0 );
         
         $cmd =
 'cvs -d :pserver:anonymous@anoncvs.opendarwin.org:/Volumes/src/cvs/od co -P darwinports';
-        $utility->syscmd( command => $cmd, debug=>0 );
+        $util->syscmd( command => $cmd, debug=>0 );
         
         chdir("/usr");
-        $utility->syscmd( command => "mv darwinports dports", debug=>0 );
+        $util->syscmd( command => "mv darwinports dports", debug=>0 );
         
         unless ( -d "/etc/ports" ) { mkdir( "/etc/ports", oct('0755') ) };
         
-        $utility->syscmd(
+        $util->syscmd(
             command => "cp dports/base/doc/sources.conf /etc/ports/", debug=>0 );
             
-        $utility->syscmd(
+        $util->syscmd(
             command => "cp dports/base/doc/ports.conf /etc/ports/", debug=>0 );
             
-        $utility->file_write(
+        $util->file_write(
             file   => "/etc/ports/sources.conf",
             lines  => ["file:///usr/dports/dports"],
             append => 1,
             debug  => 0,
         );
 
-        my $portindex = $utility->find_the_bin( bin => "portindex",debug=>0 );
+        my $portindex = $util->find_the_bin( bin => "portindex",debug=>0 );
         unless ( -x $portindex ) {
             print "compiling darwin ports base.\n";
             chdir("/usr/dports/base");
-            $utility->syscmd( command => "./configure; make; make install", debug=>0 );
+            $util->syscmd( command => "./configure; make; make install", debug=>0 );
         }
     }
 }
@@ -195,6 +186,9 @@ __END__
 
 Mail::Toaster::Darwin - Darwin specific Mail Toaster functions
 
+=head1 VERSION
+
+5.04
 
 =head1 SYNOPSIS
 
@@ -268,7 +262,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2003-2006, The Network People, Inc. All Rights Reserved.
+Copyright (c) 2003-2008, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

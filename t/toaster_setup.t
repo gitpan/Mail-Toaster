@@ -13,7 +13,7 @@ use Test::More 'no_plan';
 BEGIN { use_ok( 'Mail::Toaster::Utility' ); };
 require_ok( 'Mail::Toaster::Utility' );
 
-my $utility = Mail::Toaster::Utility->new;    # create an object
+my $util = Mail::Toaster::Utility->new;    # create an object
 
 my $setup_location = "bin/toaster_setup.pl";
 
@@ -28,7 +28,7 @@ if ($OSNAME ne 'VMS')
     {$this_perl .= $Config{_exe}
         unless $this_perl =~ m/$Config{_exe}$/i;}
 
-ok( $utility->syscmd(
+ok( $util->syscmd(
         command => "$this_perl $setup_location -s test2",
         fatal   => 0,
         debug   => 0,
