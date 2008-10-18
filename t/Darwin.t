@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 use warnings;
 
@@ -12,7 +12,6 @@ else {
         plan 'no_plan';
 };
 
-use lib "inc";
 use lib "lib";
 
 require_ok('Mail::Toaster::Darwin');

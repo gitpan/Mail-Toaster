@@ -1,3 +1,4 @@
+#!perl
 use strict;
 use warnings;
 
@@ -5,7 +6,6 @@ use Cwd;
 use English qw( -no_match_vars );
 use Test::More;
 
-use lib "inc";
 use lib "lib";
 
 eval "use Mail::Ezmlm";

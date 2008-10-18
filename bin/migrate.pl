@@ -1,8 +1,8 @@
-#!/usr/bin/perl
+#!perl
 use strict;
 
 #
-# $Id: migrate.pl 674 2008-10-05 19:43:50Z matt $
+# $Id: migrate.pl 697 2008-10-18 04:35:15Z matt $
 #
 
 =head1 NAME
@@ -31,6 +31,10 @@ This is version .06.
 =head1 CHANGES
 
 July 7, 06 - merged in some automation additions. use with caution.
+
+=head1 TODO
+
+Create the new users using vadduser -s. Will be more reliable in fringe cases where someone tampered with the vpopmail tables, as well as working on systems where password learning feature is disabled.
 
 =cut
 

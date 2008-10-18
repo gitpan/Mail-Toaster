@@ -1,14 +1,10 @@
-#!/usr/bin/perl
+#!perl
 use strict;
-use warnings;
+#use warnings;
+
 use Cwd;
 use Test::More 'no_plan';
 
-#
-# $Id: $
-#
-
-use lib "inc";
 use lib "lib";
 
 BEGIN {

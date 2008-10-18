@@ -1,7 +1,7 @@
 package Mail::Toaster;
 
 use version;
-our $VERSION = '5.12_01';
+our $VERSION = '5.13';
 
 use strict;
 use warnings;
@@ -12,7 +12,6 @@ use Params::Validate qw/ :all /;
 
 use vars qw/ $INJECT $perl $util $conf /;
 
-use lib "inc";
 use lib "lib";
 use Mail::Toaster::Utility 5;
 use Mail::Toaster::Perl    5; 
@@ -1646,7 +1645,7 @@ Mail::Toaster - turns a computer into a secure, full-featured, high-performance 
 
 =head1 VERSION
  
-5.11
+5.13
 
 
 =head1 SYNOPSIS

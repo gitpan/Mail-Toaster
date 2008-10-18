@@ -1,14 +1,10 @@
-#!/usr/bin/perl
-#
-# $Id: $
-#
+#!perl
 use strict;
 use warnings;
-use English qw( -no_match_vars );
 
+use English qw( -no_match_vars );
 use Test::More;
 
-use lib "inc";
 use lib "lib";
 
 my $mod = "Date::Parse";

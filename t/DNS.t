@@ -1,14 +1,10 @@
-#!/usr/bin/perl
-#
-# $Id: DNS.t,v 4.20 2004/11/16 20:57:31 matt Exp $
-#
+#!perl
 
 use strict;
 use warnings;
 use Test::More 'no_plan';
 use English qw( -no_match_vars );
 
-use lib "inc";
 use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::DNS') };

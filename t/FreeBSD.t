@@ -1,11 +1,10 @@
-
+#!perl
 use strict;
 use warnings;
 
 use English qw( -no_match_vars );
 use Test::More;
 
-use lib "lib";
 use lib "inc";
 
 if ( $OSNAME ne "freebsd" ) {

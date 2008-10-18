@@ -1,8 +1,9 @@
 
 =head1 Mail Toaster Changes
 
-=head2 5.12 -
+=head2 5.12 - Oct 17, 2008
 
+   tweaks to t/Utility.t so tests pass on systems w/o sudo installed
    ripped out Provision.pm, bin/sysadmin, bin/useradmin, bin/webadmin
    ripped out Build.PL & inc/*
    bumped toaster_os_release to 7.1 in t-w.conf

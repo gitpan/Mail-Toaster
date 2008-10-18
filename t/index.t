@@ -1,13 +1,9 @@
-#!/usr/bin/perl
-#
-# $Id: CGI.t,v 4.20 2004/11/16 20:57:31 matt Exp $
-#
-
+#!perl
 use strict;
-use warnings;
+#use warnings;
+
 use Test::More;
 
-use lib "inc";
 use lib "lib";
 
 eval "use HTML::Template";

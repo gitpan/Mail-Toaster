@@ -13,7 +13,7 @@ use Params::Validate qw(:all);
 use Scalar::Util qw( openhandle );
 
 use vars qw($VERSION $fatal_err $err);
-$VERSION = '5.10';
+$VERSION = '5.11';
 
 sub new {
     my ( $class, $name ) = @_;
@@ -3514,7 +3514,7 @@ Mail::Toaster::Utility - a collection of utility subroutines for sysadmin tasks
 
 =head1 VERSION
 
-5.10
+5.11
 
 =head1 SYNOPSIS
 

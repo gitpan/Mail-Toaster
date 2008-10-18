@@ -1,14 +1,11 @@
-#!/usr/bin/perl
-#
-# Before `make install' is performed this script is runnable with `make test'.
-#
+#!perl
 use strict;
 use warnings;
+
 use Cwd;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
-use lib "inc";
 use lib "lib";
 
 my $network++;

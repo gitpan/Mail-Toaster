@@ -1,12 +1,11 @@
-#!/usr/bin/perl
-#
+#!perl
 use strict;
 use warnings;
+
 use Cwd;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
-use lib "inc";
 use lib "lib";
 
 BEGIN {

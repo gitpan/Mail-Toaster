@@ -1,8 +1,7 @@
 #!perl
 use strict;
-use warnings;
+#use warnings;
 
-use lib "inc";
 use lib "lib";
 
 use Config;

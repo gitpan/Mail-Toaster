@@ -1,14 +1,12 @@
-#!/usr/bin/perl
-#
-# $Id: Perl.t,v 4.1 2004/11/18 03:57:00 matt Exp $
-#
+#!perl
+
 use strict;
 #use warnings;
+
 use Cwd;
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
-use lib "inc";
 use lib "lib";
 
 BEGIN { use_ok( 'Mail::Toaster::Perl' ); }

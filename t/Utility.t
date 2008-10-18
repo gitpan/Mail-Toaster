@@ -1,11 +1,10 @@
-#!/usr/bin/perl
+#!perl
 #
 # t/Utility.t - test suite written by Matt Simerson in 2006
 #
 use strict;
-use warnings;
+#use warnings;
 
-use lib "inc";
 use lib "lib";
 
 use Cwd;
@@ -158,9 +157,11 @@ TODO: {
 }
 
 # chown_system
-if ( $UID == 0 ) {
+my $sudo_bin = $util->find_the_bin( bin => 'sudo', debug => 0, fatal=>0);
+if ( $UID == 0 && $sudo_bin && -x $sudo_bin ) {
+
     # avoid the possiblity of a sudo call in testing
-    ok( $util->chown_system( dir => $tmp, user => $<, debug => 0 ),
+    ok( $util->chown_system( dir => $tmp, user => $<, debug => 0, fatal => 0 ),
         'chown_system' );
 };
 
@@ -207,7 +208,7 @@ ok( $util->file_write(
     ),
     'file_write'
 );
-my @lines = $util->file_read( file => $rwtest );
+my @lines = $util->file_read( file => $rwtest, debug => 0 );
 ok( @lines == 1, 'file_read' );
 
 
@@ -738,12 +739,11 @@ ok( $util->source_warning( package => 'foo', debug => 0 ),
     'source_warning' );
 
 # sudo
-if ( !$< == 0 && -x $util->find_the_bin( program => 'sudo', debug => 0 ) )
-{
-    ok( $util->sudo( debug => 0 ), 'sudo' );
+if ( !$< == 0 && $sudo_bin && -x $sudo_bin ) {
+    ok( $util->sudo( debug => 0, fatal => 0 ), 'sudo' );
 }
 else {
-    ok( !$util->sudo( debug => 0 ), 'sudo' );
+    ok( !$util->sudo( debug => 0, fatal => 0 ), 'sudo' );
 }
 
 # syscmd
