@@ -1,72 +1,50 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-#
-# $Id: maillogs matt Exp $
-#
 
-use vars qw( $VERSION ); $VERSION = "5.02";
-
-# ------------------------------------------------------------------------------
-
-use lib "lib";
-use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new;
-use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
-use Mail::Toaster::Logs    5; 
-
+use Date::Parse;
 use File::Path;
 use Getopt::Std;
+use Pod::Usage;
 
-my $mod = "Date::Parse";
-## no critic
-if ( ! $perl->has_module($mod) )
-{
-    die "FATAL ERROR: I can't load Date::Parse from the TimeDate bundle. Please install it!\n";
-};
-## use critic
- 
+our $VERSION = '5.25';
+
+use lib 'lib';
+use Mail::Toaster          5.25;
+use Mail::Toaster::Logs    5; 
+
 use vars qw( $opt_r $opt_v %count %spam );
 getopts('rv');
-my $debug = $opt_v || 0;
 
-my $conf = $util->parse_config( file=>"toaster.conf", debug=>0);
+my $debug   = $opt_v ? 1 : 0;
+print "maillogs $VERSION: verbose mode enabled.\n" if $debug;
 
-if ( $debug ) {
-    print "maillogs: verbose mode enabled.\n";
-    $conf->{'logs_debug'} = 1;
-}
-else {
-    $conf->{'logs_debug'} = 0;
-};
-
-my $logs = Mail::Toaster::Logs->new(conf=>$conf);
+my $toaster = Mail::Toaster->new(debug=>$debug);
+my $util    = $toaster->get_util;
+my $conf    = $toaster->parse_config( file=>'toaster.conf', debug=>0);
+   $conf->{'logs_debug'} = $debug;
+my $logs    = Mail::Toaster::Logs->new(conf=>$conf, 'log' => $toaster );
 
 $|++;
 
-if ( ! $logs->verify_settings() ) {
-    die "basic tests fail, have you run toaster_setup.pl -s maillogs yet?\n";
-};
+$toaster->error( "basic tests fail, have you run toaster_setup.pl -s maillogs yet?")
+    if ! $logs->verify_settings();
 
-my $iam = $logs->what_am_i();
+my $iam = $logs->what_am_i() or pod2usage;
 
-  $iam eq "maillogs" ? $logs->parse_cmdline_flags( prot=>$ARGV[0] )
-: $iam eq "sendlog"  ? $logs->roll_send_logs()
-: $iam eq "smtplog"  ? $logs->roll_rbl_logs()
-: $iam eq "pop3log"  ? $logs->roll_pop3_logs()
-: print "not available.\n";
+   if ( $iam eq "maillogs" ) { $logs->parse_cmdline_flags( prot=>$ARGV[0] ) }
+elsif ( $iam eq "sendlog"  ) { $logs->roll_send_logs()  }
+elsif ( $iam eq "smtplog"  ) { $logs->roll_rbl_logs()   }
+elsif ( $iam eq "pop3log"  ) { $logs->roll_pop3_logs()  }
+else                         { pod2usage };
 
 0;
-__END__
 
+__END__
 
 =head1 NAME
  
 maillogs - A log file post-processer for multilog log files
-
-
-=head1 VERSION
- 
-This documentation refers to maillogs version 5.00
 
 
 =head1 SYNOPSIS
@@ -93,11 +71,9 @@ Maillogs is used in two different ways.
 
 =over
 
-
 =item Log Processor 
 
 In its simplest form, you just run maillogs and telling it which type of logs you want want to process. It parses the log files in real time, updates the counter files it maintains, and prints out the counters. 
-
 
 =item multilog post-processer 
 
@@ -261,7 +237,7 @@ Matt Simerson (matt@tnpi.net)
 
 =head1 LICENCE AND COPYRIGHT
  
-Copyright (c) 2004-2008 The Network People, Inc. (info@tnpi.net). All rights reserved.
+Copyright (c) 2004-2010 The Network People, Inc. (info@tnpi.net). All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met: 
 

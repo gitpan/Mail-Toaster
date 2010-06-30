@@ -1,37 +1,37 @@
-#!perl
+
 use strict;
-#use warnings;
+use warnings;
 
 use Cwd;
 use Test::More 'no_plan';
 
-use lib "lib";
+use lib 'lib';
 
 BEGIN {
-    use_ok('Mail::Toaster::Utility');
+    use_ok('Mail::Toaster');
     use_ok('Mail::Toaster::Setup');
 }
-require_ok('Mail::Toaster::Utility');
+require_ok('Mail::Toaster');
 require_ok('Mail::Toaster::Setup');
 
-my $util = Mail::Toaster::Utility->new;
-# read in the .conf file
-my $conf = $util->parse_config( file => "toaster-watcher.conf", debug => 0 );
+my $debug = 0;
+my %test_params = ( fatal => 0, debug => $debug );
+
+my $toaster = Mail::Toaster->new(debug=>0);
+my $util = $toaster->get_util();
+my $conf = $toaster->get_config();
 
 # basic OO mechanism
-my $setup = Mail::Toaster::Setup->new(conf=>$conf);     # create an object
-ok( defined $setup, 'new Mail::Toaster::Setup object)' );    # check it
+my $setup = Mail::Toaster::Setup->new( 'log' => $toaster, conf => $conf );
+ok( defined $setup, 'new Mail::Toaster::Setup object)' );
 ok( $setup->isa('Mail::Toaster::Setup'), 'setup object class' );
-
-
 
 my $initial_working_directory = cwd;
 
 my @subs_to_test = qw/ apache autorespond clamav courier_imap cronolog
   daemontools djbdns expat ezmlm mysql openssl_conf
-  qmail_scanner razor simscan spamassassin vpopmail vqadmin /;
-
-my $debug = 0;
+  razor simscan spamassassin vpopmail vqadmin 
+/;
 
 foreach my $sub (@subs_to_test) {
 
@@ -46,7 +46,7 @@ foreach my $sub (@subs_to_test) {
 
     $conf->{$install_sub} = 0;                  # disable install
 
-    # and then make sure it fails to install
+    # and then make sure it refuses to install
     ok( !$setup->$sub( debug => $debug ), $sub );
 
     # set $conf->install_sub back to its initial state
@@ -54,10 +54,8 @@ foreach my $sub (@subs_to_test) {
 }
 
 # config
-ok( $setup->config( test_ok => 1, debug => 0, fatal => 0 ),
-    'config' );
-ok( !$setup->config( test_ok => 0, debug => 0, fatal => 0 ),
-    'config' );
+ok( $setup->config( test_ok => 1, %test_params ), 'config' );
+ok( !$setup->config( test_ok => 0, %test_params ), 'config' );
 
 # dependencies
 ok( $setup->dependencies( test_ok => 1 ), 'dependencies' );

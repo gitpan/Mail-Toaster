@@ -1,35 +1,40 @@
-#!/usr/bin/perl
+package Mail::Toaster::Mysql;
+
 use strict;
 use warnings;
 
-package Mail::Toaster::Mysql;
-our $VERSION = '5.09';
-
-use lib "inc";
-use lib "lib";
+our $VERSION = '5.25';
 
 use Carp;
 use Params::Validate qw( :all );
 use English qw( -no_match_vars );
 
-use vars qw($darwin $freebsd);
+use lib 'inc';
+use lib 'lib';
 
-use Mail::Toaster::Perl    5; my $perl = Mail::Toaster::Perl->new;
-use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new;
+use vars qw($darwin $freebsd $toaster $log $util);
 
-if ( $OSNAME eq "freebsd" ) {
-    require Mail::Toaster::FreeBSD;
-    $freebsd = Mail::Toaster::FreeBSD->new;
-}
-elsif ( $OSNAME eq "darwin" ) {
-    require Mail::Toaster::Darwin;
-    $darwin = Mail::Toaster::Darwin->new;
-}
+use Mail::Toaster 5.25;
 
 sub new {
-    my ( $class, $name ) = @_;
-    my $self = { name => $name };
+    my $class = shift;
+    my %p = validate( @_, { 'log' => OBJECT } );
+
+    my $self = { };
     bless( $self, $class );
+
+    $toaster = $log = $p{'log'};
+    $util = $toaster->get_util;
+
+    if ( $OSNAME eq "freebsd" ) {
+        require Mail::Toaster::FreeBSD;
+        $freebsd = Mail::Toaster::FreeBSD->new( 'log' => $log );
+    }
+    elsif ( $OSNAME eq "darwin" ) {
+        require Mail::Toaster::Darwin;
+        $darwin = Mail::Toaster::Darwin->new( 'log' => $log );
+    };
+
     return $self;
 }
 
@@ -50,7 +55,7 @@ sub backup {
 
     my ( $self, $dot ) = @_;
 
-    unless ( $util->is_hashref($dot) ) {
+    unless ( ref $dot eq 'HASH' ) {
         print "FATAL, you passed backup a bad argument!\n";
         return 0;
     }
@@ -61,37 +66,36 @@ sub backup {
 
     print "backup: beginning mysql_backup.\n" if $debug;
 
-    my $cronolog  = $util->find_the_bin( bin => "cronolog" );
-    my $mysqldump = $util->find_the_bin( bin => "mysqldump" );
+    my $cronolog  = $util->find_bin( "cronolog" );
+    my $mysqldump = $util->find_bin( "mysqldump" );
 
     my $mysqlopts = "--all-databases --opt --password=" . $dot->{'pass'};
     my ( $dd, $mm, $yy ) = $util->get_the_date( debug => $debug );
 
     print "backup: backup root is $backupdir.\n" if $debug;
 
-    $util->chdir_source_dir( dir => "$backupdir/$yy/$mm/$dd" );
+    $util->cwd_source_dir( "$backupdir/$yy/$mm/$dd" );
 
     print "backup: backup file is $backupfile.\n" if $debug;
 
     if (   -e "$backupdir/$yy/$mm/$dd/$backupfile"
         || -e "$backupdir/$yy/$mm/$dd/$backupfile.gz" )
     {
-        $util->_formatted( "backup: backup for today is already done.",
-            "ok (skipped)" )
+        $log->audit( "backup: backup for today is already done, ok (skipped)" )
           if $debug;
     }
 
     # dump the databases
     my $cmd =
       "$mysqldump $mysqlopts | $cronolog $backupdir/%Y/%m/%d/$backupfile";
-    $util->_formatted("backup: running $cmd") if $debug;
-    $util->syscmd( command => $cmd );
+    $log->audit("backup: running $cmd") if $debug;
+    $util->syscmd( $cmd );
 
     # gzip the backup to greatly reduce its size
-    my $gzip = $util->find_the_bin( bin => "gzip" );
+    my $gzip = $util->find_bin( "gzip" );
     $cmd = "$gzip $backupdir/$yy/$mm/$dd/$backupfile";
-    $util->_formatted("backup: running $cmd") if $debug;
-    $util->syscmd( command => $cmd );
+    $log->audit("backup: running $cmd") if $debug;
+    $util->syscmd( $cmd );
 }
 
 sub binlog_on {
@@ -117,27 +121,17 @@ sub connect {
     my ( $self, $dot, $warn, $debug ) = @_;
     my $dbh;
 
-    $perl->module_load(
-            module      => "DBI",
-            port_name  => "p5-DBI",
-            port_group => "databases",
-            debug       => $debug,
-    );
-    $perl->module_load(
-            module      => "DBD::mysql",
-            port_name  => "p5-DBD-mysql",
-            port_group => "databases",
-            debug       => $debug,
-    );
+    $util->install_module( "DBI", debug => $debug );
+    $util->install_module( "DBD::mysql", debug => $debug );
 
     my $ac  = $self->autocommit($dot);
     my $dbv = $self->db_vars($dot);
-    my $dsn =
-"DBI:$dbv->{'driver'}:database=$dbv->{'db'};host=$dbv->{'host'};port=$dbv->{'port'}";
+    my $dsn = "DBI:$dbv->{'driver'}:database=$dbv->{'db'};" 
+        . "host=$dbv->{'host'};port=$dbv->{'port'}";
 
-    $dbh =
-      DBI->connect( $dsn, $dbv->{'user'}, $dbv->{'pass'},
-        { RaiseError => 0, AutoCommit => $ac } );
+    $dbh = DBI->connect( $dsn, $dbv->{'user'}, $dbv->{'pass'},
+                { RaiseError => 0, AutoCommit => $ac } );
+
     if ( !$dbh ) {
         carp "db connect failed: $!\n" if $debug;
         croak unless $warn;
@@ -197,26 +191,24 @@ sub defaults {
     my $self = shift;
 
     if ( -e "/etc/my.cnf" ) {
-        $util->_formatted( "mysql->defaults: checking my.cnf ",
-            "ok (exists)" );
+        $log->audit( "mysql->defaults: checking my.cnf, ok (exists)" );
         return 1;
     }
 
-    $util->_formatted( "mysql->defaults: checking my.cnf ", "MISSING" );
+    $log->audit( "mysql->defaults: checking my.cnf, MISSING" );
 
     if ( -e "/usr/local/share/mysql/my-large.cnf" ) {
         use File::Copy;
         copy( "/usr/local/share/mysql/my-large.cnf", "/etc/my.cnf" );
 
         if ( -e "/etc/my.cnf" ) {
-            $util->_formatted( "mysql->defaults: installing my.cnf ", "ok" );
+            $log->audit( "mysql->defaults: installing my.cnf, ok" );
             print "\n\n\tI just installed a default /etc/my.cnf\n";
             print "\n\tPlease review it for sanity in your environment!\n\n";
             sleep 3;
         }
         else {
-            $util->_formatted( "mysql->defaults: installing my.cnf ",
-                "FAILED" );
+            $log->audit( "mysql->defaults: installing my.cnf, FAILED" );
         }
     }
 }
@@ -247,172 +239,134 @@ sub get_hashes {
 }
 
 sub install {
-
     my $self = shift;
-
-    # parameter validation here
     my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, },
-            'mysql'   => { type=>SCALAR,  optional=>1, },
-            'site'    => { type=>SCALAR,  optional=>1, },
-            'ver'     => { type=>SCALAR,  optional=>0, },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
+            conf  => { type=>HASHREF, },
+            fatal => { type=>BOOLEAN, optional=>1, default=>1 },
+            debug => { type=>BOOLEAN, optional=>1, default=>1 },
         },
     );
 
-    my ( $conf, $mysql, $site, $ver, $fatal, $debug )
-        = ( $p{'conf'}, $p{'mysql'}, $p{'site'}, $p{'ver'}, $p{'fatal'}, $p{'debug'} );
+    my ( $conf, $fatal, $debug ) = ( $p{conf}, $p{fatal}, $p{debug} );
 
     # only install if install_mysql is set to a value we recognize
-    unless ($ver) {
-        print "skipping MySQL, it's not selected!\n";
-        return 0;
-    }
-
-    if ( $OSNAME eq "darwin" ) {
-        print "detected OS " . $OSNAME . ", installing for Darwin.\n";
-        return $self->install_darwin($mysql, $site, $debug);
-    };
-
-    # we only install using FreeBSD ports and DarwinPorts at this time
-    if ( $OSNAME ne "freebsd" ) {
-        print "\nskipping MySQL, build support on $OSNAME is not available."
-            . "Please install MySQL manually.\n";
+    my $ver = $conf->{install_mysql} or do {
+        $log->audit( "skipping MySQL install, not selected.");
         return;
     };
 
-    my $installed = $freebsd->is_port_installed( port => "mysql-server", debug => 0 );
-    if ($installed) {
-        $util->_formatted( "mysql->install: MySQL is already installed",
-            "ok ($installed)" );
-
-        return $self->mysql_extras(conf=>$conf, debug=>$debug);
+    if ( lc($OSNAME) eq "darwin" ) {
+        $log->audit( "detected OS " . $OSNAME . ", installing for Darwin.");
+        return $self->install_darwin( $debug);
     };
 
-    # try to speed things up by installing the package
-    $self->install_freebsd_package($ver, $debug);
-
-    # see if the package install succeeded
-    $installed = $freebsd->is_port_installed( port => "mysql-server", debug=>0 );
-    if ( $installed ) {
-        $util->_formatted( "mysql->install: installing MySQL", "ok ($installed)" );
-        return $self->mysql_extras(conf=>$conf, debug=>$debug);
+    if ( lc($OSNAME) eq "freebsd" ) {
+        return $self->install_freebsd( $conf, $debug ) 
     };
 
-    # MySQL is still not installed, lets do it!
-    my $copts = "SKIP_DNS_CHECK";
-
-    if ($conf) {
-        $copts .= ",WITH_OPENSSL"    if $conf->{'install_mysql_ssl'};
-        $copts .= ",BUILD_OPTIMIZED" if $conf->{'install_mysql_optimized'};
-
-        $copts .= $self->with_linuxthreads($conf->{'install_mysql_linuxthreads'}, $ver);
-
-        if (    $conf->{'install_mysql_dir'}
-            and $conf->{'install_mysql_dir'} ne "/var/db/mysql" )
-        {
-
-            # the user overrode the default mysql db location
-            $copts .= ",DB_DIR=" . $conf->{'install_mysql_dir'};
-        }
-    }
-
-    my ( $port, $check, $dir );
-    $dir = "";
-
-    if    ( $ver ==  3 || $ver == 323 ) { $port  = "mysql323-server"; $check = "mysql-server-3.23"; }
-    elsif ( $ver ==  4 || $ver == 40  ) { $port  = "mysql40-server";  $check = "mysql-server-4.0";  }
-    elsif ( $ver == 41 || $ver == 4.1 ) { $port  = "mysql41-server";  $check = "mysql-server-4.1";  }
-    elsif ( $ver == 50 || $ver == 5.0 ) { $port  = "mysql50-server";  $check = "mysql-server-5";    }
-    elsif ( $ver == 51 || $ver == 5.1 ) { $port  = "mysql51-server";  $check = "mysql-server-5";    }
-    else                                { $port  = "mysql50-server";  $check = "mysql-server-5";    }
-
-    unless (
-        $freebsd->port_install(
-            port  => $port,
-            base  => 'databases',
-            dir   => $dir,
-            check => $check,
-            flags => $copts,
-            debug => $debug,
-        )
-    )
-    {
-        $util->_formatted( "install: installing MySQL", "FAILED" );
-        return;
-    }
-
-    if ( !$freebsd->is_port_installed( port => "mysql-server", debug=>$debug ) ) {
-        $util->_formatted( "install: installing MySQL", "FAILED" );
-        return;
-    }
-
-    $util->_formatted( "install: installing MySQL", "ok" );
-    return $self->mysql_extras(conf=>$conf, debug=>$debug);
+    print "\nskipping MySQL, build support on $OSNAME is not available."
+        . "Please install MySQL manually.\n";
+    return;
 };
 
 sub install_darwin {
 
     my $self = shift;
-
-    my $mysql = shift;
-    my $site  = shift;
     my $debug = shift;
 
-    if ( $OSNAME ne "darwin" ) {
-        croak "you are calling this incorrectly!\n";
-    };
+		croak "you are calling this incorrectly!\n" if $OSNAME ne "darwin";
 
-#    if ( -d "/usr/ports/dports" || "/usr/dports" || "/usr/darwinports" ) {
-    if ( $util->find_the_bin( bin=>"port", debug=>0) ) {
-        $darwin->port_install( port_name => "mysql4", debug=>$debug );
-        $darwin->port_install( port_name => "p5-dbi", debug=>$debug );
-        $darwin->port_install( port_name => "p5-dbd-mysql", debug=>$debug );
+    if ( $util->find_bin( "port", debug=>0) ) {
+        $darwin->install_port( "mysql5" );
+        $darwin->install_port( "p5-dbi" );
+        $darwin->install_port( "p5-dbd-mysql" );
         return 1;
     }
 
-    print "DarwinPorts is not installed. Attempting to fetch a binary installation.\n";
-    $mysql = "mysql-standard-5.0.24-osx10.4-powerpc.dmg" unless $mysql;
-    $site = "ftp://mysql.secsup.org/pub/software/mysql/Downloads/MySQL-5.0/" unless $site;
-
-    chdir("~/Desktop/");
-
-    unless ( -e "$mysql.tar.gz" ) {
-        $util->file_get(url=>"$site/$mysql", debug=>$debug);
-    }
-
-    print "There is a $mysql.dmg file on your Desktop. Read and follow the "
-        . "readme therein to install MySQL";
+    croak "DarwinPorts is not installed.\n";
 }
 
-sub install_freebsd_package {
-    my ($self, $ver, $debug) = @_;
+sub install_extras {
 
-    my $package_install = 0;
-    $package_install++ if $ver == 1;
+    my $self = shift;
+    my ($conf, $debug) = @_;
 
-    if ( ! $package_install ) {
-        $package_install++ if ( $util->yes_or_no( question=>"I can save you some time by installing the precompiled mysql package instead of compiling from ports. The advantage is it will save you a lot of time building. The disadvantage is that it will likely not be the latest release of MySQL. Shall I install the package?", timeout=>60 ) );
+    if ( $conf->{install_mysqld} ) {
+
+        $freebsd->conf_check( 
+                check=>"mysql_enable",
+                line=>"mysql_enable=\"YES\"", 
+                debug=>$debug, 
+                );
+
+        $self->defaults();
+        $self->startup( conf=>$conf, debug=>$debug ) 
     };
 
-    return if !$package_install;
+    $freebsd->install_port( "p5-DBI" ); 
+    $freebsd->install_port( "p5-DBD-mysql" );
 
-    my $package_name = $ver eq "51" ? "mysql51-server" 
-                     : $ver eq "50" ? "mysql50-server"
-                     : $ver eq "41" ? "mysql41-server"
-                     : $ver eq "40" ? "mysql40-server"
-                     : $ver eq  "4" ? "mysql41-server"
-                     : "mysql50-server";
-
-    $freebsd->package_install( port => $package_name, debug=>$debug );
-
-    if (!  $freebsd->is_port_installed(port => "mysql-server", debug=>0) ) 
-    {
-        # try this for really old freebsd package
-        $freebsd->package_install( port => "mysql-server", debug=>$debug );
-    }
+    return 1;
 }
+
+sub install_freebsd {
+    my ($self, $conf, $debug) = @_;
+
+    my @ports = qw/ mysql-client /;
+    push @ports, 'mysql-server' if $conf->{install_mysqld};
+
+    my $installed = 0;
+    foreach ( @ports ) {
+        $installed++ if $freebsd->is_port_installed( $_, debug => 0 );
+    };
+
+    if ($installed == scalar @ports ) {
+        $log->audit( "mysql->install: MySQL is installed" );
+        return $self->install_extras( $conf, $debug);
+    };
+
+    # MySQL is not installed, lets do it!
+    my $flags = "SKIP_DNS_CHECK";
+       $flags .= ",BUILD_OPTIMIZED" if $conf->{'install_mysql_optimized'};
+
+    my $dir = $conf->{'install_mysql_dir'};
+    if ( $dir && $dir ne "/var/db/mysql" ) { $flags .= ",DB_DIR=$dir"; };
+
+    my $check;
+
+    my $ver = $conf->{install_mysql};
+
+    if    ( $ver =~ /^3|323$/  ) { $dir = "323"; $check = "3.23"; }
+    elsif ( $ver =~ /^4|40$/   ) { $dir = "40";  $check = "4.0";  }
+    elsif ( $ver =~ /^41|4.1$/ ) { $dir = "41";  $check = "4.1";  }
+    elsif ( $ver =~ /^50|5.0$/ ) { $dir = "50";  $check = "5";    }
+    elsif ( $ver =~ /^51|5.1$/ ) { $dir = "51";  $check = "5";    }
+    else                         { $dir = "51";  $check = "5";    }
+
+    @ports = 'client';
+    push @ports, 'server' if $conf->{install_mysqld};
+
+    foreach ( @ports ) {
+        $freebsd->install_port( "mysql$dir-$_",
+            check => "mysql-$_-$check",
+            flags => $flags,
+        );
+    };
+
+    return $log->error( "MySQL install FAILED" )
+        if !$freebsd->is_port_installed( "mysql-client" );
+
+    if ( ! $conf->{install_mysqld} ) {
+        $log->audit( "installing MySQL client, ok" );
+        return $self->install_extras( $conf, $debug);
+    };
+
+    return $log->error( "MySQL install FAILED" )
+        if !$freebsd->is_port_installed( "mysql-server" );
+
+    $log->audit( "installing MySQL client and server, ok" );
+    return $self->install_extras( $conf, $debug);
+};
 
 sub is_newer {
 
@@ -430,43 +384,6 @@ sub is_newer {
     return 0;
 }
 
-sub mysql_extras {
-
-    my $self = shift;
-
-    # parameter validation here
-    my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $conf, $fatal, $debug ) = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
-
-    $freebsd->rc_dot_conf_check( 
-        check=>"mysql_enable",
-        line=>"mysql_enable=\"YES\"", 
-        debug=>$debug, );
-
-    $self->defaults();
-
-    $self->startup( conf=>$conf, debug=>$debug );
-
-    $freebsd->port_install( 
-        port => "p5-DBI", 
-        base => "databases", 
-        debug => $debug, );
-
-    $freebsd->port_install(
-        port => "p5-DBD-mysql",
-        base => "databases",
-        debug => $debug,
-    );
-
-    return 1;
-}
-
 sub parse_dot_file {
 
     my ( $self, $file, $start, $debug ) = @_;
@@ -474,14 +391,7 @@ sub parse_dot_file {
     my ($homedir) = ( getpwuid($<) )[7];
     my $dotfile = "$homedir/$file";
 
-    unless ( -e $dotfile ) {
-        print "parse_dot_file: creating a default .my.cnf file in $dotfile.\n";
-        my @lines = "[mysql]";
-        push @lines, "user=root";
-        push @lines, "pass=";
-        $util->file_write( file => $dotfile, lines => \@lines, debug=>$debug );
-        $util->file_chmod( file => $dotfile, mode => '0700', debug=>$debug );
-    }
+    return if ! -e $dotfile;
 
     if ( !-r $dotfile ) {
         carp "WARNING: parse_dot_file: can't read $dotfile!\n";
@@ -492,7 +402,7 @@ sub parse_dot_file {
     my $gotit = 0;
 
     print "parse_dot_file: $dotfile\n" if $debug;
-    foreach ( $util->file_read( file => $dotfile, debug=>$debug ) ) {
+    foreach ( $util->file_read( $dotfile, debug=>$debug ) ) {
 
         next if /^#/;
         my $line = $_;
@@ -535,11 +445,7 @@ sub phpmyadmin_install {
 
     if ( $OSNAME eq "freebsd" ) {
 
-        $freebsd->port_install(
-            port  => "phpmyadmin",
-            base  => "databases",
-            check => "phpMyAdmin"
-        );
+        $freebsd->install_port( "phpmyadmin", check => "phpMyAdmin");
         $dir = "/usr/local/www/data/phpMyAdmin";
 
         # the port moved the install location
@@ -549,7 +455,7 @@ sub phpmyadmin_install {
 
         print
 "NOTICE: the port install of phpmyadmin requires that Apache be installed in ports!\n";
-        $darwin->port_install( port_name => "phpmyadmin" );
+        $darwin->install_port( "phpmyadmin" );
         $dir = "/Library/Webserver/Documents/phpmyadmin";
     }
 
@@ -565,10 +471,9 @@ sub phpmyadmin_install {
         my $pass = $conf->{'phpMyAdmin_pass'}      || "pmapass";
         my $auth = $conf->{'phpMyAdmin_auth_type'} || "cookie";
 
-        $util->syscmd(
-            command => "cp $dir/config.inc.php.sample $dir/config.inc.php" );
+        $util->syscmd( "cp $dir/config.inc.php.sample $dir/config.inc.php" );
 
-        my @lines = $util->file_read( file => "$dir/config.inc.php" );
+        my @lines = $util->file_read( "$dir/config.inc.php" );
         foreach (@lines) {
 
             chomp;
@@ -585,7 +490,7 @@ sub phpmyadmin_install {
                 $_ = "$1 = '$auth';";
             }
         }
-        $util->file_write( file => "$dir/config.inc.php", lines => \@lines );
+        $util->file_write( "$dir/config.inc.php", lines => \@lines );
 
         my $dot = { user => 'root', pass => '' };
         if ( $self->connect( $dot, 1 ) ) {
@@ -635,7 +540,6 @@ EOGRANT
 }
 
 sub query {
-
     my ( $self, $dbh, $query, $warn ) = @_;
 
     my $sth;
@@ -646,10 +550,8 @@ sub query {
         return $sth;
     }
 
-    carp "couldn't prepare: $dbh::errstr\n";    # maybe this
-        #carp "couldn't prepare: DBI::errstr\n";     # or this
-        #carp "couldn't prepare: $DBI::errstr\n";   # probably not right
-    croak "\n" unless $warn;
+    no warnings;
+    return $log->error( "couldn't prepare: $dbh::errstr", fatal => 0);
     return $sth;
 }
 
@@ -749,8 +651,7 @@ sub startup {
     my $debug = $p{'debug'};
 
     if ( -e "/tmp/mysql.sock" || -e "/opt/local/var/run/mysqld/mysqld.sock" ) {
-        $util->_formatted( "mysql->startup: starting MySQL ",
-            "ok (already started)" );
+        $log->audit( "mysql->startup: starting MySQL, ok (already started)" );
         return 1;
     }
 
@@ -770,11 +671,11 @@ sub startup {
     }
 
     if ( -x $start ) {
-        $util->syscmd( command => "sh $start start", debug=>0 );
-        $util->_formatted( "mysql->startup: starting MySQL ", "ok" );
+        $util->syscmd( "sh $start start", debug=>0 );
+        $log->audit( "mysql->startup: starting MySQL, ok" );
     }
     else {
-        $util->_formatted( "mysql->startup: starting MySQL ", "FAILED" );
+        $log->audit( "mysql->startup: starting MySQL, FAILED" );
         print "\t\tcould not find startup file.\n";
         return 0;
     }
@@ -783,8 +684,6 @@ sub startup {
 }
 
 sub status {
-
-
     my ( $self, $dbh ) = @_;
 
     unless ($dbh) {
@@ -829,71 +728,6 @@ sub tables_unlock {
     $sth->finish;
 }
 
-sub InstallMysqlTool {
-
-    # deprecated, can likely be removed (11/5/2004) - mps
-
-    my ( $package, $httpdir, $confdir ) = @_;
-
-    my $site = "http://www.dajoba.com/projects/mysqltool";
-    $httpdir = "/usr/local/www" unless ($httpdir);
-    $confdir = "/usr/local/etc" unless ($confdir);
-
-    if ( $OSNAME eq "freebsd" ) {
-        $freebsd->port_install(
-            port => "p5-Crypt-Blowfish",
-            base => "security"
-        );
-        $freebsd->port_install( port => "p5-DBI", base => "databases" );
-        $freebsd->port_install(
-            port  => "p5-Apache-DBI",
-            base  => "www",
-            flags => "WITH_MODPERL2=yes"
-        );
-        $freebsd->port_install( port => "p5-DBD-mysql", base => "databases" );
-        $freebsd->port_install( port => "p5-SOAP-Lite", base => "net" );
-    }
-    else {
-        use CPAN qw();
-        CPAN::Shell->install("Crypt::Blowfish");
-        CPAN::Shell->install("DBI");
-        CPAN::Shell->install("Apache::DBI");
-        CPAN::Shell->install("DBD::mysql");
-        CPAN::Shell->install("SOAP::Lite");
-    }
-
-    $util->chdir_source_dir( dir => "/usr/local/www" );
-
-    unless ( -e "$package.tar.gz" ) {
-        $util->get_file("$site/$package.tar.gz");
-    }
-
-    if ( -d "$package" ) {
-        my $r = $util->source_warning( $package, 1 );
-        unless ($r) { croak "sorry, I can't continue.\n"; }
-    }
-
-    my $tar = $util->find_the_bin( bin => "tar" );
-    $util->syscmd( command => "$tar -xzf $package.tar.gz" );
-    chdir($package);
-    $util->syscmd( command => "perl Makefile.PL" );
-    $util->syscmd( command => "make" );
-    $util->syscmd( command => "make install clean" );
-
-    unless ( -e "$confdir/apache/mysqltool.conf" ) {
-        move( "htdocs/mysqltool.conf", "$confdir/apache" )
-          or croak "move failed: $!\n";
-    }
-
-    unless ( -e "$httpdir/data/mysqltool" ) {
-        $util->get_file(
-            "http://matt.simerson.net/computing/sql/mysqltool.index.txt");
-        move( "mysqltool.index.txt", "htdocs/index.cgi" );
-        move( "htdocs",              "$httpdir/data/mysqltool" )
-          or croak "move failed: $!\n";
-    }
-}
-
 sub version {
 
     my ( $self, $dbh ) = @_;
@@ -908,30 +742,6 @@ sub version {
     return $minor;
 }
 
-sub with_linuxthreads {
-    my $self = shift;
-    my $linuxthreads = shift;
-    my $ver  = shift;
-
-    if ( $linuxthreads ) {
-        return ",WITH_LINUXTHREADS";
-    };
-
-    if ( $ver =~ /^4/ && `uname -r` =~ /^4/ )  # FreeBSD 4 & MySQL 4
-    {
-        if ( $util->yes_or_no( "\n\nHEY!!  You are installing MySQL v4.x on FreeBSD 4. " 
-    . "In this configuration, it is recommended that you compile MySQL with linuxthreads. Please see: http://mail-toaster.org/faq/programs/mysql.shtml for more detailed information. You probably should. Shall I enable linuxthreads for you?"
-            )
-            )
-        {
-            print " Excellent choice!\n. Now, don't forget to update toaster-watcher.conf and set install_mysql_linuxthreads.\n";
-            return ",WITH_LINUXTHREADS";
-        }
-    }
-
-    return "";
-};
-
 1;
 __END__
 
@@ -940,10 +750,6 @@ __END__
 
 Mail::Toaster::Mysql - so much more than just installing mysql
 
-=head1 VERSION
-
-5.09
-
 =head1 SYNOPSIS
 
 Functions for installing, starting, stopping, querying, and otherwise interacting with MySQL.
@@ -951,7 +757,7 @@ Functions for installing, starting, stopping, querying, and otherwise interactin
 
 =head1 DESCRIPTION
 
-I find myself using MySQL for a lot of things. Geographically distributed dns systems (MySQL replication), mail servers, and all the other fun stuff you'd use a RDBMS for. As such, I've got a growing pile of scripts that have lots of duplicated code in them. As such, the need for this Perl module grew.
+I find myself using MySQL for a lot of things. Geographically distributed dns systems (MySQL replication), mail servers, and all the other fun stuff you'd use a RDBMS for. As such, I've got a growing pile of scripts that have lots of duplicated code in them. As such, the need for this perl module grew.
 
        Currently used in:
   mysql_replicate_manager v1.5+

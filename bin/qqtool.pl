@@ -2,51 +2,34 @@
 use strict;
 use warnings;
 
-#
-# $Id: qqtool.pl $
-#
-#######################################################################
-#      System Settings! Don't muck with anything below this line      #
-#######################################################################
+our $VERSION = '1.12';
 
-use lib "inc";
-use lib "lib";
+use vars qw/ $opt_a   $opt_h  $opt_q   $opt_s   $opt_v $remotes $locals /;
 
 use English;
 use Getopt::Std;
 use Params::Validate qw( :all );
 use Pod::Usage;
 
-use vars qw/ $VERSION 
-    $opt_a   $opt_h  $opt_q   $opt_s   $opt_v 
-    $remotes $locals $debug/;
-
 getopts('a:h:q:s:v');
 
-my $author = "Matt Simerson";
-my $email  = "matt\@tnpi.net";
+use lib 'lib';
+use Mail::Toaster        5.25; 
+use Mail::Toaster::Qmail 5.25; 
 
-$VERSION = "1.11";
-
-use Mail::Toaster::Utility 5; my $util = Mail::Toaster::Utility->new();
-use Mail::Toaster::Qmail   5; my $qmail = Mail::Toaster::Qmail->new();
-
-my $debug = 0; $debug++ if $opt_v;
+my $debug   = $opt_v ? 1 : 0;
+my $toaster = Mail::Toaster->new( debug => $debug );
+my $util    = $toaster->get_util;
+my $qmail   = Mail::Toaster::Qmail->new( 'log' => $toaster );
 
 print "           Qmail Queue Tool   v $VERSION\n\n";
+print "NOTICE: only the root user has permission to read the email queues.
+Since you are not root, I am giving up. Have a nice day!\n"
+and exit 0 if $UID != 0;
 
-unless ( $UID == 0 ) {
-    print "\t NOTICE: only the root user has permission to read the email queues.
-Since you are not root, I am giving up. Have a nice day!\n";
-    exit 0;
-}
+pod2usage() if ! $opt_a;
 
-unless ($opt_a) { pod2usage(); die "\n"; }
-
-my $qcontrol =  $qmail->service_dir_get( 
-                    prot => "send", 
-                    debug => $debug,
-                );
+my $qcontrol = $toaster->service_dir_get( prot => "send" );
 
 # Make sure the qmail queue directory is set correctly
 my $qdir = $qmail->queue_check( debug => $debug, fatal=>0 );
@@ -257,7 +240,7 @@ sub message_print {
             print "CC:        $header->{'CC'}\n";
         }
         print "Date:      $header->{'Date'}\n";
-        my @lines = $util->file_read( file => "$qdir/info/$id" );
+        my @lines = $util->file_read( "$qdir/info/$id" );
         chop $lines[0];
         print "Return Path: $lines[0]\n";
     }
@@ -280,7 +263,7 @@ sub headers_get {
     my ( $tree, $id ) = @_;
     my %hash;
 
-#    foreach my $line ( $util->file_read( file => "$qdir/mess/$tree/$id", max_lines  => 40, max_length => 256, ) )
+#    foreach my $line ( $util->file_read( "$qdir/mess/$tree/$id", max_lines  => 40, max_length => 256, ) )
  
     my ($FILE, $header);
 
@@ -489,7 +472,7 @@ http://www.mail-toaster.org/
 
 =head1 COPYRIGHT
 
-Copyright 2003-2008, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2010, The Network People, Inc. All Rights Reserved.
 
 =cut
 

@@ -4,13 +4,15 @@
 <head>
 <title>Mail::Toaster watcher.conf</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@sprybook-pro.local" />
+<link rev="made" href="mailto:matt@imac24.simerson.net" />
 </head>
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
@@ -21,9 +23,11 @@
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
@@ -40,18 +44,24 @@
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>toaster-watcher.conf The contents of that file control options relating to:</p>
 <ul>
-<li><strong><a name="item_where_files_are_kept_on_your_particular_server">where files are kept on your particular server</a></strong>
+<li><strong><a name="where_files_are_kept_on_your_particular_server" class="item">where files are kept on your particular server</a></strong>
 
-<li><strong><a name="item_settings_related_to_how_the_toaster_is_built">settings related to how the toaster is built</a></strong>
+</li>
+<li><strong><a name="settings_related_to_how_the_toaster_is_built" class="item">settings related to how the toaster is built</a></strong>
 
-<li><strong><a name="item_what_programs_and_options_are_installed">what programs and options are installed</a></strong>
+</li>
+<li><strong><a name="what_programs_and_options_are_installed" class="item">what programs and options are installed</a></strong>
 
-<li><strong><a name="item_where_programs_and_run_files_are_installed">where programs and run files are installed</a></strong>
+</li>
+<li><strong><a name="where_programs_and_run_files_are_installed" class="item">where programs and run files are installed</a></strong>
 
-<li><strong><a name="item_run_time_parameters_used_to_configure_daemons">run time parameters used to configure daemons</a></strong>
+</li>
+<li><strong><a name="run_time_parameters_used_to_configure_daemons" class="item">run time parameters used to configure daemons</a></strong>
 
-<li><strong><a name="item_how_the_toaster_27s_logs_should_be_processed_2e">how the toaster's logs should be processed.</a></strong>
+</li>
+<li><strong><a name="how_the_toaster_s_logs_should_be_processed" class="item">how the toaster's logs should be processed.</a></strong>
 
+</li>
 </ul>
 <p>This document provides details on what all them nifty settings do.</p>
 <pre>
@@ -68,8 +78,7 @@
 <p>toaster_setup.pl has two very useful targets: ports, sources. If you have a pre-configured supfile you wisth to use for syncing up your sources with, set it here.  Otherwise, a default file will be installed for you.</p>
 <pre>
   toaster_pkg_site               = <a href="ftp://ftp.freebsd.org">ftp://ftp.freebsd.org</a>
-  toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
-  toaster_os_release             = 4-stable
+  toaster_sf_mirror              = downloads.sourceforge.net/projects
   toaster_dl_site                = <a href="http://www.tnpi.net">http://www.tnpi.net</a>   # or a mirror</pre>
 <p>You can alternately use a mirror to fetch the Mail::Toaster files from. The atl and sea mirrors are updated nightly. All other mirrors are updated only after major releases. If you want the last major update you can refer to a mirror.</p>
 <pre>
@@ -85,10 +94,10 @@
 <p>This should be the same value specified in toaster.conf</p>
 <pre>
   toaster_http_docs              = /usr/local/www/data</pre>
-<p>This is your document root, normally the ``data'' directory inside your web root.</p>
+<p>This is your document root, normally the &quot;data&quot; directory inside your web root.</p>
 <pre>
   toaster_cgi_bin                = /usr/local/www/cgi-bin</pre>
-<p>The path to your cgi-bin dir where sqwebmail, rrdutil, qmailadmin, and other cgi's should be installed.</p>
+<p>The path to your cgi-bin dir where sqwebmail, qmailadmin, and other cgi apps should be installed.</p>
 <pre>
   toaster_tmp_dir                = /tmp
   toaster_src_dir                = /usr/local/src</pre>
@@ -129,7 +138,7 @@
 <p>If you already have Apache installed, set install_apache to be your installed version. toaster_setup will detect the installed version and not rebuild it. If you want apache installed, choose 1 or 2 for apache version 1.3 or 2.0. Unless you have a specific reason to run apache 1.x, 2.0 is recommended.</p>
 <pre>
   install_apache_user            = www</pre>
-<p>Set install_apache_user to the username that apache will run under. The ``www'' is is very popular, as is ``nobody''.</p>
+<p>Set install_apache_user to the username that apache will run under. The &quot;www&quot; is is very popular, as is &quot;nobody&quot;.</p>
 <pre>
   install_apache2_modperl        = 1</pre>
 <p>If this is set to 1, and install_apache is set to 2, then mod_perl 2 will be built and installed.</p>
@@ -164,7 +173,7 @@
 <p>In the case of qmail, if netqmail is set (the default), then it's installed. Otherwise, qmail is installed.</p>
 <pre>
   install_vqadmin                = 0</pre>
-<p>vqadmin is a handy web-based tool that administers vpopmail domains. It is not a ``recommended'' part of the toaster install, because it has significant security implications and requires setup. However, many administrators use it.</p>
+<p>vqadmin is a handy web-based tool that administers vpopmail domains. It is not a &quot;recommended&quot; part of the toaster install, because it has significant security implications and requires setup. However, many administrators use it.</p>
 <pre>
   install_isoqlog                = 1
   install_portupgrade            = 1
@@ -195,7 +204,7 @@
 <pre>
   install_bogofilter             = 0
   install_dcc                    = 0</pre>
-<p>These settings relate to mail filtering using qmail-scanner, ClamAV, SpamAssassin, and Maildrop. There's little reason to change the defaults here on anything other than the SpamAssassin flags. At various points in time, something like dcc might be broken in the ports tree. Setting install_dcc = 0 will get you past that, at the expense of not having that filter installed.</p>
+<p>These settings relate to mail filtering using ClamAV, SpamAssassin, and Maildrop. There's little reason to change the defaults here on anything other than the SpamAssassin flags. At various points in time, something like dcc might be broken in the ports tree. Setting install_dcc = 0 will get you past that, at the expense of not having that filter installed.</p>
 <p>If you install DCC, make sure you configure it. If you use a firewall, DCC requires the following firewall rules to be implemented:</p>
 <pre>
   allow udp local gt 1023 to remote 6277
@@ -274,7 +283,7 @@
 <pre>
   vpopmail_roaming_users         = 1
   vpopmail_relay_clear_minutes   = 180</pre>
-<p>The ``roaming users'' setting enables POP-before-SMTP and IMAP-before-SMTP authentication. If this is enabled, then relay clear minutes determines how long users can send mail after they've checked mail.</p>
+<p>The &quot;roaming users&quot; setting enables POP-before-SMTP and IMAP-before-SMTP authentication. If this is enabled, then relay clear minutes determines how long users can send mail after they've checked mail.</p>
 <pre>
   vpopmail_mysql                 = 1</pre>
 <p>Should Vpopmail use MySQL for authentication? This is highly recommended. Should you ever need to scale your system to more than one CPU, MySQL lets you use replication to split the load among a cluster of servers.</p>
@@ -289,17 +298,17 @@
 <p>Important: If you are not using replication, put in the name of your master database server as BOTH the master and the slave.</p>
 <pre>
   vpopmail_mysql_database        = vpopmail
-  vpopmail_mysql_repl_user       = vpopmail
-  vpopmail_mysql_repl_pass       = supersecretword</pre>
-<p>Important: Replace ``supersecretword'' with the correct password for your database server.</p>
+  vpopmail_mysql_user            = vpopmail
+  vpopmail_mysql_pass            = supersecretword</pre>
+<p>Important: Replace &quot;supersecretword&quot; with the correct password for your database server.</p>
 <pre>
   vpopmail_auth_logging          = 1
   vpopmail_logging               = 1
   vpopmail_logging_verbose       = 1
   vpopmail_valias                = 1
-  vpopmail_qmail_extensions      = 1
+  vpopmail_qmail_ext             = 1
   vpopmail_rebuild_tcpserver_file = 0</pre>
-<p>By default, vpopmail updates ~vpopmail/etc/tcp.smtp every time a new user is added to the relay table, which is every time a user successfully authenticates. This generates a lot of disk i/o on a busy mail seerver but is necessary for tcpserver to ``see'' the update. This is not necessary with the Mail::Toaster because we use the MySQL patch to tcpserver to check the SQL table directly.</p>
+<p>By default, vpopmail updates ~vpopmail/etc/tcp.smtp every time a new user is added to the relay table, which is every time a user successfully authenticates. This generates a lot of disk i/o on a busy mail seerver but is necessary for tcpserver to &quot;see&quot; the update. This is not necessary with the Mail::Toaster because we use the MySQL patch to tcpserver to check the SQL table directly.</p>
 <pre>
   vpopmail_ip_alias_domains      = 0</pre>
 <p>If IP alias domains is turned on, and the user does not supply a domain as part of their login, then a reverse IP lookup is done on the server IP address that the client connected to. If the servers IP address resolves to a domain name, then vpopmail uses that name as the domain.</p>
@@ -323,7 +332,7 @@
 <p>Please see the Toaster FAQ for instructions on enabling per-user and per-domain SpamAssassin preferences.</p>
 <pre>
   filtering_method  = smtp   # smtp | tcpserver</pre>
-<p>Mail scanners such as qmail-scanner, qscanc, and simscan are run by setting the QMAILQUEUE environment variable. This can be done either in the SMTP service run file (see the qmail_queue setting), or in the tcp.smtp file. ``smtp'' chooses the run file and affects ALL connections to the server; ``tcpserver'' chooses the tcp.smtp file and lets you choose which IP addresses (or blocks) use your scanner.</p>
+<p>Mail scanners such as qmail-scanner, qscanc, and simscan are run by setting the QMAILQUEUE environment variable. This can be done either in the SMTP service run file (see the qmail_queue setting), or in the tcp.smtp file. &quot;smtp&quot; chooses the run file and affects ALL connections to the server; &quot;tcpserver&quot; chooses the tcp.smtp file and lets you choose which IP addresses (or blocks) use your scanner.</p>
 <p>When set to tcpserver, toaster_watcher.pl ignores:  smtpd_qmail_queue, submit_qmail_queue</p>
 <pre>
   filtering_maildrop_filter_file     = /usr/local/etc/mail/mailfilter</pre>
@@ -343,15 +352,15 @@
   send_log_method                = multilog</pre>
 <p>You have several choices for qmail-send logging:</p>
 <dl>
-<dt><strong><a name="item_syslog"><strong>syslog</strong> - logs to syslog (normally /var/log/maillog on FreeBSD). This is generally not recommended, but it may be handy for sendmail refugees.</a></strong>
+<dt><strong><a name="syslog" class="item"><strong>syslog</strong> - logs to syslog (normally /var/log/maillog on FreeBSD). This is generally not recommended, but it may be handy for sendmail refugees.</a></strong></dt>
 
-<dt><strong><a name="item_multilog__2d_logs_via_multilog_to_the_location_spe"><strong>multilog</strong> - logs via multilog to the location specified under ``Qmail Settings.'' - This is required for maillogs &amp; RRDutil, and is the recommended logging method for qmail and the toaster.</a></strong>
+<dt><strong><a name="multilog_logs_via_multilog_to_the_location_specified_under_qmail_settings_this_is_required_for_maillogs_rrdutil_and_is_the_recommended_logging_method_for_qmail_and_the_toaster" class="item"><strong>multilog</strong> - logs via multilog to the location specified under &quot;Qmail Settings.&quot; - This is required for maillogs &amp; RRDutil, and is the recommended logging method for qmail and the toaster.</a></strong></dt>
 
-<dt><strong><a name="item_converation"><strong>debug</strong> - enables full debugging, records entire SMTP converation (and also logs via multilog).</a></strong>
+<dt><strong><a name="converation" class="item"><strong>debug</strong> - enables full debugging, records entire SMTP converation (and also logs via multilog).</a></strong></dt>
 
-<dt><strong><a name="item_lines"><strong>stats</strong> - only logs stats lines (via multilog).</a></strong>
+<dt><strong><a name="lines" class="item"><strong>stats</strong> - only logs stats lines (via multilog).</a></strong></dt>
 
-<dt><strong><a name="item_disabled__2d_silently_discards_all_logs"><strong>disabled</strong> - silently discards all logs</a></strong>
+<dt><strong><a name="disabled_silently_discards_all_logs" class="item"><strong>disabled</strong> - silently discards all logs</a></strong></dt>
 
 </dl>
 <pre>
@@ -359,7 +368,7 @@
 <p><strong>maillogs</strong> is a post-processor for your qmail logs, included with the toaster. It is required for RRDutil and isoqlog to generate their statistics.  At this time, there are no other log postprocessors available. Should a desirable one come along, we have a place to plug it in.</p>
 <pre>
   send_log_maxsize_bytes         = 1000000</pre>
-<p>It's important to make sure maxsize_bytes is larger than 5 minutes of logging. You can determine this by checking the size of the files in /var/log/mail/send. If any approach this file size, raise it. By default, rrdutil will trigger maillogs every 5 minutes, updating your mail message counters.</p>
+<p>It's important to make sure maxsize_bytes is larger than 5 minutes of logging. You can determine this by checking the size of the files in /var/log/mail/send. If any approach this file size, raise it. By default, toaster-watcher will trigger maillogs every 5 minutes, updating your mail message counters.</p>
 <pre>
   send_log_isoqlog               = 1</pre>
 <p>This allows you to choose whether your qmail-send logs will be post-processed by isoqlog. This will trigger isoqlog every 5 minutes at which time it'll update the pretty HTML pages it generates. This is a handy default but if you have a really busy mail server (see if isoqlog takes more than a couple seconds to run) with lots of logs, it's better to disable this and run isoqlog from cron less frequently.</p>
@@ -374,7 +383,7 @@
   smtpd_listen_on_address         = all     # all, a hostname, or IP
   smtpd_listen_on_port            = smtp    # smtp or a port number</pre>
 <p>On which address and port should the toaster listen for smtp connections?</p>
-<p>For the port number, ``smtp'' means port 25 (as defined by /etc/services).</p>
+<p>For the port number, &quot;smtp&quot; means port 25 (as defined by /etc/services).</p>
 <pre>
   smtpd_hostname                  = system</pre>
 <p>Where should the toaster get the hostname to be reported by the SMTP service?</p>
@@ -392,8 +401,8 @@ Anything else is considered to be a hostname.</p>
   smtpd_max_memory_per_connection = 25      # in megabytes
   smtpd_max_connections           = 50
   smtpd_max_memory                = 256</pre>
-<p>smptd_max_memory_per_connection sets the maximum amount of RAM for any particular SMTP connection (this is enforced by ``softlimit''). If you are running qmail-scanner, clamav, and SpamAssassin, it's very possible that 25 megabytes per connection may not be enough. This is a VERY important setting, because softlimit/qmail will start deferring (soft-bouncing) mail if the smtpd processes use more memory than allowed in this value.</p>
-<p>If smtpd_max_connections is exceeded, further connections are deferred. (For those familiar with ``Life With Qmail'', this replaces the ``concurrencyincoming'' file).</p>
+<p>smptd_max_memory_per_connection sets the maximum amount of RAM for any particular SMTP connection (this is enforced by &quot;softlimit&quot;). If you are running clamav, and SpamAssassin, it's very possible that 25 megabytes per connection may not be enough. This is a VERY important setting, because softlimit/qmail will start deferring (soft-bouncing) mail if the smtpd processes use more memory than allowed in this value.</p>
+<p>If smtpd_max_connections is exceeded, further connections are deferred. (For those familiar with &quot;Life With Qmail&quot;, this replaces the &quot;concurrencyincoming&quot; file).</p>
 <p>smtpd_max_memory should be set to smtpd_max_connections multiplied by smtpd_max_memory_per_connection.</p>
 <p>Suppose your machine has 1024MB of RAM. It's primarily a mail exchanger, so you want to allow SMTP processes to use 750MB of your RAM, leaving just a touch over 256MB for other processes. You set your smtpd_max_memory to 750.</p>
 <p>To avoid any one particular smtp connection growing out of control, you set smtpd_max_memory_per_connection to 50MB.</p>
@@ -422,12 +431,6 @@ Anything else is considered to be a hostname.</p>
   smtpd_checkpasswd_bin      = vpopmail_home_dir/bin/vchkpw
   smtpd_relay_database       = vpopmail_home_dir/etc/tcp.smtp.cdb</pre>
 <p>Locations of a few programs and standard config files.</p>
-<pre>
-  smtpd_qmail_queue          = /var/qmail/bin/qmail-scanner-queue.pl</pre>
-<p>This is used as your qmailqueue.  If you want to enable/disable qmail-scanner very easily, change this settings to:</p>
-<pre>
-  smtpd_qmail_queue          = /var/qmail/bin/qmail-queue</pre>
-<p>Run toaster-watcher.pl and qmail-scanner will be disabled.</p>
 <pre>
   ##
   # smtpd_log_method - [ syslog | multilog | debug | stats | disabled ]
@@ -484,7 +487,7 @@ Anything else is considered to be a hostname.</p>
   rbl_abuse.easynet.nl            = 0   # DEAD as of 2003.12.11</pre>
 <p>This set of options lets you choose which RBLs to use. Think carefully about which RBLs you use; you are allowing a third party's opinion to determine what mail your server will accept and reject. This isn't necessarily a bad thing, but you should evaluate each RBL, learn what you can about how it is set up, and make a judgement call about whether (a) you trust the people running it and (b) you agree with their policies on when to blacklist someone.</p>
 <p>The author of this documentation, for example, thinks it is WRONG to blacklist IP addresses solely on the basis of their country of origin, and thus he does not use korea.services.net, cn.rbl.cluecentral.net, or kr.rbl.cluecentral.net. Other administrators have observed that 99% of the mail their users receive from these countries is spam, and so feel that they are justified in using these RBLs. It's your mail server; decide on a reasonable policy and choose blacklists accordingly.</p>
-<p>If you want to add blacklists to this list, you can just add them. For example, to use the combined SBL-XBL list published by spamhaus, just add ``rbl_sbl-xbl.spamhaus.org = 1'' and it will be recognized by toaster-watcher.</p>
+<p>If you want to add blacklists to this list, you can just add them. For example, to use the combined SBL-XBL list published by spamhaus, just add &quot;rbl_sbl-xbl.spamhaus.org = 1&quot; and it will be recognized by toaster-watcher.</p>
 <p>A list of active RBL's is available here: <a href="http://www.spamlinks.net/filter-dnsbl-lists.htm">http://www.spamlinks.net/filter-dnsbl-lists.htm</a></p>
 <p>And a list of dead RBL's is here: <a href="http://www.spamlinks.net/filter-dnsbl-dead.htm">http://www.spamlinks.net/filter-dnsbl-dead.htm</a>  If you have a RBL in that list being used, it might be wise to disable it.</p>
 <pre>
@@ -541,8 +544,8 @@ Anything else is considered to be a hostname.</p>
   submit_listen_on_address       = all        # all | IP | hostname
   submit_listen_on_port          = submission
   submit_hostname                = system</pre>
-<p>``submission'' is confusing to many people, but it should not be. Basically, this creates a second SMTP service, running on a different port number.</p>
-<p>If you leave submit_listen_on_port set to ``submission'' then this will use port 587. The most common use of the submission protocol is for customers whose ISPs block port 25, or route it through their own servers. In many cases they do not block port 587, because the submission service is supposed to be fully authenticated.  Another situation where a user might want to use the submission port is when the user's IP address is on a RBL, perhaps because it is a dynamically assigned address.  They will not be able to connect to the main smtpd service (running RBLs) unless their IP address is whitelisted, but they will be able to connect to the submit service using SMTP AUTH.</p>
+<p>&quot;submission&quot; is confusing to many people, but it should not be. Basically, this creates a second SMTP service, running on a different port number.</p>
+<p>If you leave submit_listen_on_port set to &quot;submission&quot; then this will use port 587. The most common use of the submission protocol is for customers whose ISPs block port 25, or route it through their own servers. In many cases they do not block port 587, because the submission service is supposed to be fully authenticated.  Another situation where a user might want to use the submission port is when the user's IP address is on a RBL, perhaps because it is a dynamically assigned address.  They will not be able to connect to the main smtpd service (running RBLs) unless their IP address is whitelisted, but they will be able to connect to the submit service using SMTP AUTH.</p>
 <p>The options for submission should look familiar by now-- they are identical to the options for qmail-smtpd. That's because in fact this is just another copy of qmail-smtpd. The only difference is that you don't set up RBLs for the submission protocol, since you'll only be accepting connections from your authenticated customers.</p>
 <pre>
   # smtp-submit_hostname [ system | qmail | mail.example.com ]
@@ -564,8 +567,7 @@ Anything else is considered to be a hostname.</p>
   submit_chkusr_patch            = 1
   submit_auth_enable             = 1
   submit_checkpasswd_bin         = vpopmail_home_dir/bin/vchkpw
-  submit_relay_database          = vpopmail_home_dir/etc/tcp.smtp.cdb
-  submit_qmail_queue             = /var/qmail/bin/qmail-scanner-queue.pl</pre>
+  submit_relay_database          = vpopmail_home_dir/etc/tcp.smtp.cdb</pre>
 <pre>
   ##
   # submit_log_method - [ syslog | multilog | debug | stats | disabled ]
@@ -642,50 +644,7 @@ Anything else is considered to be a hostname.</p>
 <pre>
   simscan_received               = 1</pre>
 <p>adds the Received: by simscan header</p>
-<pre>
-  #######################################
-  #    Qmail Scanner Queue Processing   #
-  #######################################</pre>
-<p>These options relate to qmail-scanner, the queue processing tool which runs antivirus and antispam programs on your mail.</p>
-<pre>
-  qmail_scanner_logging          = 1
-  qmail_scanner_debugging        = 0</pre>
-<p>Beware: If debugging is turned on, qmail-scanner generates huge, massive logfiles that eat small /var partitions for breakfast.</p>
-<pre>
-  qmail_scanner_postmaster       = 0</pre>
-<p>If your qmailscanner emails should go to someone other than the toaster admin, set this to that entities email address.</p>
-<pre>
-  qmail_scanner_scanners         = clamdscan,fast_spamassassin</pre>
-<p>A comma seperated list of scanners that QmailScanner should use. Put anything that Qmail-Scanner recognizes and that you have installed. Following is the list of supported scanners in v1.21.</p>
-<pre>
-  auto,none,clamscan,clamdscan,sweep,sophie,vscan,trophie,uvscan,
-  csav,antivir,kavscanner,AvpLinux,kavdaemon,AvpDaemonClient,fsav,
-  fprot,inocucmd,ravlin,vexira,verbose_spamassassin,fast_spamassassin</pre>
-<p>Note that some users have had trouble running clamdscan.  If you have this problem, try switching to clamscan and re-running <code>toaster_setup.pl -s filter</code></p>
-<p>The following options are deprecated and have been removed as of version 3.38 of Mail::Toaster.</p>
-<pre>
-  # qmail_scanner_clamav           = 1
-  # qmail_scanner_spamassassin     = 1
-  # qmail_scanner_spamass_verbose  = 0
-  # qmail_scanner_fprot            = 0
-  # qmail_scanner_uvscan           = 0</pre>
-<p>Qmail scanner quarantine management:</p>
-<pre>
-  qs_quarantine_process          = 1  # check files in qs quarantine
-  qs_quarantine_dir              = /var/spool/qmailscan/quarantine
-  qs_quarantine_clean            = 1  # delete messages?</pre>
-<p>Several options relating to the qmail-scanner quarantine directory. qs_quarantine_process and qs_quarantine_clean enable toaster-watcher to scan your quarantine directory and delete the files there. This is highly recommended, since otherwise the quarantine will eventually fill up your disk. If you disable this, make sure to set up something to keep that quarantine cleaned up.</p>
-<pre>
-  qs_quarantine_verbose          = 1  # report activity?
-  qs_block_virus_senders         = 1  # add virus senders IP to tcp.smtp
-  qs_block_virus_senders_soft    = 0  # use a temporary
-  qs_block_virus_senders_time    = 24 # block virus senders for (hours)</pre>
-<p>In addition to deleting your quarantined viruses, toaster-watcher can also block the IP addresses of computers that originate viruses. If you want to enable this feature, make sure you add these lines to your tcp.smtp file:</p>
-<pre>
-  ### BEGIN QMAIL SCANNER VIRUS ENTRIES ###
-  ### END QMAIL SCANNER VIRUS ENTRIES ###</pre>
-<p>If you don't, toaster-watcher will remind you to do so, every five minutes. :) This is not done automatically because the order of your entries in tcp.smtp <strong>is</strong> important.</p>
-<p>If your toaster ever accepts mail from other trusted mail servers, and you enable the block virus senders feature, you may want to specifically include overrides (RBLSMTPD=``'') for those server IPs in tcp.smtp.</p>
+<p>If your toaster ever accepts mail from other trusted mail servers, and you enable the block virus senders feature, you may want to specifically include overrides (RBLSMTPD=&quot;&quot;) for those server IPs in tcp.smtp.</p>
 <pre>
   #######################################
   #      Maildir Old Message Cleanup    #
@@ -708,9 +667,9 @@ Anything else is considered to be a hostname.</p>
   maildir_clean_Read_learn       = 1    # feed ham through sa-learn
   maildir_clean_Read_learn_days  = 0    # only learn from messages &gt; x days</pre>
 <p>In addition to deleting messages, the messages can be sent through sa-learn to improve SpamAssassin's Bayesian filtering. Bayesian filtering uses the content of previous spam messages and non-spam (ham) messages to guess which future messages are spam. The more mail sent through sa-learn for each user, the better the Bayesian filtering gets.</p>
-<p>For each user of each domain on the system, their read messages are assumed to be ``ham'' if they are older than maildir_clean_Read_learn_days. If you only want messages older than a few days to be learned as ham (giving users a chance to move any missed spam from their read box to Spam) then increase this setting.</p>
+<p>For each user of each domain on the system, their read messages are assumed to be &quot;ham&quot; if they are older than maildir_clean_Read_learn_days. If you only want messages older than a few days to be learned as ham (giving users a chance to move any missed spam from their read box to Spam) then increase this setting.</p>
 <p>You should know that using the learn features will cause your mail server to spend a lot of time passing messages through sa-learn. If you have a lot of mail on your system, expect this process to take a LONG time. On my personal mail server, with 13 domains and 150 mail accounts the process takes over an hour. My server is an aged dual PIII 550Mhz. Your mileage will vary.</p>
-<p>Messages in the spam folder are assumed to be ``spam'' if they are older than maildir_clean_Spam days. It's similarly a good idea to give users some time to make sure there are no false positives in this folder-- that is, legitimate messages which SpamAssassin has mistakenly tagged.</p>
+<p>Messages in the spam folder are assumed to be &quot;spam&quot; if they are older than maildir_clean_Spam days. It's similarly a good idea to give users some time to make sure there are no false positives in this folder-- that is, legitimate messages which SpamAssassin has mistakenly tagged.</p>
 <p>
 </p>
 <hr />
@@ -735,7 +694,7 @@ Anything else is considered to be a hostname.</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
 <p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
-<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

@@ -4,19 +4,20 @@
 <head>
 <title>Mail::Toaster::Apache</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@sprybook-pro.local" />
+<link rev="made" href="mailto:matt@imac24.simerson.net" />
 </head>
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
 	<li><a href="#name">NAME</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
-	<li><a href="#version">VERSION</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#methods">METHODS</a></li>
 	<ul>
@@ -30,9 +31,11 @@
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
@@ -45,11 +48,6 @@
 <p>
 </p>
 <hr />
-<h1><a name="version">VERSION</a></h1>
-<p>5.06</p>
-<p>
-</p>
-<hr />
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>Perl methods for working with Apache. See METHODS.</p>
 <p>
@@ -57,234 +55,73 @@
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong>
+<dt><strong><a name="new" class="item">new</a></strong></dt>
 
 <dd>
 <pre>
+   use Mail::Toaster;
    use Mail::Toaster::Apache
-   my $apache = Mail::Toaster::Apache-&gt;new();</pre>
-</dd>
-<dd>
+   my $log = Mail::Toaster-&gt;new(debug=&gt;0)
+   my $apache = Mail::Toaster::Apache-&gt;new( 'log' =&gt; $log );</pre>
 <p>use this function to create a new apache object. From there you can use all the functions
 included in this document.</p>
-</dd>
-<dd>
 <p>Each method expect to recieve one or two hashrefs. The first hashref must have a value set for &lt;i&gt;vhost&lt;/i&gt; and optional values set for the following: ip, serveralias serveradmin, documentroot, redirect, ssl, sslcert, sslkey, cgi, customlog, customerror.</p>
-</dd>
-<dd>
 <p>The second hashref is key/value pairs from sysadmin.conf. See that file for details of what options you can set there to influence the behavior of these methods..</p>
 </dd>
-<dt><strong><a name="item_installapache1">InstallApache1</a></strong>
+<dt><strong><a name="installapache1" class="item">InstallApache1</a></strong></dt>
 
-<dd>
-<pre>
-        use Mail::Toaster::Apache;
-        my $apache = new Mail::Toaster::Apache;</pre>
-</dd>
 <dd>
 <pre>
         $apache-&gt;install_apache1(src=&gt;&quot;/usr/local/src&quot;)</pre>
-</dd>
-<dd>
 <p>Builds Apache from sources with DSO for all but mod_perl which must be compiled statically in order to work at all.</p>
-</dd>
-<dd>
 <p>Will build Apache in the directory as shown. After compile, the script will show you a few options for testing and completing the installation.</p>
-</dd>
-<dd>
 <p>Also installs mod_php4 and mod_ssl.</p>
 </dd>
-<dt><strong><a name="item_install_apache2">install_apache2</a></strong>
+<dt><strong><a name="install_2" class="item">install_2</a></strong></dt>
 
 <dd>
 <pre>
         use Mail::Toaster::Apache;
         my $apache = new Mail::Toaster::Apache;</pre>
-</dd>
-<dd>
 <pre>
-        $apache-&gt;install_apache2($conf);</pre>
-</dd>
-<dd>
+        $apache-&gt;install_2($conf);</pre>
 <p>Builds Apache from sources with DSO for all modules. Also installs mod_perl2 and mod_php4.</p>
-</dd>
-<dd>
 <p>Currently tested on FreeBSD and Mac OS X. On FreeBSD, the chosen version of php is installed. It installs both the PHP cli and mod_php Apache module. This is done because the SpamAssassin + SQL module requires pear-DB and the pear-DB port thinks it needs the lang/php port installed. There are other ports which also have this requirement so it's best to just have it installed.</p>
-</dd>
-<dd>
 <p>This script also builds default SSL certificates, based on your preferences in openssl.cnf (usually in /etc/ssl) and makes a few tweaks to your httpd.conf (for using PHP &amp; perl scripts).</p>
-</dd>
-<dd>
 <p>Values in $conf are set in toaster-watcher.conf. Please refer to that file to see how you can influence your Apache build.</p>
 </dd>
-<dt><strong><a name="item_apache_conf_patch">apache_conf_patch</a></strong>
+<dt><strong><a name="apache_conf_patch" class="item">apache_conf_patch</a></strong></dt>
 
 <dd>
 <pre>
-        use Mail::Toaster::Apache;
-        my $apache = Mail::Toaster::Apache-&gt;new();</pre>
-</dd>
-<dd>
-<pre>
         $apache-&gt;apache_conf_patch(conf=&gt;$conf);</pre>
-</dd>
-<dd>
 <p>Patch apache's default httpd.conf file. See the patch in contrib of Mail::Toaster to see what changes are being made.</p>
 </dd>
-<dt><strong><a name="item_install_ssl_certs">install_ssl_certs</a></strong>
+<dt><strong><a name="install_ssl_certs" class="item">install_ssl_certs</a></strong></dt>
 
 <dd>
 <p>Builds and installs SSL certificates in the locations that Apache expects to find them. This allows me to build a SSL enabled web server with a minimal amount of human interaction.</p>
 </dd>
-</li>
-<dt><strong><a name="item_install_rsa_cert">install_rsa_cert</a></strong>
+<dt><strong><a name="install_rsa_cert" class="item">install_rsa_cert</a></strong></dt>
 
 <dd>
 <p>Builds and installs a RSA certificate.</p>
-</dd>
-<dd>
 <pre>
         $apache-&gt;install_rsa_cert(crtdir=&gt;$crtdir, keydir=&gt;$keydir);</pre>
 </dd>
-</li>
-<dt><strong><a name="item_restart">restart</a></strong>
+<dt><strong><a name="restart" class="item">restart</a></strong></dt>
 
 <dd>
 <p>Restarts Apache.</p>
-</dd>
-<dd>
 <p>On FreeBSD, we use the rc.d script if it's available because it's smarter than apachectl. Under some instances, sending apache a restart signal will cause it to crash and not restart. The control script sends it a TERM, waits until it has done so, then starts it back up.</p>
-</dd>
-<dd>
 <pre>
     $apache-&gt;restart($vals);</pre>
 </dd>
-</li>
-<dt><strong><a name="item_vhost_create">vhost_create</a></strong>
-
-<dd>
-<p>Create an Apache vhost container like this:</p>
-</dd>
-<dd>
-<pre>
-  &lt;VirtualHost *:80 &gt;
-    ServerName blockads.com
-    ServerAlias ads.blockads.com
-    DocumentRoot /usr/home/blockads.com/ads
-    ServerAdmin admin@blockads.com
-    CustomLog &quot;| /usr/local/sbin/cronolog /usr/home/example.com/logs/access.log&quot; combined
-    ErrorDocument 404 &quot;blockads.com
-  &lt;/VirtualHost&gt;</pre>
-</dd>
-<dd>
-<pre>
-        my $apache-&gt;vhost_create($vals, $conf);</pre>
-</dd>
-<dd>
-<pre>
-        Required values:</pre>
-</dd>
-<dd>
-<pre>
-         ip  - an ip address
-       name  - vhost name (ServerName)
-     docroot - Apache DocumentRoot</pre>
-</dd>
-<dd>
-<pre>
-    Optional values</pre>
-</dd>
-<dd>
-<pre>
- serveralias - Apache ServerAlias names (comma seperated)
- serveradmin - Server Admin (email address)
-         cgi - CGI directory
-   customlog - obvious
- customerror - obvious
-      sslkey - SSL certificate key
-     sslcert - SSL certificate</pre>
-</dd>
-<dd>
-<p>This sub works great. :-)</p>
-</dd>
-</li>
-<dt><strong><a name="item_vhost_enable">vhost_enable</a></strong>
-
-<dd>
-<p>Enable a (previously) disabled virtual host.</p>
-</dd>
-<dd>
-<pre>
-    $apache-&gt;vhost_enable($vals, $conf);</pre>
-</dd>
-</li>
-<dt><strong><a name="item_vhost_disable">vhost_disable</a></strong>
-
-<dd>
-<p>Disable a previously disabled vhost.</p>
-</dd>
-<dd>
-<pre>
-    $apache-&gt;vhost_disable($vals, $conf);</pre>
-</dd>
-</li>
-<dt><strong><a name="item_vhost_delete">vhost_delete</a></strong>
-
-<dd>
-<p>Delete's an Apache vhost.</p>
-</dd>
-<dd>
-<pre>
-    $apache-&gt;vhost_delete();</pre>
-</dd>
-</li>
-<dt><strong><a name="item_vhost_exists">vhost_exists</a></strong>
-
-<dd>
-<p>Tests to see if a vhost definition already exists in your Apache config file(s).</p>
-</dd>
-</li>
-<dt><strong><a name="item_vhost_show">vhost_show</a></strong>
-
-<dd>
-<p>Shows the contents of a virtualhost block that matches the virtual domain name passed in the $vals hashref.</p>
-</dd>
-<dd>
-<pre>
-        $apache-&gt;vhost_show($vals, $conf);</pre>
-</dd>
-</li>
-<dt><strong><a name="item_vhosts_get_file">vhosts_get_file</a></strong>
-
-<dd>
-<p>If vhosts are each in their own file, this determines the file name the vhost will live in and returns it. The general methods on my systems works like this:</p>
-</dd>
-<dd>
-<pre>
-   example.com would be stored in $apache/vhosts/example.com.conf</pre>
-</dd>
-<dd>
-<p>so would any subdomains of example.com.</p>
-</dd>
-<dd>
-<p>thus, a return value for *.example.com will be ``$apache/vhosts/example.com.conf''.</p>
-</dd>
-<dd>
-<p>$apache is looked up from the contents of $conf.</p>
-</dd>
-</li>
-<dt><strong><a name="item_vhosts_get_match">vhosts_get_match</a></strong>
-
-<dd>
-<p>Find a vhost declaration block in the Apache config file(s).</p>
-</dd>
-</li>
-<dt><strong><a name="item_install_dsa_cert">install_dsa_cert</a></strong>
+<dt><strong><a name="install_dsa_cert" class="item">install_dsa_cert</a></strong></dt>
 
 <dd>
 <p>Builds and installs a DSA Certificate.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -325,7 +162,7 @@ included in this document.</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
 <p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
-<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

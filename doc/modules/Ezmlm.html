@@ -4,18 +4,19 @@
 <head>
 <title>Mail::Toaster::Ezmlm</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@sprybook-pro.local" />
+<link rev="made" href="mailto:matt@imac24.simerson.net" />
 </head>
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
 	<li><a href="#name">NAME</a></li>
-	<li><a href="#version">VERSION</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#dependencies">DEPENDENCIES</a></li>
@@ -26,18 +27,15 @@
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#copyright_and_license">COPYRIGHT AND LICENSE</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
 <p>Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists</p>
-<p>
-</p>
-<hr />
-<h1><a name="version">VERSION</a></h1>
-<p>5.02</p>
 <p>
 </p>
 <hr />
@@ -61,65 +59,47 @@
 <pre>
  some functions depend on Mail::Ezmlm;
  authentication depends on &quot;vpopmail&quot; (a perl extension)</pre>
-<p>If you need to run ezmlm.cgi suid, which is likely the case, then hacks to Mail::Ezmlm are required for the ``list'' function to work in taint mode. Also, for a perl script to run suid, you must have suidperl installed. Another (better) approach is to use Apache suexec instead of suidperl.</p>
+<p>If you need to run ezmlm.cgi suid, which is likely the case, then hacks to Mail::Ezmlm are required for the &quot;list&quot; function to work in taint mode. Also, for a perl script to run suid, you must have suidperl installed. Another (better) approach is to use Apache suexec instead of suidperl.</p>
 <p>
 </p>
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong>
+<dt><strong><a name="new" class="item">new</a></strong></dt>
 
 <dd>
 <p>Creates a new Mail::Toaster::Ezmlm object.</p>
-</dd>
-<dd>
 <pre>
    use Mail::Toaster::Ezmlm;
    my $ez = Mail::Toaster::Ezmlm;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_authenticate">authenticate</a></strong>
+<dt><strong><a name="authenticate" class="item">authenticate</a></strong></dt>
 
 <dd>
 <p>Authenticates a HTTP user against vpopmail to verify the user has permission to do what they're asking.</p>
 </dd>
-</li>
-<dt><strong><a name="item_dir_check">dir_check</a></strong>
+<dt><strong><a name="dir_check" class="item">dir_check</a></strong></dt>
 
 <dd>
 <p>Check a directory and see if it's a directory and readable.</p>
-</dd>
-<dd>
 <pre>
     $ezmlm-&gt;dir_check(dir=&gt;$dir);</pre>
-</dd>
-<dd>
 <p>return 0 if not, return 1 if OK.</p>
 </dd>
-</li>
-<dt><strong><a name="item_lists_get">lists_get</a></strong>
+<dt><strong><a name="lists_get" class="item">lists_get</a></strong></dt>
 
 <dd>
 <p>Get a list of Ezmlm lists for a given mail directory. This is designed to work with vpopmail where all the list for example.com are in ~vpopmail/domains.</p>
-</dd>
-<dd>
 <pre>
     $ezmlm-&gt;lists_get(&quot;example.com&quot;);</pre>
 </dd>
-</li>
-<dt><strong><a name="item_logo">logo</a></strong>
+<dt><strong><a name="logo" class="item">logo</a></strong></dt>
 
 <dd>
 <p>Put the logo on the HTML page. Sets the URL from $conf.</p>
-</dd>
-<dd>
 <pre>
     $ezmlm-&gt;logo(conf=&gt;$conf);</pre>
-</dd>
-<dd>
 <p>$conf is values from toaster.conf.</p>
-</dd>
-<dd>
 <pre>
  Example: 
     $ezmlm-&gt;logo(
@@ -127,29 +107,22 @@
         web_log_alt  =&gt; 'tnpi.net logo',
     );</pre>
 </dd>
-</li>
-<dt><strong><a name="item_process_cgi">process_cgi</a></strong>
+<dt><strong><a name="process_cgi" class="item">process_cgi</a></strong></dt>
 
 <dd>
 <p>Accepts input from HTTP requests, presents a HTML request form, and triggers actions based on input.</p>
-</dd>
-<dd>
 <pre>
    $ez-&gt;process_cgi();</pre>
 </dd>
-</li>
-<dt><strong><a name="item_process_shell">process_shell</a></strong>
+<dt><strong><a name="process_shell" class="item">process_shell</a></strong></dt>
 
 <dd>
 <p>Get input from the command line options and proceed accordingly.</p>
 </dd>
-</li>
-<dt><strong><a name="item_subs_add">subs_add</a></strong>
+<dt><strong><a name="subs_add" class="item">subs_add</a></strong></dt>
 
 <dd>
 <p>Subcribe a user (or list of users) to a mailing list.</p>
-</dd>
-<dd>
 <pre>
    $ezmlm-&gt;subs_add(
        list      =&gt; $list_name, 
@@ -157,17 +130,13 @@
        requested =&gt; $address_list
     );</pre>
 </dd>
-</li>
-<dt><strong><a name="item_subs_list">subs_list</a></strong>
+<dt><strong><a name="subs_list" class="item">subs_list</a></strong></dt>
 
 <dd>
 <p>Print out a list of subscribers to an Ezmlm mailing list.</p>
-</dd>
-<dd>
 <pre>
     $ezmlm-&gt;subs_list(list=&gt;$list, dir=&gt;$list_dir);</pre>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -204,7 +173,7 @@
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
 <p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
-<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

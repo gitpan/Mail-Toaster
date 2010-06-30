@@ -1,48 +1,30 @@
-#!perl
 use strict;
 use warnings;
 
 use English qw( -no_match_vars );
 use Test::More;
 
-use lib "inc";
+use lib 'lib';
+use lib 'inc';
 
 if ( $OSNAME ne "freebsd" ) {
-    plan skip_all => "FreeBSD tests skipped on " . $OSNAME;
+    plan skip_all => "OS is not FreeBSD";
 }
 else {
     plan 'no_plan';
 };
 
+require_ok( 'Mail::Toaster' );
 require_ok( 'Mail::Toaster::FreeBSD' );
-require_ok( 'Mail::Toaster::Utility' );
 
-
-# basic OO mechanism
-my $freebsd = Mail::Toaster::FreeBSD->new;                       # create an object
-ok ( defined $freebsd, 'get Mail::Toaster::FreeBSD object' );    # check it
+my $toaster = Mail::Toaster->new(debug=>0);
+my $freebsd = Mail::Toaster::FreeBSD->new('log'=>$toaster);
+ok ( defined $freebsd, 'Mail::Toaster::FreeBSD is an object' );
 ok ( $freebsd->isa('Mail::Toaster::FreeBSD'), 'check object class' );
 
 
-# most subs expect $conf to be passed to them
-my $util = Mail::Toaster::Utility->new;
-my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
-
-# cvsup_select_host
-	ok ( $freebsd->cvsup_select_host( conf=>$conf, test_ok=>1,debug=>0 ), 'cvsup_select_host');
-
-    # test the return value if set to a hostname 
-	$conf->{'cvsup_server_preferred'} = "cvsup8.us.freebsd.org";
-	cmp_ok ( "cvsup8.us.freebsd.org",
-             "eq",
-             $freebsd->cvsup_select_host( conf=>$conf, debug=>0, fatal=>0 ), 
-            'cvsup_select_host static');
-
-	$conf->{'cvsup_server_preferred'} = "fastest";
-	cmp_ok ( 1,
-             "eq",
-             $freebsd->cvsup_select_host( conf=>$conf, test_ok=>1, debug=>0, fatal=>0 ), 
-            'cvsup_select_host fastest');
+my $conf = $toaster->get_config;
+my $util = $toaster->get_util;
 
 # drive_spin_down
 	# how exactly do I test this? 
@@ -52,18 +34,23 @@ my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
     ok ( ! $freebsd->drive_spin_down( drive=>"0:1:0", test_ok=>0, debug=>0), 'drive_spin_down');
 
 
+
+# get_port_category
+    my @ports = qw/ openssl p5-Net-DNS qmail gdbm /;
+    foreach ( @ports ) {
+        my $r = $freebsd->get_port_category($_);
+        ok( $r && -d "/usr/ports/$r/$_", "get_port_category, $_, $r" );
+    };
+    
+
 # get_version
     ok ( $freebsd->get_version(), 'get_version');
     my $os_ver = `/usr/bin/uname -r`; chomp $os_ver;
     cmp_ok ( $os_ver, "eq", $freebsd->get_version(0), 'get_version');
 
 
-# install_cvsup
-    ok ( $freebsd->install_cvsup( test_ok=>1 ), 'install_cvsup');
-
 # is_port_installed
-	ok ( $freebsd->is_port_installed( 
-            port  => "perl", 
+	ok ( $freebsd->is_port_installed( "perl", 
             debug => 0, 
             fatal => 0,
             test_ok=> 1,
@@ -74,24 +61,20 @@ my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
     ok ( $freebsd->install_portupgrade( test_ok=>1, fatal=>0 ), 'install_portupgrade');
 
 
-# package_install
-	ok ( $freebsd->package_install( 
-            port=>"perl", 
+# install_package
+	ok ( $freebsd->install_package( "perl", 
             debug=>0,
             fatal=>0,
             test_ok=>1,
-       ), 'package_install');
+       ), 'install_package');
 
 
-# port_install
-	ok ( $freebsd->port_install( 
-	    port  => "perl", 
-	    base  => "lang", 
+# install_port
+	ok ( $freebsd->install_port( "perl", 
 	    dir   => 'perl5.8', 
-	    debug => 0, 
         fatal => 0,
 	    test_ok=> 1, 
-	), 'port_install');
+	), 'install_port');
 
 
 # port_options
@@ -102,21 +85,12 @@ my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
     ), 'port_options');
 
 
-# portsdb_Uu
-    ok ( $freebsd->portsdb_Uu(test_ok=>1), 'portsdb update');
-
-
-# ports_check_age
-	ok ( $freebsd->ports_check_age( days=>"30", debug=>0, test_ok=>1 ), 'ports_check_age');
-	ok ( ! $freebsd->ports_check_age( days=>"30", debug=>0, test_ok=>0 ), 'ports_check_age');
-
-
-# ports_update
-    ok ( $freebsd->ports_update(
+# update_ports
+    ok ( $freebsd->update_ports(
             debug=>0,
             fatal=>0,
             test_ok=>1,
-        ), 'ports_update');
+        ), 'update_ports');
 
 
 # portsnap
@@ -127,27 +101,12 @@ my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
         ), 'portsnap');
 
 
-# rc_dot_conf_check
-	ok ( $freebsd->rc_dot_conf_check(
+# conf_check
+	ok ( $freebsd->conf_check(
 	    check => "hostname", 
 	    line  => "hostname='mail.example.com'",
         fatal => 0,
         test_ok => 1,
-	), 'rc_dot_conf_check' );
-
-# source_update
-    ok ( $freebsd->source_update(
-            conf  => $conf,
-            debug => 0,
-            fatal => 0,
-            test_ok=>1,
-    ), 'source_update');
+	), 'conf_check' );
 
 
-__END__;
-
-jail_create
-jail_delete
-jail_get_hostname
-jail_install_world
-jail_start

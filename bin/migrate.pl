@@ -1,10 +1,6 @@
 #!perl
 use strict;
 
-#
-# $Id: migrate.pl 697 2008-10-18 04:35:15Z matt $
-#
-
 =head1 NAME
 
 migrate.pl
@@ -39,8 +35,11 @@ Create the new users using vadduser -s. Will be more reliable in fringe cases wh
 =cut
 
 use lib 'lib';
-use Mail::Toaster::Mysql;   my $mysql = new Mail::Toaster::Mysql;
-use Mail::Toaster::Utility; my $util = new Mail::Toaster::Utility;
+use Mail::Toaster::Mysql;   
+use Mail::Toaster::Utility; 
+
+my $mysql = new Mail::Toaster::Mysql;
+my $util = new Mail::Toaster::Utility;
 
 my ($type, $domain, $newhost) = @ARGV;
 my $vpopdir = "/usr/local/vpopmail";
@@ -72,10 +71,10 @@ sub migrate_vpopmail
 	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) 
 	{
 		# does the domain directory exist on the other end?
-		unless ( $util->syscmd(cmd=>"ssh $host test -d $vpopdir/domains/$domain", debug=>0)) {
+		unless ( $util->syscmd("ssh $host test -d $vpopdir/domains/$domain", debug=>0)) {
 			$exists++;
 			print "target directory already exists on $host!\n\tmoving it out of the way...";
-			$util->syscmd(cmd=>"ssh $host mv $vpopdir/domains/$domain $vpopdir/domains/$domain.bak", debug=>0);
+			$util->syscmd("ssh $host mv $vpopdir/domains/$domain $vpopdir/domains/$domain.bak", debug=>0);
 			print "done.\n";
 		};
 
@@ -119,18 +118,18 @@ sub add_emails
 {
 	my ($do, $domain, $host, @r) = @_;
 
+    my $vadduser = "$vpopdir/bin/vadduser";
 	foreach (@r) {
 		next if ($_->{'pw_name'} eq "postmaster");
 		#print "name: $_->{'pw_name'} \n";
 
-		my $flags = "";
-		$flags .= "-n" if ($_->{'pw_clear_passwd'} eq "");
+		$vadduser .= "-n" if $_->{'pw_clear_passwd'} eq "";
 
-		my $cmd = "$vpopdir/bin/vadduser $flags $_->{'pw_name'}\@$_->{'pw_domain'} $_->{'pw_clear_passwd'}";
+		my $cmd = "$vadduser '$_->{'pw_name'}\@$_->{'pw_domain'}' '$_->{'pw_clear_passwd'}'";
+		print " $cmd\n";
 
-		print "  $cmd \n";
 		if ( $do ) {
-			$util->syscmd(cmd=>"ssh $host $cmd", debug=>0);
+			$util->syscmd("ssh $host $cmd", debug=>0);
 		}
 	};
 };
@@ -141,10 +140,10 @@ sub add_postmaster
 
 	foreach (@r) {                                
 		next unless ($_->{'pw_name'} eq "postmaster");    # find the postmaster account
-		my $cmd = "$vpopdir/bin/vadddomain $domain $_->{'pw_clear_passwd'}";
+		my $cmd = "$vpopdir/bin/vadddomain '$domain' '$_->{'pw_clear_passwd'}'";
 		print "  $cmd\n";
 		if ( $do ) {
-			$util->syscmd(cmd=>"ssh $host $cmd", debug=>0); # add the domain on the new server.
+			$util->syscmd("ssh $host $cmd", debug=>0); # add the domain on the new server.
 			return 1;
 		};
 	};
@@ -190,7 +189,7 @@ sub add_domain_to_smtproutes
 
 	if  ( ! `grep $domain /var/qmail/control/smtproutes` ) {
 		print "missing.\nadding $domain to smtproutes...";
-		$util->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
+		$util->file_write("/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
 	};
 
 	if ( `grep $domain /var/qmail/control/smtproutes`) {
@@ -226,7 +225,7 @@ sub delete_domain
 	print "\n  $vpopdir/bin/vdeldomain $domain";
 
 	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
-		$util->syscmd(cmd=>"$vpopdir/bin/vdeldomain $domain", debug=>0);
+		$util->syscmd("$vpopdir/bin/vdeldomain $domain", debug=>0);
 	};
 
 	unless ( $util->yes_or_no( q=>"\nhave you completed the previous task successfully?", force=>1) ) {
@@ -244,7 +243,7 @@ sub verify_domain_exists_in_rcpthosts
 
 	unless ($r) {
 		if ($util->yes_or_no( q=>"shall I fix that for you?", force=>1) ){
-			$util->file_write(file=>"/var/qmail/control/rcpthosts", lines=>[$domain], append=>1);
+			$util->file_write("/var/qmail/control/rcpthosts", lines=>[$domain], append=>1);
 		};
 	};
 };
@@ -259,7 +258,7 @@ sub verify_domain_exists_in_smtproutes
 
 	unless ($r) {
 		if ($util->yes_or_no( q=>"shall I do that for you?", force=>1) ){
-			$util->file_write(file=>"/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
+			$util->file_write("/var/qmail/control/smtproutes", lines=>["$domain:$host"], append=>1);
 		};
 	};
 };
@@ -273,9 +272,9 @@ sub rsync_mailboxes_to_new
 		my $cleanup = "rm -r $vpopdir/domains/$domain";
 		my $clean2  = "mv $vpopdir/domains/$domain.bak $vpopdir/domains/$domain";
 		print "   $cleanup\n";
-		$util->syscmd(cmd=>"ssh $host $cleanup", debug=>0);
+		$util->syscmd("ssh $host $cleanup", debug=>0);
 		print "   $clean2\n";
-		$util->syscmd(cmd=>"ssh $host $clean2", debug=>0);
+		$util->syscmd("ssh $host $clean2", debug=>0);
 	};
 
 	my $cmd = "rsync -av -e ssh --delete $vpopdir/domains/$domain $host:$vpopdir/domains/";
@@ -283,7 +282,7 @@ sub rsync_mailboxes_to_new
 	print "rsync the maildirs from this (old) server to the new one with:\n\n   $cmd \n\n";
 
 	if ( $util->yes_or_no( q=>"\nshall I try it for you?", force=>1) ) {
-		$util->syscmd(cmd=>$cmd, debug=>0);
+		$util->syscmd($cmd, debug=>0);
 	};
 
 	unless ( $util->yes_or_no( q=>"\nhas the previous task completed successfully?", force=>1) ) {

@@ -3,285 +3,271 @@ package Mail::Toaster::DNS;
 use strict;
 use warnings;
 
-our $VERSION = '5.02';
+our $VERSION = '5.26';
 
 use Carp;
 use Params::Validate qw( :all );
 
-use lib "lib";
-use Mail::Toaster::Utility 5;
-use Mail::Toaster::Perl;
+use lib 'lib';
+use Mail::Toaster 5.26;
 
-my $util = Mail::Toaster::Utility->new;
-my $perl = Mail::Toaster::Perl->new;
+my ( $log, $util, %std_opts );
 
 sub new {
     my $class = shift;
-    my $self = { class => $class };
-    bless( $self, $class );
+    my %p     = validate( @_,
+        {   'log' => { type => OBJECT,  optional => 1 },
+            fatal => { type => BOOLEAN, optional => 1, default => 1 },
+            debug => { type => BOOLEAN, optional => 1 },
+        }
+    );
+
+    $log = $p{'log'};
+    $util = $log->get_util;
+
+    my $debug = $log->get_debug;  # inherit from our parent
+    my $fatal = $log->get_fatal;
+    $debug = $p{debug} if defined $p{debug};  # explicity overridden
+    $fatal = $p{fatal} if defined $p{fatal};
+
+    my $self = {
+        'log' => $log,
+        debug => $debug,
+        fatal => $fatal,
+    };
+    bless $self, $class;
+
+    # globally scoped hash, populated with defaults as requested by the caller
+    %std_opts = (
+        'test_ok' => { type => BOOLEAN, optional => 1 },
+        'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
+        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },    
+    );
+
     return $self;
 }
 
 sub is_ip_address {
-
     my $self = shift;
-
     my %p = validate(
         @_,
-        {   'ip'    => { type => SCALAR, },
-            'rbl'   => { type => SCALAR, },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
+        {   'ip'  => { type => SCALAR, },
+            'rbl' => { type => SCALAR, },
+            %std_opts,
         },
     );
 
-    my ( $ip, $rbl, $fatal, $debug )
-        = ( $p{'ip'}, $p{'rbl'}, $p{'fatal'}, $p{'debug'} );
+    my ( $ip, $rbl ) = ( $p{'ip'}, $p{'rbl'} );
+    my %args = (debug=>$p{debug},fatal=>$p{fatal});
 
-    my $r = $ip =~ /^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/;
-
-    if ( $r == 0 ) {
-        print "hrmmm, $ip didn't match an IP address format\n" if $debug;
-        croak                                                  if $fatal;
-        return 0;
-    }
+    $ip =~ /^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/
+        or return $log->error( "invalid IP address format: $ip", %args);
 
     return "$4.$3.$2.$1.$rbl";
 }
 
 sub rbl_test {
-
     my $self = shift;
-
     my %p = validate(
         @_, {   
             'zone'  => SCALAR,
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
             'conf'  => {
                     type     => HASHREF,
                     optional => 1,
                     default  => { rbl_enable_lookup_using => 'net-dns' }
                 },
+            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
         },
     );
 
-    my ( $conf, $zone, $fatal, $debug )
-        = ( $p{'conf'}, $p{'zone'}, $p{'fatal'}, $p{'debug'} );
+    my ( $conf, $zone ) = ( $p{'conf'}, $p{'zone'} );
 
     #	$net_dns->tcp_timeout(5);   # really shouldn't matter
     #	$net_dns->udp_timeout(5);
 
-    # First we make sure their zone has active name servers
-    return 0
-        unless $self->rbl_test_ns( conf => $conf, rbl => $zone,
-        debug => $debug );
+    # make sure zone has active name servers
+    return if ! $self->rbl_test_ns( conf => $conf, rbl => $zone );
 
-    # then we test an IP that should always return an A record
-    # for most RBL's this is 127.0.0.2, (2.0.0.127.bl.example.com)
-    return 0
-        unless $self->rbl_test_positive_ip(
-        conf  => $conf,
-        rbl   => $zone,
-        debug => $debug
-        );
+    # test an IP that should always return an A record
+    return if ! $self->rbl_test_positive_ip( conf => $conf, rbl => $zone );
 
-    # Now we test an IP that should always yield a negative response
-    return 0
-        unless $self->rbl_test_negative_ip(
-        conf  => $conf,
-        rbl   => $zone,
-        debug => $debug
-        );
+    # test an IP that should always yield a negative response
+    return if ! $self->rbl_test_negative_ip( conf => $conf, rbl => $zone );
 
     return 1;
 }
 
 sub rbl_test_ns {
-
     my $self = shift;
-
     my %p = validate( @_, {   
             'rbl'   => SCALAR,
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
             'conf'  => { type => HASHREF, optional => 1, },
+            %std_opts,
         },
     );
 
-    my ( $conf, $rbl, $fatal, $debug )
-        = ( $p{'conf'}, $p{'rbl'}, $p{'fatal'}, $p{'debug'} );
+    my ( $conf, $rbl ) = ( $p{'conf'}, $p{'rbl'} );
+    my %args = (debug=>$p{debug},fatal=>$p{fatal});
 
     my $testns = $rbl;
 
-    if ( $rbl =~ /rbl\.cluecentral\.net$/ ) {
-        $testns = "rbl.cluecentral.net";
-    }
-    elsif ( $rbl eq "spews.blackhole.us" ) {
-        $testns = "ls.spews.dnsbl.sorbs.net";
-    }
+    # overrides for dnsbl's where the NS doesn't match the dnsbl name
+    if    ( $rbl =~ /rbl\.cluecentral\.net$/ ) { $testns = "rbl.cluecentral.net"; }
+    elsif ( $rbl eq "spews.blackhole.us" ) { $testns = "ls.spews.dnsbl.sorbs.net"; }
     elsif ( $rbl =~ /\.dnsbl\.sorbs\.net$/ ) { $testns = "dnsbl.sorbs.net" }
 
-    my $ns = $self->resolve(record=>$testns, type=>"NS", debug=>$debug);
-    if ( !$ns ) { $ns = 0; };
+    my $ns = $self->resolve(record=>$testns, type=>'NS', %args ) || 0;
 
-    print "rbl_test_ns: found $ns NS servers.\n" if $debug;
-    $ns > 0 ? return 1 : return 0;
+    $log->audit( "found $ns NS servers");
+    return $ns;
 }
 
 sub rbl_test_positive_ip {
-
     my $self = shift;
-
     my %p = validate(
         @_,
         {   'conf' => { type => HASHREF, optional => 1, },
             'rbl'  => { type => SCALAR, },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
+            %std_opts,
         },
     );
 
-    my ( $conf, $rbl, $fatal, $debug )
-        = ( $p{'conf'}, $p{'rbl'}, $p{'fatal'}, $p{'debug'} );
+    my ( $conf, $rbl ) = ( $p{'conf'}, $p{'rbl'} );
+    my %args = (debug=>$p{debug},fatal=>$p{fatal});
 
+    # an IP that should always return an A record
+    # for most RBL's this is 127.0.0.2, (2.0.0.127.bl.example.com)
     my $ip      = 0;
     my $test_ip = $rbl eq "korea.services.net"     ? "61.96.1.1"
                 : $rbl eq "kr.rbl.cluecentral.net" ? "61.96.1.1"
                 : $rbl eq "cn-kr.blackholes.us"    ? "61.96.1.1"
                 : $rbl eq "cn.rbl.cluecentral.net" ? "210.52.214.8"
-                : $rbl =~ /rfc-ignorant\.org$/     ? return 1    # no test ips!
+                : $rbl =~ /rfc-ignorant\.org$/     ? 0         # no test ips!
                 : "127.0.0.2";
 
-    print "rbl_test_positive_ip: testing with ip $test_ip\n" if $debug;
+    return if ! $test_ip;
+    $log->audit( "rbl_test_positive_ip: testing with ip $test_ip");
 
-    my $test = $self->is_ip_address( ip => $test_ip, rbl => $rbl );
-    return 0 if ! $test;
+    my $test = $self->is_ip_address( ip => $test_ip, rbl => $rbl, %args ) or return;
+    $log->audit( "\tquerying $test..." );
 
-    print "\tquerying $test..." if $debug;
-
-    my @rrs = $self->resolve( record=>$test, type=>"A", debug=>$debug );
+    my @rrs = $self->resolve( record => $test, type => 'A' );
 
     foreach my $rr ( @rrs ) {
         next unless $rr =~ /127\.[0-1]\.[0-9]{1,3}/;
         $ip++;
-        print " from ", $rr if $debug;
-        print " matched.\n" if $debug;
+        $log->audit( " from $rr matched.");
     }
 
-    print "rbl_test_positive_ip: we have $ip addresses.\n" if $debug;
-    $ip > 0 ? return $ip : return 0;
+    $log->audit( "rbl_test_positive_ip: we have $ip addresses.");
+    return $ip;
 }
 
 sub rbl_test_negative_ip {
-
     my $self = shift;
-
     my %p = validate( @_, {   
             'rbl'   => SCALAR,
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
             'conf'  => { type => HASHREF, optional => 1, },
+            %std_opts,
         },
     );
 
-    my ( $conf, $rbl, $fatal, $debug )
-        = ( $p{'conf'}, $p{'rbl'}, $p{'fatal'}, $p{'debug'} );
+    my ( $conf, $rbl ) = ( $p{'conf'}, $p{'rbl'} );
+    my %args = (debug=>$p{debug},fatal=>$p{fatal});
 
-    my $test_ip = $rbl eq "korea.services.net"     ? "69.39.74.33"
-                : $rbl eq "kr.rbl.cluecentral.net" ? "69.39.74.33"
-                : $rbl eq "cn.rbl.cluecentral.net" ? "69.39.74.33"
+    my $test_ip = $rbl eq "korea.services.net"     ? "208.75.177.127"
+                : $rbl eq "kr.rbl.cluecentral.net" ? "208.75.177.127"
+                : $rbl eq "cn.rbl.cluecentral.net" ? "208.75.177.127"
                 : $rbl eq "us.rbl.cluecentral.net" ? "210.52.214.8"
-                : "69.39.74.33";
+                : "208.75.177.127";
 
-    my $fip = 0;
+    my $test = $self->is_ip_address( ip => $test_ip, rbl => $rbl, %args ) or return;
+    $log->audit( "querying $test" );
 
-    my $test = $self->is_ip_address( ip => $test_ip, rbl => $rbl );
-    return 0 unless $test;
-
-    print "querying $test..." if $debug;
-
-    my @rrs = $self->resolve( record=>$test, type=>"A", debug=>$debug );
-    return 1 if ! @rrs;
+    my @rrs = $self->resolve( record => $test, type => 'A', %args );
+    return 1 if scalar @rrs == 0;
 
     foreach my $rr ( @rrs ) {
         next unless $rr =~ /127\.0\.0/;
-        $fip++;
-        print " from ", $rr if $debug;
-        print " matched.\n" if $debug;
+        $log->audit( " from $rr matched.");
     }
-
-    $fip > 0 ? return 0 : return 1;
+    return 0;
 }
 
 sub resolve {
-
     my $self = shift;
-    
     my %p = validate(@_, {
             record => SCALAR,
             type   => SCALAR,
-            debug  => { type=>BOOLEAN, optional=>1, default=>1, },
-            fatal  => { type=>BOOLEAN, optional=>1, default=>1, },
+            timeout=> { type=>SCALAR,  optional=>1, default=>5  },
             conf   => { type=>HASHREF, optional=>1, },
+            %std_opts,
         },
     );
 
-    my ( $conf, $record, $type, $debug ) 
-        = ( $p{'conf'}, $p{'record'}, $p{'type'}, $p{'debug'} );
+    my ( $conf, $record, $type ) = ( $p{'conf'}, $p{'record'}, $p{'type'} );
+    #my %args = (debug=>$p{debug},fatal=>$p{fatal});
 
-    my $resolver = "net_dns";
+    return $self->resolve_dig($record, $type ) 
+        if ( $conf 
+            && $conf->{'rbl_enable_lookup_using'}
+            && $conf->{'rbl_enable_lookup_using'} eq "dig" );
 
-    if ( ! $perl->has_module("Net::DNS") ) {
-        $resolver = "dig";
-    };
+    return $self->resolve_dig($record, $type ) if ! $log->has_module("Net::DNS");
+    return $self->resolve_net_dns($record, $type, $p{timeout} );
+};
 
-    if ( $conf && $conf->{'rbl_enable_lookup_using'}
-               && $conf->{'rbl_enable_lookup_using'} eq "dig" )
-    {
-        $resolver = "dig";
-    };
+sub resolve_net_dns {
+    my ($self, $record, $type, $timeout) = @_;
 
-    my @records;
-
-    if ( $resolver eq "dig" ) {
-        my $dig = $util->find_the_bin( bin => 'dig', debug=>0 );
-
-        foreach (`$dig $type $record +short`) {
-            chomp;
-            push @records, $_;
-            print "resolve: found $_\n" if $debug;
-        }
-        return @records;
-    }
+    $log->audit("resolving $record type $type with Net::DNS");
 
     require Net::DNS;
     my $net_dns = Net::DNS::Resolver->new;
 
-    my $query = $net_dns->query( $record, $type );
-    unless ($query) {
-        carp "resolver query failed for $record: ", $net_dns->errorstring if $debug;
-        return;
-    }
+    $timeout ||= '5';
+    $net_dns->tcp_timeout($timeout);
+    $net_dns->udp_timeout($timeout);
 
+    my $query = $net_dns->query( $record, $type ) or
+        return $log->error( "resolver query failed for $record: " . $net_dns->errorstring, fatal => 0);
+
+    my @records;
     foreach my $rr (grep { $_->type eq $type } $query->answer ) {
         if ( $type eq "NS" ) {
-            print "$record $type: ", $rr->nsdname, "\n" if $debug;
+            $log->audit("\t$record $type: ". $rr->nsdname );
             push @records, $rr->nsdname;
         } 
         elsif ( $type eq "A" ) {
+            $log->audit("\t$record $type: ". $rr->address );
             push @records, $rr->address;
-            print "$record $type: ", $rr->address, "\n" if $debug;
         }
         elsif ( $type eq "PTR" ) {
             push @records, $rr->rdatastr;
-            print "$record $type: ", $rr->rdatastr, "\n" if $debug;
+            $log->audit("\t$record $type: ". $rr->rdatastr );
         }
+        else {
+            $log->error("unknown record type: $type", fatal => 0);
+        };
     }
-
     return @records;
 };
 
+sub resolve_dig {
+    my ($self, $record, $type) = @_;
+
+    $log->audit("resolving $record type $type with dig");
+
+    my $dig = $util->find_bin( 'dig' );
+
+    my @records;
+    foreach (`$dig $type $record +short`) {
+        chomp;
+        push @records, $_;
+        $log->audit("found $_");
+    }
+    return @records;
+};
 
 1;
 __END__
@@ -291,9 +277,6 @@ __END__
 
 Mail::Toaster::DNS - DNS functions, primarily to test RBLs
 
-=head1 VERSION
-
-5.01
 
 =head1 SYNOPSIS
 
@@ -313,8 +296,10 @@ These functions are used by toaster-watcher to determine if RBL's are available 
 
 Create a new DNS method:
 
+   use Mail::Toaster;
    use Mail::Toaster::DNS;
-   my $dns = Mail::Toaster::DNS->new;
+   my $toaster = Mail::Toaster->new();
+   my $dns     = Mail::Toaster::DNS->new(log=>$toaster);
 
 
 =item rbl_test
@@ -327,9 +312,6 @@ After the demise of osirusoft and the DDoS attacks currently under way against R
  arguments required:
     zone - the zone of a blacklist to test
 
- arguments optional:
-    debug
-
 Tests to make sure that name servers are found for the zone and then run several test queries against the zone to verify that the answers it returns are sane. We want to detect if a RBL operator does something like whitelist or blacklist the entire planet.
 
 If the blacklist fails any test, the sub will return zero and you should not use that blacklist.
@@ -340,7 +322,6 @@ If the blacklist fails any test, the sub will return zero and you should not use
 	my $count = $t_dns->rbl_test_ns(
 	    conf  => $conf, 
 	    rbl   => $rbl, 
-	    debug => $debug,
 	);
 
  arguments required:
@@ -358,7 +339,6 @@ This script requires a zone name. It will then return a count of how many NS rec
 
  arguments optional:
     conf
-    debug
 
 A positive test is a test that should always return a RBL match. If it should and does not, then we assume that RBL has been disabled by its operator.
 

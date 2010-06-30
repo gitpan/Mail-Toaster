@@ -9,22 +9,19 @@ use Test::More 'no_plan';
 use lib "lib";
 
 BEGIN { 
+    use_ok( 'Mail::Toaster' );
     use_ok( 'Mail::Toaster::Apache' );
-    use_ok( 'Mail::Toaster::Utility' );
 }
+require_ok( 'Mail::Toaster' );
 require_ok( 'Mail::Toaster::Apache' );
-require_ok( 'Mail::Toaster::Utility' );
 
-# basic OO mechanism
-	my $apache = Mail::Toaster::Apache->new;  # create an object
-	ok ( defined $apache, 'get Mail::Toaster::Apache object' ); # check it
-	ok ( $apache->isa('Mail::Toaster::Apache'), 'check object class' ); # the right class?
+my $toaster = Mail::Toaster->new(debug=>0);
+my $conf = $toaster->get_config();
+my $util = $toaster->get_util();
 
-	my $util = Mail::Toaster::Utility->new;
-	my $conf = $util->parse_config(
-            file  => "toaster-watcher.conf",
-            debug => 0,
-        );
+my $apache = Mail::Toaster::Apache->new( 'log' => $toaster );
+ok ( defined $apache, 'get Mail::Toaster::Apache object' );
+ok ( $apache->isa('Mail::Toaster::Apache'), 'check object class' );
 
 
 # install_apache1
@@ -36,7 +33,7 @@ require_ok( 'Mail::Toaster::Utility' );
 
 # freebsd_extras
 
-    my $apachectl = $util->find_the_bin(bin=>"apachectl", fatal=>0,debug=>0);
+    my $apachectl = $util->find_bin( "apachectl", fatal=>0,debug=>0);
     if ( $apachectl && -x $apachectl ) {
         ok ( -x $apachectl, 'apachectl exists' );
 
@@ -64,22 +61,6 @@ require_ok( 'Mail::Toaster::Utility' );
     };
 
 # restart
-
-# vhost_create
-
-# vhost_enable
-
-# vhost_disable
-
-# vhost_delete
-
-# vhost_exists
-
-# vhost_show
-
-# vhosts_get_file
-
-# vhosts_get_match
 
 # RemoveOldApacheSources
 

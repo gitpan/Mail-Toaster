@@ -1,143 +1,95 @@
-#!/usr/bin/perl
 package Mail::Toaster::FreeBSD;
 
 use strict;
 use warnings;
 
+our $VERSION = '5.26';
+
 use Cwd;
 use Carp;
-use Params::Validate qw( :all );;
-
-our $VERSION = '5.07';
-
-use lib "lib";
-
-require Mail::Toaster::Utility; my $util = Mail::Toaster::Utility->new;
-require Mail::Toaster::Perl;    my $perl    = Mail::Toaster::Perl->new;
+use File::Copy;
+use Params::Validate qw( :all );
 
 use vars qw($err);
 
-1;
+use lib 'lib';
+use Mail::Toaster 5.26;
+my ($toaster, $log, $util, %std_opts );
 
 sub new {
+    my $class = shift;
+    my %p     = validate( @_,
+        {   'log' => { type => OBJECT  },
+            fatal => { type => BOOLEAN, optional => 1, default => 1 },
+            debug => { type => BOOLEAN, optional => 1 },
+        }
+    );
 
-    my ( $class, $name ) = @_;
-    my $self = { name => $name };
-    bless( $self, $class );
+    $toaster = $log = $p{'log'};
+    $util = $toaster->get_util;
+
+    my $debug = $log->get_debug;  # inherit from our parent
+    my $fatal = $log->get_fatal;
+    $debug = $p{debug} if defined $p{debug};  # explicity overridden
+    $fatal = $p{fatal} if defined $p{fatal};
+
+    my $self = {
+        'log' => $log,
+        debug => $debug,
+        fatal => $fatal,
+    };
+    bless $self, $class;
+
+    # globally scoped hash, populated with defaults as requested by the caller
+    %std_opts = (
+        'test_ok' => { type => BOOLEAN, optional => 1 },
+        'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
+        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+    );
+
     return $self;
 }
 
-sub cvsup_select_host {
-
+sub drive_spin_down {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            'conf'    => { type=>HASHREF, optional=>1, },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
-        },
-    );
+    my %p = validate( @_, { 'drive' => SCALAR, %std_opts } );
 
-    my ( $conf, $fatal, $debug )
-        = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
+    my $drive = $p{'drive'};
+    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
-    my $cvshost      = $conf->{'cvsup_server_preferred'} || "fastest";
-    my $country_code = $conf->{'cvsup_server_country'}   || "us";
+    return $p{'test_ok'} if defined $p{'test_ok'};
 
-    print "cvsup_select_host: in country $country_code: $cvshost\n" if $debug;
+    #TODO: see if the drive exists!
 
-    # if this is set, use it
-    if ( $cvshost && $cvshost ne "fastest" ) { return $cvshost; }
+    my $camcontrol = $util->find_bin( "camcontrol", %args) 
+        or return $log->error( "couldn't find camcontrol", %args );
 
-    # host is set to "fastest"
-    my $fastest = $util->find_the_bin(
-        bin   => "fastest_cvsup",
-        debug => $debug,
-        fatal => 0,
-    );
-
-    # are we testing?
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    # if fastest_cvsup is not installed, install it
-    if ( ! $fastest || !-x $fastest ) {
-        if ( -d "/usr/ports/sysutils/fastest_cvsup" ) {
-            
-            # we are probably here to update the ports tree, so we'll create
-            # a loop if we try installing a port, which will send us right back
-            # to here since fastest_cvsup is selected but not installed.
-            # the no_update flag helps us circumvent that problem.
-            
-            $self->port_install(
-                port  => "fastest_cvsup",
-                base  => "sysutils",
-                fatal => 0,
-                debug => $debug,
-                no_update => 1,
-            );
-            $fastest =
-              $util->find_the_bin( bin => "fastest_cvsup", fatal => 0,debug=>0 );
-        }
-        else {
-            print "ERROR: fastest_cvsup port is not available to install from ports.\n";
-        }
-    }
-
-    # if it installed correctly
-    if ( !$fastest || !-x $fastest ) {
-        print "ERROR: fastest_cvsup is selected but not available.\n";
-        croak if $fatal;
-        return;
-    };
-
-    $country_code ||=
-      $util->answer( q => "what's your two digit country code?" );
-    $cvshost = `$fastest -Q -c $country_code`;
-    chomp $cvshost;
-    return $cvshost;
+    print "spinning down backup drive $drive...";
+    $util->syscmd( "$camcontrol stop $drive", %args );
+    print "done.\n";
+    return 1;
 }
 
-sub drive_spin_down {
-
+sub get_port_category {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            'drive'   => { type=>SCALAR, },
-            'kind'    => { type=>SCALAR,  optional=>1, },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
+    my $port = shift or die "missing port in request\n";
 
-    my ( $drive, $kind, $fatal, $debug )
-        = ( $p{'drive'}, $p{'kind'}, $p{'fatal'}, $p{'debug'} );
-	
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    # try atacontrol if IDE disk.
-
-    # first, see if the drive exists!
-
-    my $camcontrol = $util->find_the_bin( bin => "camcontrol",debug=>0 );
-    if ( -x $camcontrol ) {
-        print "spinning down backup drive $drive...";
-        $util->syscmd( command => "$camcontrol stop $drive",debug=>0 );
-        print "done.\n";
-        return 1;
-    }
-    else {
-        print "couldn't find camcontrol!\n";
-        return 0;
-    }
+    my ($path) = </usr/ports/*/$port/distinfo>;
+    if ( ! $path ) {
+        ($path) = </usr/ports/*/$port/Makefile>;
+    };
+#warn "path: $path\n";
+    return if ! $path;
+    my @bits = split( '/', $path );
+#warn "bits3: $bits[3]\n";
+    return $bits[3];
 }
 
 sub get_version {
-    my $self = shift;
+    my $self  = shift;
     my $debug = shift;
 
-    my $uname = $util->find_the_bin(bin=>"uname",debug=>0);
+    my $uname = $util->find_bin( "uname", debug => 0 );
     print "found uname: $uname\n" if $debug;
 
     my $version = `$uname -r`;
@@ -145,120 +97,147 @@ sub get_version {
     print "version is $version\n" if $debug;
 
     return $version;
-};
-
-sub is_port_installed {
-
-    my $self = shift;
-    
-    # parameter validation
-    my %p = validate( @_, {
-            'port'    => { type=>SCALAR, },
-            'alt'     => { type=>SCALAR|UNDEF, optional=>1},
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
-        },
-    );
-
-    my ( $package, $alt, $fatal, $debug )
-        = ( $p{'port'}, $p{'alt'}, $p{'fatal'}, $p{'debug'} );
-
-    my ($r, @args );
-    
-    print "is_port_installed: checking for $package\n" if $debug;
-
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    my $pkg_info = $util->find_the_bin( debug => $debug, bin => "pkg_info", fatal=>$fatal );
-    my $grep     = $util->find_the_bin( debug => $debug, bin => "grep", fatal=>$fatal );
-
-    return unless ( $pkg_info && $grep);
-
-    # pkg_info gets a list of packages
-    # grep the string we're looking for
-    # cut strips off everything after the first space
-    # and head gives us only the first line of output
-
-    if ($alt) {
-        $r =   `$pkg_info | $grep "^$alt-" | cut -d" " -f1 | head -n1`;
-        $r ||= `$pkg_info | $grep "^$alt"  | cut -d" " -f1 | head -n1`;
-    }
-    else {
-        $r =   `$pkg_info | $grep "^$package-" | cut -d" " -f1 | head -n1`;
-        $r ||= `$pkg_info | $grep "^$package"  | cut -d" " -f1 | head -n1`;
-    }
-    chomp $r;
-
-    return $r;
 }
 
-sub install_cvsup {
-
+sub install_port {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
+    my $portname = shift or return $log->error("missing port/package name", fatal=>0);
+    my %p    = validate(
+        @_,
+        {   dir      => { type => SCALAR, optional => 1 },
+            category => { type => SCALAR|UNDEF, optional => 1 },
+            check    => { type => SCALAR,  optional => 1 },
+            flags    => { type => SCALAR,  optional => 1 },
+            options  => { type => SCALAR,  optional => 1 },
+            %std_opts,
         },
     );
 
-    my ( $fatal, $debug ) = ( $p{'fatal'}, $p{'debug'} );
+    my $options = $p{options};
+    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    my $make_defines = "";
+    my @defs;
 
-    my $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
-    if ( $cvsupbin && -x $cvsupbin) {
-        return $cvsupbin 
-    };
+    return $p{test_ok} if defined $p{test_ok};
 
-    # try installing it via a package (source compile takes a long time)
-    $self->package_install( port => "cvsup-without-gui", debug=>$debug, fatal=>0 );
+    my $check = $p{check} || $portname;
+    return 1 if $self->is_port_installed( $check, debug=>1);
 
-    # check for it again
-    $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>0 );
-    return $cvsupbin if ( $cvsupbin && -x $cvsupbin );
+    my $port_dir = $p{dir} || $portname;
+    $port_dir =~ s/::/-/g if $port_dir =~ /::/;
 
-    # since package install failed, try installing via the port
-    $self->port_install( 
-        port  => "cvsup-without-gui", 
-        base  => "net", 
-        debug => $debug, 
-        fatal => $fatal,
-        no_update=>1, 
-    );
+    my $start_directory = Cwd::getcwd();
+		my $category = $p{category} || $self->get_port_category($portname) 
+            or die "unable to find port directory for port $portname\n";
 
-    $cvsupbin = $util->find_the_bin( 
-        bin => "cvsup", 
-        debug=>$debug, 
-        fatal=>$fatal,
-    );
+		my $path = "/usr/ports/$category/$port_dir";
+		-d $path && chdir $path or croak "couldn't cd to $path: $!\n";
 
-    if ( !$cvsupbin || !-x $cvsupbin ) {
-        $err = "install_cvsup: failed to install";
-        carp $err;
-        croak $err if $fatal;
-        return;
+    $log->audit("install_port: installing $portname");
+
+    # these are the "make -DWITH_OPTION" flags
+    if ( $p{flags} ) {
+        @defs = split( /,/, $p{flags} );
+        foreach my $def (@defs) {
+            if ( $def =~ /=/ ) {             # DEFINE=VALUE format, use as is
+                $make_defines .= " $def ";
+            }
+            else { 
+                $make_defines .= " -D$def "; # otherwise, prepend the -D flag
+            }
+        }
     }
 
-    return $cvsupbin;
+    if ($options) {
+        $self->port_options( port => $portname, opts => $options );
+    }
+
+    if ( $portname eq "qmail" ) {
+        $util->syscmd( "make clean && make $make_defines install && make clean");
+    }
+    elsif ( $portname eq "ezmlm-idx" ) {
+        $util->syscmd( "make clean && make $make_defines install" );
+        copy( "work/ezmlm-0.53/ezmlmrc", "/usr/local/bin" );
+        $util->syscmd( "make clean" );
+    }
+    else {
+
+        # reset our PATH, to make sure we use our system supplied tools
+        $ENV{PATH}
+            = "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
+
+        # the vast majority of ports work great this way
+        print "running: make $make_defines install clean\n";
+        system "make clean";
+        system "make $make_defines";
+        system "make $make_defines install";
+        system "make clean";
+    }
+
+    # return to our original working directory
+    chdir($start_directory);
+
+    return 1 if $self->is_port_installed( $check, debug=>1 );
+
+    $log->audit( "install_port: $portname install, FAILED" );
+    $self->install_port_try_manual( $portname, $path );
+
+    if ( $portname =~ /\Ap5\-(.*)\z/ ) {
+        my $p_name = $1;
+        $p_name =~ s/\-/::/g;
+
+        print <<"EO_PERL_MODULE_MANUAL";
+Since it was a perl module that failed to install,  you could also try
+manually installing via CPAN. Try something like this:
+
+       perl -MCPAN -e 'install $p_name'
+
+EO_PERL_MODULE_MANUAL
+    };
+
+    return $log->error( "Install of $portname failed. Please fix and try again.", %args);
+}
+
+sub is_port_installed {
+    my $self = shift;
+    my $port = shift or return $log->error("missing port/package name", fatal=>0);
+    my %p    = validate(
+        @_,
+        {   'alt' => { type => SCALAR | UNDEF, optional => 1 },
+            %std_opts,
+        },
+    );
+
+    my $alt = $p{'alt'} || $port;
+
+    my ( $r, @args );
+
+    $log->audit( "  checking for port $port", debug=>0);
+
+    return $p{'test_ok'} if defined $p{'test_ok'};
+
+    my $pkg_info = $util->find_bin( 'pkg_info', debug => 0 );
+    my @packages = `pkg_info`; chomp @packages;
+    my @matches = grep {/^$port/} @packages;
+    if ( scalar @matches == 0 ) {
+        @matches = grep {/^$alt/} @packages;
+    };   
+    return if scalar @matches == 0; # no matches
+    $toaster->audit( "WARN: found multiple matches for port $port",debug=>1)
+        if scalar @matches != 1;
+
+    my ($installed_as) = split(/\s/, $matches[0]);
+    $toaster->audit( "found port $port installed as $installed_as",debug=>$p{debug} );
+    return $installed_as;
 }
 
 sub install_portupgrade {
-
     my $self = shift;
-    
-    my %p = validate( @_, {
-            conf  => { type=>HASHREF, optional=>1, },
-            fatal => { type=>BOOLEAN, optional=>1, default=>1 },
-            debug => { type=>BOOLEAN, optional=>1, default=>1 },
-            test_ok=>{ type=>BOOLEAN, optional=>1 },
-        },
-    );
+    my %p = validate( @_, { %std_opts } );
 
-    my ( $conf, $fatal, $debug )
-        = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
+    my $conf = $toaster->get_config;
+    my %args = $toaster->get_std_args( %p );
 
     my $package = $conf->{'package_install_method'} || "packages";
 
@@ -269,768 +248,91 @@ sub install_portupgrade {
     # of portupgrade from ports
 
     if ( $self->get_version =~ m/\A6/ ) {
-        $self->package_install(
-            port => "portupgrade",
-            debug => 0,
-            fatal => 0,
-        );
-    } 
+        $self->install_package( "portupgrade", %args );
+    }
 
     if ( $package eq "packages" ) {
-        $self->package_install( 
-            port  => "ruby18_static", 
-            alt   => "ruby-1.8", 
-            debug => 0,
-            fatal => 0,
+        $self->install_package( "ruby18_static",
+            alt   => "ruby-1.8",
+            %args,
         );
     }
 
-    $self->port_install(
-        port => "portupgrade",
-        base => -d "/usr/ports/ports-mgmt" ? "ports-mgmt" : "sysutils",
-        debug => 0,
-        fatal => $fatal,
-    );
+    $self->install_port( port => "portupgrade", %args );
 
-    $self->is_port_installed(port=>"portupgrade", fatal=>$fatal, debug=>0) ? return 1 : return;
+    return 1 if $self->is_port_installed( "portupgrade" );
+    return;
 }
 
-sub jail_create {
-
+sub install_package {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR,  optional=>1, default=>"10.0.1.160" },
-            'hostname'  => { type=>SCALAR,  optional=>1, },
-            'jail_home' => { type=>SCALAR,  optional=>1, },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
+    my $package = shift or die "missing package in request\n";
+    my %p    = validate(
+        @_,
+        {   'alt'   => { type => SCALAR, optional => 1, },
+            'url'   => { type => SCALAR, optional => 1, },
+            %std_opts,
         },
     );
 
-    my ( $ip, $hostname, $dir, $fatal, $debug )
-        = ( $p{'ip'}, $p{'hostname'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
+    my ( $alt, $pkg_url ) = ( $p{'alt'}, $p{'url'} );
+    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
-    if ( ! $ip || $ip eq "10.0.1.160" ) {
-        $ip = $util->answer(
-            question => "ip address",
-            default => $ip,
-        );
-    };
+    return $util->error("sorry, but I really need a package name!") if !$package;
 
-    $hostname ||= $self->jail_get_hostname( ip=>$ip, debug=>$debug );
+    $log->audit("install_package: checking if $package is installed");
 
-    $dir ||=  $util->answer(
-          question => "jail root directory",
-          default => "/usr/jails"
-      );
-     
-    my $ifconfig = $util->find_the_bin( bin=>'ifconfig',debug=>0 );
-    unless (`$ifconfig | grep $ip`) {    # there's probably a better way
-        croak "Hey! That IP isn't available on any network interface!\n";
-    }
+    return $p{'test_ok'} if defined $p{'test_ok'};
 
-    unless ( -d "$dir/$ip" ) {
-        $util->syscmd( command => "mkdir -p $dir/$ip",debug=>0 );
-    }
+    return 1 if $self->is_port_installed( $package, alt => $alt, %args );
 
-    $self->jail_install_world( dir=>$dir, ip=>$ip );
-    $self->jail_postinstall_setup(dir=>$dir, ip=>$ip, hostname=>$hostname);
-
-    print "\a";
-    if ( $util->yes_or_no(
-            question => "Would you like ports installed?",
-            timeout  => 300,
-        )
-      )
-    {
-        $self->jail_install_ports(dir=>$dir, ip=>$ip);
-    };
-
-
-    print "\a";
-    if ( $util->yes_or_no(
-            question => "Install Matt tweaks",
-            timeout  => 300,
-        )
-      )
-    {
-        my $home = "/home/matt";
-
-        if ( -d $home ) {
-            $util->syscmd(
-                command => "rsync -aW --exclude html $home $dir/$ip/usr/home",
-                debug=>0,
-            );
-        }
-        if ( -f "/usr/local/etc/sudoers" ) {
-            $util->syscmd( command => "mkdir -p $dir/$ip/usr/local/etc",debug=>0 );
-            $util->syscmd( 
-                command =>"rsync -aW /usr/local/etc/sudoers $dir/$ip/usr/local/etc/sudoers", 
-                debug=>0,
-            );
-        }
-
-        $util->syscmd( 
-            command => "jail $dir/$ip $hostname $ip /usr/sbin/pkg_add -r sudo rsync perl" , 
-            debug=>0,
-        );
-    }
-
-    print "You now need to set up the jail. At the very least, you need to:
-
-	1. set root password
-	2. create a user account
-	3. get remote root 
-		a) use sudo (pkg_add -r sudo; visudo)
-		b) add user to wheel group (vi /etc/group)
-		c) modify /etc/ssh/sshd_config to permit root login
-	4. install perl (pkg_add -r perl/perl5.8)
-
-Here's how I set up my jail:
-
-    pw useradd -n matt -d /home/matt -s /bin/tcsh -u 1000 -m -h 0
-    passwd root
-    pkg_add -r sudo rsync perl
-    rehash; visudo
-    sh /etc/rc
-
-Ssh into the jail from another terminal. Once successfully logged in with root privs, you can drop the initial shell and manage the jail remotely.
-
-Read the jail man pages for more details.\n\n";
-
-    if ( $util->yes_or_no(
-            question => "Do you want to start a shell in the jail?",
-            timeout  => 300, )
-      )
-    {
-        print "starting: jail $dir/$ip $hostname $ip /bin/tcsh\n";
-        $util->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh" , debug=>0);
-    }
-    else {
-        print "to run:\n\n\tjail $dir/$ip $hostname $ip /bin/tcsh\n\n";
-    }
-}
-
-sub jail_delete {
-
-    my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR,  optional=>1, },
-            'jail_home' => { type=>SCALAR,  optional=>1, },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $ip, $jail_home, $fatal, $debug )
-        = ( $p{'ip'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
-
-    $ip ||= $util->answer( q => "IP address", default => "10.0.1.160" );
-
-
-    $jail_home ||= $util->answer(
-        q       => "jail root directory",
-        default => "/usr/jails"
-    );
-
-    unless ( -d "$jail_home/$ip" ) { croak "The jail dir $jail_home/$ip doesn't exist!\n" }
-
-    if ( -e "$jail_home/$ip/etc/rc.shutdown" ) {
-        $util->syscmd( command => "$jail_home/$ip/etc/rc.shutdown" , debug=>0);
-    }
-
-    my $jexec = $util->find_the_bin( bin => "jexec" );
-    if ( -x $jexec ) {
-        my $jls = $util->find_the_bin( bin => "jls" );
-        $util->syscmd( command => "jls" , debug=>0);
-
-        my $ans = $util->answer(
-            q       => "\nWhich jail do you want to delete?",
-            timeout => 60
-        );
-        if ( $ans > 0 ) {
-            $util->syscmd( command => "$jexec $ans kill -TERM -1" , debug=>0);
-        }
-    }
-
-    my $mounts = $util->drives_get_mounted( debug => $debug );
-
-    if ( $mounts->{"$jail_home/$ip/dev"} ) {
-        print "unmounting $jail_home/ip/dev\n";
-        $util->syscmd( command => "umount $jail_home/$ip/dev" , debug=>0);
-    }
-
-    if ( $mounts->{"$jail_home/$ip/proc"} ) {
-        print "unmounting $jail_home/ip/proc\n";
-        $util->syscmd( command => "umount $jail_home/$ip/proc" , debug=>0);
-    }
-
-    $mounts = $util->drives_get_mounted( debug => $debug );
-
-    if ( $mounts->{"$jail_home/$ip/dev"} ) {
-        print "NOTICE: force unmounting $jail_home/ip/dev\n";
-        $util->syscmd( command => "umount -f $jail_home/$ip/dev" , debug=>0);
-    }
-
-    if ( $mounts->{"$jail_home/$ip/proc"} ) {
-        print "NOTICE: force unmounting $jail_home/ip/proc\n";
-        $util->syscmd( command => "umount -f $jail_home/$ip/proc" , debug=>0);
-    }
-
-    print "nuking jail: $jail_home/$ip\n";
-    my $rm      = $util->find_the_bin( bin => "rm" );
-    my $chflags = $util->find_the_bin( bin => "chflags" );
-
-    $util->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
-    $util->syscmd( command => "$chflags -R noschg $jail_home/$ip" , debug=>0);
-    $util->syscmd( command => "$rm -rf $jail_home/$ip" , debug=>0);
-}
-
-sub jail_get_hostname {
-    
-    my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR,  },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $ip, $fatal, $debug ) = ( $p{'ip'}, $p{'fatal'}, $p{'debug'} );
-
-    require Mail::Toaster::DNS;
-    my $dns = Mail::Toaster::DNS->new();
-
-    my $hostname = $dns->resolve(record=>$ip, type=>"PTR", debug=>$debug);
-
-    # if ( $hostname =~ /.*\./ ) {
-    if ( ! $hostname ) {
-        $hostname = "jail";
-    }
-
-    return $hostname;
-}
-
-sub jail_install_ports {
-
-    my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR, },
-            'dir'       => { type=>SCALAR, },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $ip, $dir, $fatal, $debug )
-        = ( $p{'ip'}, $p{'dir'}, $p{'fatal'}, $p{'debug'} );
-
-
-    my $rsyncbin = $util->find_the_bin( bin => "rsync", debug=>0 );
-    unless ($rsyncbin) {
-        unless ( $self->package_install( port => "rsync", debug=>0 ) ) {
-            $self->port_install( port => "rsync", base=>"net", debug=>0 );
-        };
-        $rsyncbin = $util->find_the_bin( bin => "rsync", debug=>0 );
-    }
-    unless ( -x $rsyncbin ) {
-        croak "sorry, rsync could not be found or installed!\n";
-    }
-
-    my $limit = $util->yes_or_no(
-        question => "\n\nTo speed up the process, we can copy only the ports \n"
-            . "required by Mail::Toaster. Shall I limit the ports tree?",
-        timeout=> 60,
-    );
-
-    print "Please be patient, this will take a few minutes (depending \n"
-        . "on the speed of your disk(s)). \n";
-
-    unless ( -d "$dir/$ip/usr/ports" ) { mkdir "$dir/$ip/usr/ports", oct('0755'); }
-
-    if ($limit) {
-        my @skip_array = qw{ arabic astro audio biology cad chinese comms
-            deskutils distfiles emulators finance french ftp german hebrew
-            irc japanese korean mbone news palm picobsd portuguese polish
-            russian science hungarian ukrainian vietnamese x11-clocks
-            x11-themes x11-wm };
-        my %skip_hash = map { $_ => 1 } @skip_array;
-
-        foreach ( $util->get_dir_files( dir => "/usr/ports" ) ) {
-            next if defined $skip_hash{$_};
-
-            print "rsync -aW $_ $dir/$ip/usr/ports/ \n";
-
-            $util->syscmd(
-                command => "rsync -aW $_ $dir/$ip/usr/ports/",
-                debug  => 0,
-            );
-        }
-    }
-    else {
-        foreach ( $util->get_dir_files( dir => "/usr/ports" ) ) {
-            print "rsync -aW $_ $dir/$ip/usr/ports/ \n";
-            $util->syscmd(
-                command => "rsync -aW $_ $dir/$ip/usr/ports/",debug=>0 );
-        }
-    }
-};
-
-sub jail_install_world {
-
-    my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR, },
-            'dir'       => { type=>SCALAR, },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $ip, $dir, $fatal, $debug )
-        = ( $p{'ip'}, $p{'dir'}, $p{'fatal'}, $p{'debug'} );
-
-    chdir("/usr/src")
-      or croak
-"Yikes, no /usr/src exists! You must have the FreeBSD sources downloaded to proceed!";
-
-    if ( ! $util->yes_or_no(question=>"Do you have a fresh world built?") ) 
-    {
-        print <<"EO_FRESH_WORLD";
-   In order to build a jail, you need a fresh world built. That typically
-   means using cvsup to fetch the latest sources from the FreeBSD branch 
-   of your choice (I recommend -stable) and then building the world. You 
-   can find the instructions for doing this on www.FreeBSD.org. 
-   
-   If you already have up-to-date FreeBSD sources on your system, you 
-   can achieve the desired result by issuing the following command: 
-
-   make -DNOCLEAN world DESTDIR=$dir/$ip
-
-EO_FRESH_WORLD
-
-        if ( ! $util->yes_or_no(question=>"Would you like me to do so now?") ) {
-            croak "Sorry, I cannot continue.\n"; 
-        };
-
-        $util->syscmd(
-             command => "make -DNOCLEAN world DESTDIR=$dir/$ip", 
-             debug=>0,
-        );
-    }
-    else {
-        $util->syscmd( 
-            command => "make installworld DESTDIR=$dir/$ip", 
-            debug   => 0,
-        );
-    };
-
-    chdir("etc");
-    $util->syscmd( command => "make distribution DESTDIR=$dir/$ip", debug=>0 );
-    $util->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
-}
-
-sub jail_postinstall_setup {
-    my $self = shift;
-
-    my %p = validate(@_, { 
-            ip    => SCALAR, 
-            dir   => SCALAR,,
-            hostname => { type=>SCALAR,  optional=>1, },
-        } 
-    );
-
-    my $dir = $p{'dir'};
-    my $ip  = $p{'ip'};
-
-    chdir("$dir/$ip");
-    symlink( "dev/null", "kernel" );
-
-    mkdir "$dir/$ip/stand", oct('0755');
-    $util->file_chmod( file => "$dir/$ip/stand", mode => '0755' );
-
-    $util->file_write( file => "$dir/$ip/etc/fstab", lines => [""] );
-
-    $util->file_write( 
-        file => "$dir/$ip/etc/rc.conf", 
-        lines => [ 
-                'rpcbind_enable="NO"',
-                'network_interfaces=""',
-                'sshd_enable="YES"',
-                'sendmail_enable="NONE"',
-                'inetd_enable="YES"',
-                'inetd_flags="-wW -a ' . $ip . '"',
-            ]
-        );
-
-    my $hostname = $p{'hostname'} || $self->jail_get_hostname( ip=>$ip, debug=>0 );
-    $util->file_write(
-        file   => "$dir/$ip/etc/hosts",
-        lines  => ["$ip $hostname"],
-        append => 1
-    );
-
-    my @copies = ( 
-        { source => "/etc/localtime",      dest=>"$dir/$ip/etc/localtime"      },
-        { source => "/etc/resolv.conf",    dest=>"$dir/$ip/etc/resolv.conf"    },
-        { source => "/stand/sysinstall",   dest=>"$dir/$ip/stand"              },
-        { source => "/root/.cshrc",        dest=>"$dir/$ip/root/.cshrc"        },
-        { source => "/etc/ssl/openssl.cnf",dest=>"$dir/$ip/etc/ssl/openssl.cnf"},
-        { source => "/etc/my.cnf",         dest=>"$dir/$ip/etc/my.cnf"         },
-    );
-
-    foreach my $copy ( @copies ) { 
-        $util->syscmd( 
-            command => "cp " .$copy->{'source'} . " " . $copy->{'dest'}, 
-            debug   => 0,
-        );
-    };
-
-    my @lines = $util->file_read( file => "$dir/$ip/etc/ssh/sshd_config" );
-    foreach my $line (@lines) {
-        $line = "ListenAddress $ip" if ( $line =~ /#ListenAddress 0.0.0.0/ );
-    }
-    $util->file_write(
-        file  => "$dir/$ip/etc/ssh/sshd_config",
-        lines => \@lines
-    );
-
-    $util->syscmd( command => "mount -t procfs proc $dir/$ip/proc",debug=>0 );
-};
-
-sub jail_start {
-
-    my $self = shift;
-    
-    my %p = validate( @_, {
-            'ip'        => { type=>SCALAR,  optional=>1, default=>"10.0.1.160", },
-            'hostname'  => { type=>SCALAR,  optional=>1, },
-            'jail_home' => { type=>SCALAR,  optional=>1, },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $ip, $hostname, $dir, $fatal, $debug )
-        = ( $p{'ip'}, $p{'hostname'}, $p{'jail_home'}, $p{'fatal'}, $p{'debug'} );
- 
-    if ( ! $ip || $ip eq "10.0.1.160" ) {
-        $ip = $util->answer(
-            question => "ip address",
-            default => $ip,
-        );
-    };
-
-    $dir ||= $util->answer(
-        q       => "jail root directory",
-        default => "/usr/jails"
-    );
-
-    $hostname ||= $self->jail_get_hostname(ip=>$ip);
-    
-    print "hostname: $hostname\n";
-
-    $util->chdir_source_dir( dir => "/usr/src" );
-    unless ( -d "$dir/$ip" ) { croak "The jail dir $dir/$ip doesn't exist!\n" }
-
-    my $mounts = $util->drives_get_mounted( debug => $debug );
-
-    unless ( $mounts->{"$dir/$ip/dev"} ) {
-        print "mounting $dir/ip/dev\n";
-        $util->syscmd( command => "mount_devfs devfs $dir/$ip/dev", debug=>0 );
-    }
-
-    unless ( $mounts->{"$dir/$ip/proc"} ) {
-        print "mounting $dir/ip/proc\n";
-        $util->syscmd( command => "mount -t procfs proc $dir/$ip/proc", debug=>0 );
-    }
-
-    print "starting jail: jail $dir/$ip $hostname $ip /bin/tcsh\n";
-    $util->syscmd( command => "jail $dir/$ip $hostname $ip /bin/tcsh", debug=>0 );
-}
-
-sub package_install {
-
-    my $self = shift;
-
-    # parameter validation
-    my %p = validate( @_, {
-            'port'   => { type=>SCALAR, },
-            'alt'    => { type=>SCALAR,  optional=>1, },
-            'url'    => { type=>SCALAR,  optional=>1, },
-            'fatal'  => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'  => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok'=> { type=>BOOLEAN, optional=>1 },
-        },
-    );
-
-    my ( $package, $alt, $pkg_url, $fatal, $debug )
-        = ( $p{'port'}, $p{'alt'}, $p{'url'}, $p{'fatal'}, $p{'debug'} );
-
-    if ( !$package ) {
-        $err = "package_install: sorry, but I really need a package name!\n";
-        die $err if $fatal;
-        carp $err;
-        return;
-    }
-
-    $util->_formatted("package_install: checking if $package is installed")
-      if $debug;
-     
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    my $r = $self->is_port_installed(
-        port  => $package,
-        alt   => $alt,
-        debug => $debug,
-        fatal => $fatal,
-    );
-    if ($r) {
-        if ($debug) {
-            printf "package_install: %-20s installed as (%s).\n", $package, $r;
-        }
-        return $r;
-    }
-
-
-    print "package_install: installing $package....\n" if $debug;
+    print "install_package: installing $package....\n";
     $ENV{"PACKAGESITE"} = $pkg_url if $pkg_url;
 
-    my $pkg_add = $util->find_the_bin( bin => "pkg_add", debug=>$debug, fatal=>$fatal );
-    if ( ! $pkg_add || ! -x $pkg_add ) {
-        carp "couldn't find pkg_add, giving up.";
-        return;
-    };
+    my $pkg_add = $util->find_bin( "pkg_add", %args );
+    return $log->error( "couldn't find pkg_add, giving up.",fatal=>0)
+        if ( !$pkg_add || !-x $pkg_add );
 
-    my $r2 = $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
+    my $r2 = $util->syscmd( "$pkg_add -r $package", debug => 0 );
 
-    if   (!$r2) { print "\t pkg_add failed\t "; }
-    else        { print "\t pkg_add success\t " if $debug }
+    if   ( !$r2 ) { print "\t pkg_add failed\t "; }
+    else          { print "\t pkg_add success\t " };
 
-    print "done.\n" if $debug;
-
-    unless (
-        $self->is_port_installed(
-            port  => $package,
-            alt   => $alt,
-            debug => $debug,
-            fatal => $fatal,
-        )
-      )
-    {
-        print "package_install: Failed #1, trying alternate package site.\n";
+    unless ( $self->is_port_installed( $package, alt => $alt, %args )) {
+        print "Failure #1, trying alternate package site.\n";
         $ENV{"PACKAGEROOT"} = "ftp://ftp2.freebsd.org";
-        $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
+        $util->syscmd( "$pkg_add -r $package", debug => 0 );
 
-        unless (
-            $self->is_port_installed(
-                port  => $package,
-                alt   => $alt,
-                debug => $debug,
-                fatal => $fatal,
-            )
-          )
-        {
-            print
-              "package_install: Failed #2, trying alternate package site.\n";
+        unless ( $self->is_port_installed( $package, alt => $alt, %args,)) {
+            print "Failure #2, trying alternate package site.\n";
             $ENV{"PACKAGEROOT"} = "ftp://ftp3.freebsd.org";
-            $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
+            $util->syscmd( "$pkg_add -r $package", debug => 0 );
 
-            unless (
-                $self->is_port_installed(
-                    port  => $package,
-                    alt   => $alt,
-                    debug => $debug,
-                    fatal => $fatal,
-                )
-              )
-            {
-                print
-"package_install: Failed #3, trying alternate package site.\n";
+            unless ( $self->is_port_installed( $package, alt => $alt, %args,)) {
+                print "Failure #3, trying alternate package site.\n";
                 $ENV{"PACKAGEROOT"} = "ftp://ftp4.freebsd.org";
-                $util->syscmd( command => "$pkg_add -r $package" , debug=>0);
+                $util->syscmd( "$pkg_add -r $package", debug => 0 );
             }
         }
     }
 
-    unless (
-        $self->is_port_installed(
-            port  => $package,
-            alt   => $alt,
-            debug => $debug,
-            fatal => $fatal,
-        )
-      )
-    {
-        carp
-"package_install: Failed again! Sorry, I can't install the package $package!\n";
+    my $r = $self->is_port_installed( $package, alt => $alt, %args );
+    if ( ! $r ) {
+        carp "  : Failed again! Sorry, I can't install the package $package!\n";
         return;
     }
 
     return $r;
 }
 
-sub port_install {
-
-    my $self = shift;
-
-    # parameter validation
-    my %p = validate( @_, {
-            'port'     => { type=>SCALAR,  optional=>0, },
-            'base'     => { type=>SCALAR,  optional=>0, },
-            'dir'      => { type=>SCALAR,  optional=>1, },
-            'check'    => { type=>SCALAR,  optional=>1, },
-            'flags'    => { type=>SCALAR,  optional=>1, },
-            'no_update'=> { type=>BOOLEAN, optional=>1, default=>0 },
-            'options'  => { type=>SCALAR,  optional=>1, },
-            'fatal'    => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'    => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok'  => { type=>BOOLEAN, optional=>1, },
-        },
-    );
-
-    my ( $port, $base, $dir, $check, $flags, $no_update, $options, $fatal, $debug )
-        = ( $p{'port'}, $p{'base'}, $p{'dir'}, $p{'check'}, $p{'flags'}, 
-            $p{'no_update'}, $p{'options'}, $p{'fatal'}, $p{'debug'} );
-
-    my $make_defines = "";
-    my @defs;
-
-    $check ||= $port;
-
-    if   ($dir) { $dir = "/usr/ports/$base/$dir" }
-    else        { $dir = "/usr/ports/$base/$port" }
-
-    # this will detect if you have a ports tree that hasn't been updated
-    # since net-mgmt was split from net
-    if ( $base eq "net-mgmt" && !-d "/usr/ports/net-mgmt" ) {
-        $base = "net";
-    }
-
-    # used for package tests
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    unless ( -d $dir ) {
-        $util->_formatted( "port_install: $dir does not exist for $port",
-            "FAILED" );
-        croak if $fatal;
-        return;
-    }
-
-    my $registered_as = $self->is_port_installed( 
-            port  => $check, 
-            debug => 0, 
-            fatal => $fatal,
-        );
-    if ( $registered_as  ) {
-        $util->_formatted( "port_install: $port", "ok ($registered_as)" );
-        #$util->_formatted( "port_install: $port", "ok ($registered_as)" ) if $debug;
-        return 1;
-    }
-
-    unless ( $no_update ) {
-        $self->ports_check_age( days => "30", debug => $debug );
-    }
-
-    # these are the "make -DWITH_OPTION" flags
-    if ($flags) {    
-        @defs = split( /,/, $flags );
-        foreach my $def (@defs) {
-            # if provided in the DEFINE=VALUE format, use it as is
-            if   ( $def =~ /=/ ) { $make_defines .= " $def " }
-            # otherwise, we need to prepend the -D flag
-            else                 { $make_defines .= " -D$def " }
-        }
-    }
-
-    my $old_directory = Cwd::cwd();
-    print "port_install: installing $port...\n" if $debug;
-    chdir($dir) or croak "couldn't cd to $dir: $!\n";
-
-    if ( $options ) {
-        $self->port_options(
-            port  => $port,
-            opts  => $options,
-            debug => $debug,
-            fatal => $fatal,
-        );
-    };
-
-    if ( $port eq "qmail" ) {
-
-        $util->syscmd( command => "make install; make clean", debug=>$debug );
-
-        #$util->syscmd( command=>"make install; make enable-qmail; make clean" );
-
-        # remove that pesky qmail startup file
-        # we run qmail under daemontools
-        if ( -e "/usr/local/etc/rc.d/qmail.sh" ) {
-            use File::Copy;
-            move(
-                "/usr/local/etc/rc.d/qmail.sh",
-                "/usr/local/etc/rc.d/qmail.sh-dist"
-            ) or croak "$!";
-        }
-    }
-    elsif ( $port eq "ezmlm-idx" ) {
-        $util->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
-        copy( "work/ezmlm-0.53/ezmlmrc", "/usr/local/bin" );
-        $util->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
-    }
-    elsif ( $port eq "sqwebmail" ) {
-        print "running: make $make_defines install\n";
-        $util->syscmd( command => "make $make_defines install", debug=>$debug, fatal=>$fatal );
-        chdir("$dir/work");
-        my @list = $util->get_dir_files( dir => "." );
-        chdir( $list[0] );
-        $util->syscmd( command => "make install-configure", debug=>$debug, fatal=>$fatal );
-        chdir($dir);
-        $util->syscmd( command => "make clean", debug=>$debug, fatal=>$fatal );
-    }
-    elsif ( $port eq "fastest_cvsup" ) {
-        print "running: make; make install clean\n";
-        $util->syscmd( command => "make", fatal=>0, debug=>$debug, fatal=>$fatal );
-        $util->syscmd( command => "make install clean", debug=>$debug, fatal=>$fatal );
-    }
-    else {
-        # reset our PATH, to make sure we use our system supplied tools
-        $ENV{PATH} = "/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin";
-
-        # the vast majority of ports work great this way
-        print "running: make $make_defines install clean\n";
-        system "make clean";
-        system "make $make_defines";
-        system "make $make_defines install";
-        system "make clean";
-    }
-    print "done.\n" if $debug;
-
-    # return to our original working directory
-    chdir($old_directory);
-
-    $registered_as = $self->is_port_installed( 
-            port  => $check, 
-            debug => $debug, 
-            fatal=>$fatal 
-        );
-
-    if ($registered_as) {
-        $util->_formatted( "port_install: $port install", "ok ($registered_as)" );
-        return 1;
-    }
-
-    $util->_formatted( "port_install: $port install", "FAILED" );
+sub install_port_try_manual {
+    my ($self, $portname, $path ) = @_;
     print <<"EO_PORT_TRY_MANUAL";
 
-    Automatic installation of port $port failed! You can try to install $port manually
+    Automatic installation of port $portname failed! You can try to install $portname manually
 using the following commands:
 
-        cd $dir
+        cd $path
         make
         make install clean
 
@@ -1045,470 +347,138 @@ choices for proceeding. You can:
 
     a. Wait until the port is fixed
     b. Try fixing it yourself
-    c. Get someone else to fix it (cash usually helps)
+    c. Get someone else to fix it
 
 EO_PORT_TRY_MANUAL
-
-    if ( $port =~ /\Ap5\-(.*)\z/ ) {
-        my $p_name = $1;
-        $p_name =~ s/\-/::/g;
-
-        print <<"EO_PERL_MODULE_MANUAL";
-Since it was a perl module that failed to install,  you could also try
-manually installing via CPAN. Try something like this:
-
-       perl -MCPAN -e shell
-       > install $p_name
-       > quit
-
-EO_PERL_MODULE_MANUAL
-    };
-
-    croak "FATAL FAILURE: Install of $port failed. Please fix and try again.\n"
-      if $fatal;
-    return 0;
 }
 
 sub port_options {
-
     my $self = shift;
-
-    my %p = validate(@_, {
-            'port' => SCALAR,
-            'opts' => SCALAR,
-            'debug' => { type=>BOOLEAN, optional=>1, default=>1, },
-            'fatal' => { type=>BOOLEAN, optional=>1, default=>1, },
-            test_ok => { type=>BOOLEAN, optional=>1, },
+    my %p = validate(
+        @_,
+        {   port  => SCALAR,
+            opts  => SCALAR,
+            %std_opts,
         },
     );
 
-    my ($port, $opts, $fatal) = ( $p{'port'}, $p{'opts'}, $p{'fatal'} );
+    my ( $port, $opts ) = ( $p{port}, $p{opts} );
+    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    return $p{test_ok} if defined $p{test_ok};
 
     if ( !-d "/var/db/ports/$port" ) {
-        $util->mkdir_system(dir=>"/var/db/ports/$port", debug=>0, fatal=>$fatal);
-    };
-
-    $util->file_write(file=>"/var/db/ports/$port/options", lines=>[$opts], debug=>0, fatal=>$fatal);
-};
-
-sub portsdb_Uu {
-    my $self = shift;
-
-    my %p = validate(@_, {
-            debug => { type=>BOOLEAN, optional=>1, default=>1 },
-            fatal => { type=>BOOLEAN, optional=>1, default=>1 },
-            test_ok => { type=>BOOLEAN, optional=>1, },
-        },
-    );
-
-    my $debug = $p{'debug'};
-    my $fatal = $p{'fatal'};
-
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    print "ports_update: according to the FreeBSD portsdb man page: \n\n
-    Note that INDEX file is updated every few hours on official site, it is 
-    recommended that you run ``portsdb -Fu'' after every CVSup of the ports 
-    tree in order to keep them always up-to-date and in sync with the ports tree.\n";
-
-    print("\a");
-    sleep 2;
-
-    if ( !
-        $util->yes_or_no(
-            question => "\n\nWould you like me to run portsdb -Fu",
-            timeout  => 60,
-        )
-      )
-    {
-        return 1;
+        $util->mkdir_system( dir => "/var/db/ports/$port", %args,);
     }
 
-    my $portsdb = $util->find_the_bin( bin => "portsdb", debug=>0,fatal=>0 );
-    unless ( $portsdb && -x $portsdb ) {
-        print "\a";  # bell
-        print "
-        ATTENTION: I could not find portsdb, which means that portugprade
-        is not installed.\n";
-
-        if ( ! $util->yes_or_no( 
-                question=>"Would you like me to install it now",
-            )
-        ) {
-            return 1;
-        };
-
-        $self->install_portupgrade(debug=>$debug, fatal=>$fatal);
-    };
-
-    $portsdb = $util->find_the_bin( bin => "portsdb", debug=>0 );
-    $util->syscmd( command => "$portsdb -Fu", debug=>$debug );
-};
-
-sub ports_check_age {
-
-    my $self = shift;
-
-    # parameter validation here
-    my %p = validate( @_, {
-            'days'    => { type=>SCALAR, },
-            'url'     => { type=>SCALAR, optional=>1, default=>"http://mail-toaster.org"},
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
-        },
-    );
-
-    my ( $days, $url, $fatal, $debug, $test_ok )
-        = ( $p{'days'}, $p{'url'}, $p{'fatal'}, $p{'debug'}, $p{'test_ok'} );
-
-
-    if ( defined $test_ok ) { return $test_ok; }
-
-    if ( -M "/usr/ports" > $days ) {
-        return $self->ports_update( debug=>$debug );
-    }
-    else {
-        print "ports_check_age: Ports file is current (enough).\n" if $debug;
-        return 1;
-    }
+    $util->file_write( "/var/db/ports/$port/options", lines => [$opts], %args );
 }
 
-sub ports_update {
-
+sub update_ports {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            conf    => { type=>HASHREF, optional=>1, },
-            fatal   => { type=>BOOLEAN, optional=>1, default=>1 },
-            debug   => { type=>BOOLEAN, optional=>1, default=>1 },
-            test_ok => { type=>BOOLEAN, optional=>1, },
-        },
-    );
+    my %p = validate( @_, { %std_opts, } );
+    my %args = $toaster->get_std_args( %p );
 
-    my ( $conf, $fatal, $debug )
-        = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
+    return $p{test_ok} if defined $p{test_ok};
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    return $log->error( "you do not have write permission to /usr/ports.",%args) if ! $util->is_writable('/usr/ports', %args);
 
-    if ( ! -w "/usr/ports" ) {
-        carp "you do not have write permission on /usr/ports, I cannot update your ports tree.";
-        return;
-    };
-
+    my $conf = $toaster->get_config;
     my $supfile = $conf->{'cvsup_supfile_ports'} || "portsnap";
 
-    if ( $supfile eq "portsnap" ) {
-        return $self->portsnap(debug=>$debug, fatal=>$fatal);
-    };
-
-    my $days_old = int( (-M "/usr/ports") + 0.5);
-    print "\n\nports_update: Your ports tree has not been updated in $days_old days.";
-    unless (
-        $util->yes_or_no(
-            timeout  => 60,
-            question => "\nWould you like me to update it for you?:"
-        )
-      )
-    {
-        $util->_formatted( "ports_update: updating FreeBSD ports tree",
-            "skipped" );
-        return;
-    }
-
-    # if we got here, these are set
-    $supfile  = $conf->{'system_config_dir'}   || "/usr/local/etc";
-    $supfile .= $conf->{'cvsup_supfile_ports'} || "cvsup-ports";
-
-    my $toaster = $conf->{'toaster_dl_site'} || "http://www.tnpi.net";
-    $toaster   .= $conf->{'toaster_dl_url'}  || "/internet/mail/toaster";
-
-    my $cvsupbin = $self->install_cvsup( debug=>$debug, fatal=>$fatal );
-
-    unless ( -e $supfile ) {
-        $util->file_get( url => "$toaster/etc/cvsup-ports", debug=>$debug );
-        move( "cvsup-ports", $supfile ) or croak "$!";
-    }
-
-    my $cvshost = $self->cvsup_select_host(conf=>$conf, debug=>$debug);
-
-    my $cmd = "$cvsupbin -g ";
-    $cmd .= "-h $cvshost " if $cvshost;
-    $cmd .= "$supfile";
-
-    print "selecting the fastest cvsup host...\n";
-    $util->syscmd( command => $cmd, debug=>0 , fatal=>$fatal );
-
-    # download the latest index file
-    #chdir("/usr/ports")
-    $util->syscmd( command => "cd /usr/ports; make fetchindex", debug => 0, fatal=>$fatal);
-
-    # install portupgrade
-    if ( $conf->{'install_portupgrade'} ) {
-        $self->install_portupgrade(conf=>$conf, debug=>$debug, fatal=>$fatal);
-    }
-
-    # optionally run portsdb
-    #$self->portsdb_Uu(debug=>$debug, fatal=>$fatal);
-
-    print "\n
-
-	Now that your ports tree is updated, I recommend that you run pkgdb -F.
-	Then run portupgrade -ai, upgrading everything except XFree86, qmail, and 
-	vpopmail. Upgrading other non-mail related items is optional.
-
-	If you have problems upgrading a particular port, then I recommend
-	removing it (pkg_delete port_name-1.2) and then proceeding.
-
-	If you upgrade perl (yikes), make sure to also rebuild all the perl
-	modules you have installed or run perl-after-upgrade with perl 5.8.7+.
-	See the toaster FAQ or /usr/ports/UPDATING for more details.\n
-";
+    return $self->portsnap( %args);
 
     return 1;
 }
 
 sub portsnap {
-
     my $self = shift;
-    
-    my %p = validate( @_, {
-#            'conf'    => { type=>HASHREF, optional=>1, },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok' => { type=>BOOLEAN, optional=>1, },
-        },
-    );
+    my %p    = validate( @_, { %std_opts, },);
 
-    my ( $conf, $fatal, $debug )
-        = ( $p{'conf'}, $p{'fatal'}, $p{'debug'} );
+    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    return $p{'test_ok'} if defined $p{'test_ok'};
 
     # should be installed already on FreeBSD 5.5 and 6.x
-    my $portsnap = $util->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
-    my $ps_conf  = "/usr/local/etc/portsnap.conf";
+    my $portsnap = $util->find_bin( "portsnap", fatal => 0 );
+    my $ps_conf = "/etc/portsnap.conf";
 
     unless ( $portsnap && -x $portsnap ) {
-        # try installing from ports
-        $self->port_install(
-            'port'  => "portsnap",
-            'base'  => "sysutils",
-            'debug' => $debug,
-            'fatal' => $fatal,
-            'no_update' => 1,
-        );
+        $self->install_port( "portsnap" );
 
-        if ( ! -e  $ps_conf ) {
+        $ps_conf = '/usr/local/etc/portsnap.conf';
+        if ( !-e $ps_conf ) {
             if ( -e "$ps_conf.sample" ) {
-                copy("$ps_conf.sample", $ps_conf);
-            } else {
-                    warn "WARNING: portsnap configuration file is missing!\n";
-            };
-        };
+                copy( "$ps_conf.sample", $ps_conf );
+            }
+            else {
+                warn "WARNING: portsnap configuration file is missing!\n";
+            }
+        }
 
-        $portsnap = $util->find_the_bin(bin=>"portsnap", fatal=>0, debug=>$debug);
+        $portsnap = $util->find_bin( "portsnap", fatal => 0 );
         unless ( $portsnap && -x $portsnap ) {
-            $err = "portsnap is not installed (correctly). I cannot go on!";
-            croak $err if $fatal;
-            carp $err;
-            return;
-        };
-    };
+            return $util->error(
+                "portsnap is not installed (correctly). I cannot go on!");
+        }
+    }
 
     if ( !-e $ps_conf ) {
-         $portsnap .= " -s portsnap.freebsd.org";
-    };
+        $portsnap .= " -s portsnap.freebsd.org";
+    }
 
     # grabs the latest updates from the portsnap servers
-    $util->syscmd( cmd=>"portsnap fetch", debug=>0, fatal=>$fatal );
+    system $portsnap, 'fetch';
 
-    if ( ! -e "/usr/ports/.portsnap.INDEX" ) {
+    if ( !-e "/usr/ports/.portsnap.INDEX" ) {
         print "\a
     COFFEE BREAK TIME: this step will take a while, dependent on how fast your
     disks are. After this initial extract, portsnap updates are much quicker than
     doing a cvsup and require less bandwidth (good for you, and the FreeBSD 
-    servers). So, please be patient.\n\n";
+    servers). Please be patient.\n\n";
         sleep 2;
-        $util->syscmd( cmd=>"$portsnap extract", debug=>0, fatal=>$fatal );
+        system $portsnap, "extract";
     }
     else {
-        $util->syscmd( cmd=>"$portsnap update", debug=>0, fatal=>$fatal );
-    };
+        system $portsnap, "update";
+    }
 
     return 1;
 }
 
-sub rc_dot_conf_check {
-
+sub conf_check {
     my $self = shift;
-    
-    my %p = validate( @_, {
-            'check'   => { type=>SCALAR, },
-            'line'    => { type=>SCALAR,  },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            test_ok   => { type=>BOOLEAN, optional=>1, },
+    my %p = validate(
+        @_,
+        {   'check' => { type => SCALAR, },
+            'line'  => { type => SCALAR, },
+            'file'  => { type => SCALAR,  optional => 1, },
+            %std_opts,
         },
     );
 
-    my ( $check, $line, $fatal, $debug )
-        = ( $p{'check'}, $p{'line'}, $p{'fatal'}, $p{'debug'} );
+    my %args = $log->get_std_args( %p );
+    my $check = $p{check};
+    my $line  = $p{line};
+    my $file  = $p{file} || "/etc/rc.conf";
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    return $p{'test_ok'} if defined $p{'test_ok'};
 
-    my $file = "/etc/rc.conf";
-    return 1 if `grep $check $file`;
-
-    $util->file_write( 
-        file   => $file, 
-        lines  => [$line], 
-        append => 1, 
-        debug  => $debug,
-        fatal  => $fatal,
-    );
-
-    return 1 if `grep $check $file`;
-
-    print "rc.conf_check: FAILED to add $line to $file: $!\n";
-    carp "
-    NOTICE: It would be a good idea for you to manually add:
-         $line 
-    to $file.         ";
-    croak if $fatal;
-    return;
-}
-
-sub source_update {
-
-    my $self = shift;
-    
-    my %p = validate( @_, {
-	        'conf'                   => { type=>HASHREF, optional=>1, },
-	        'cvsup_server_preferred' => { type=>SCALAR,  optional=>1, default=>'fastest'},
-	        'cvsup_server_country'   => { type=>SCALAR,  optional=>1, default=>'us'},
-	        'cvsup_supfile_sources'  => { type=>SCALAR,  optional=>1, },
-            'fatal'                  => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'                  => { type=>BOOLEAN, optional=>1, default=>1 },
-            'test_ok'                => { type=>BOOLEAN, optional=>1, },
-        },
-    );
-
-	my ($conf, $cvshost, $country_code, $supfile, $fatal, $debug) 
-	    = ($p{'conf'}, $p{'cvsup_server_preferred'}, $p{'cvsup_server_country'}, 
-            $p{'cvsup_supfile_sources'}, $p{'fatal'}, $p{'debug'} );
-
-    my $toaster = $conf->{'toaster_dl_site'} . $conf->{'toaster_dl_url'}
-      || "http://mail-toaster.org";
-
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
-
-    print "\n\nsource_update: Getting ready to update your sources!\n\n";
-
-    my $cvsupbin = $util->find_the_bin( bin => "cvsup",debug=>0,fatal=>0 );
-    unless ( $cvsupbin && -x $cvsupbin ) {
-        
-        print "source_update: cvsup isn't installed. I'll fix that.\n";
-
-        # because of cvsup's build dependence on ezm3, we want to install it
-        # as a package if possible.
-        $self->package_install( port => "cvsup-without-gui", debug=>$debug, fatal=>$fatal );
-
-        if ( -d "/usr/ports/net/cvsup-without-gui" )
-        {
-            $self->port_install( port => "cvsup-without-gui", base => "net", debug=>$debug, fatal=>$fatal );
-        }
-        $cvsupbin = $util->find_the_bin( bin => "cvsup", debug=>$debug, fatal=>$fatal );
-    }
-
-    my $etcdir = $conf->{'system_config_dir'}     || "/usr/local/etc";
-    $supfile ||= $conf->{'cvsup_supfile_sources'} || "cvsup-sources";
-    print "source_update: using $supfile.\n";
-
-    my $releng;
-    if ( ! -e "$etcdir/$supfile" ) {
-        print "source_update: your cvsup config file ($etcdir/$supfile) is missing!\n";
+    my $changes;
+    my @lines;
+    @lines = $util->file_read( $file ) if -f $file;
+    foreach ( @lines ) {
+        next if $_ !~ /^$check\=/;
+        return $log->audit("conf_check: no change to $check") if $_ eq $line;
+        $log->audit("\tchanged:\n$_\n\tto:\n$line\n" );
+        $_ = $line;
+        $changes++;
+    };
+    if ( $changes ) {
+        return $util->file_write( $file, lines => \@lines, %args );
     };
 
-    my $os_version = $self->get_version();
-
-    # get_version returns something like this: 6.1-RELEASE-p6
-    print "OS version is: " . $os_version. "\n"  if $debug;
-
-    # if it is set properly, use it.
-    if ( defined $conf->{'toaster_os_release'} ) {
-        my $ver = $conf->{'toaster_os_release'};
-        if ( $ver && $ver eq uc($ver) && $ver =~ /RELENG/ ) {
-            $releng = $ver;
-        } 
-    }
-    else {
-        # otherwise try to determine it.
-        if ( $os_version =~ /\A ([\d]) \. ([\d]) \- (\w+) /xms ) {
-            $releng = "RELENG_$1.$2";
-        }
-        else {
-            print "
-I need to figure out which cvsup tag to use for your installation. Please 
-edit toaster-watcher.conf and set toaster_os_release in the following format: 
-
-    toaster_os_release = RELENG_6_1\n ";
-            return;
-        }
-    }
-
-    print "FreeBSD cvs tag: $releng\n" if $debug;
-
-    my $tmp = $conf->{'toaster_tmp_dir'} || "/tmp";
-
-    $cvshost = $self->cvsup_select_host(conf=>$conf);
-
-    my @lines = "*default host=$cvshost\n"
-              . "*default base=/usr\n"
-              . "*default prefix=/usr\n"
-              . "*default release=cvs tag=$releng\n"
-              . "*default delete use-rel-suffix\n"
-              . "src-all\n";
-
-    $util->file_write(
-        file => "$tmp/sources",
-        lines => \@lines,
-        debug => $debug,
-        fatal => $fatal,
-    );
-
-    $util->install_if_changed(
-        newfile  => "$tmp/sources",
-        existing => "$etcdir/$supfile",
-        debug    => $debug,
-        fatal    => $fatal,
-    );
-
-    print "source_update: using $supfile\n";
-
-    my $cmd  = "$cvsupbin -g ";
-       $cmd .= "-h $cvshost " if $cvshost;
-       $cmd .= "$etcdir/$supfile";
-    
-    $util->syscmd( command => $cmd, debug=>$debug, fatal=>$fatal );
-
-    print "\n\n
-\tAt this point I recommend that you:
-
-	a) read /usr/src/UPDATING
-	b) make any kernel config options you need
-	c)
-		make buildworld
-		make kernel
-		reboot
-		make installworld
-		mergemaster
-		reboot
-\n";
-
-    return 1;
+    return $util->file_write( $file, append => 1, lines => [$line], %args );
 }
 
 1;
@@ -1518,10 +488,6 @@ __END__
 =head1 NAME
 
 Mail::Toaster::FreeBSD - FreeBSD specific Mail::Toaster functions.
-
-=head1 VERSION
-
-5.07
 
 =head1 SYNOPSIS
 
@@ -1543,22 +509,11 @@ Usage examples for each subroutine are included.
 	my $fbsd = Mail::Toaster::FreeBSD->new;
 
 
-=item cvsup_select_host
-
-Selects a host to cvsup port updates from. If you pass $conf to it, it will detect your country automatically. If fastest_cvsup is installed, it will detect it and use it to pick the fastest host in your country. If it is not installed and the hostname is set to "fastest", it will try to install fastest_cvsup from ports.
-
- arguments optional:
-    conf
-
- result:
-    a hostname to grab cvsup sources from
-
-
 =item is_port_installed
 
 Checks to see if a port is installed. 
 
-    $fbsd->is_port_installed( port=>"p5-CGI" );
+    $fbsd->is_port_installed( "p5-CGI" );
 
  arguments required
    port - the name of the port/package
@@ -1662,34 +617,30 @@ Here's an example of how I use it:
 
 
     
-=item port_install
+=item install_port
 
-    $fbsd->port_install( port=>"openldap2", base=>"net" );
+    $fbsd->install_port( "openldap" );
 
-That's it. Really. Well, OK, sometimes it can get a little more complex. port_install checks first to determine if a port is already installed and if so, skips right on by. It is very intelligent that way. However, sometimes port maintainers do goofy things and we need to override settings that would normally work. A good example of this is currently openldap2. 
+That's it. Really. Well, OK, sometimes it can get a little more complex. install_port checks first to determine if a port is already installed and if so, skips right on by. It is very intelligent that way. However, sometimes port maintainers do goofy things and we need to override settings that would normally work. A good example of this is currently openldap. 
 
 If you want to install OpenLDAP 2, then you can install from any of:
 
-		/usr/ports/net/openldap2
-		/usr/ports/net/openldap20
-		/usr/ports/net/openldap21
-		/usr/ports/net/openldap22
+		/usr/ports/net/openldap23-server
+		/usr/ports/net/openldap23-client
+		/usr/ports/net/openldap24-server
+		/usr/ports/net/openldap24-client
 
 So, a full complement of settings could look like:
   
-    $freebsd->port_install(
-		port  => "openldap2", 
-		base  => "net",
-		dir   => "openldap22",
-		check => "openldap-2.2",
+    $freebsd->install_port( "openldap-client",
+		dir   => "openldap24-server",
+		check => "openldap-client-2.4",
 		flags => "NOPORTDOCS=true", 
 		fatal => 0,
-		debug => 1,
 	);
 
  arguments required:
    port - the name of the directory in which the port resides
-   base - the base or category the port is in (security, net, lang, etc.)
 
  arguments optional:
    dir   - overrides 'port' for the build directory
@@ -1703,14 +654,14 @@ So, a full complement of settings could look like:
 #1 - On rare occasion, a port will get installed as a name other than the ports name. Of course, that wreaks all sorts of havoc so when one of them nasties is found, you can optionally pass along a fourth parameter which can be used as the port installation name to check with.
 
 
-=item package_install
+=item install_package
 
-	$fbsd->package_install( port=>"ispell" );
+	$fbsd->install_package( "ispell" );
 
 Suggested usage: 
 
-	unless ( $fbsd->package_install( port=>"ispell" ) ) {
-		$fbsd->port_install( port=>"ispell", base=>"textproc" );
+	unless ( $fbsd->install_package( "ispell" ) ) {
+		$fbsd->install_port( "ispell" );
 	};
 
 Installs the selected package from FreeBSD packages. If the first install fails, it will try again using an alternate FTP site (ftp2.freebsd.org). If that fails, it returns 0 (failure) so you know it failed and can try something else, like installing via ports.
@@ -1727,26 +678,11 @@ If the package is registered in FreeBSD's package registry as another name and y
 See the pkg_add man page for more details on using an alternate URL.
 
 
-=item ports_check_age
-
-Checks how long it's been since you've updated your ports tree. Since the ports tree can be a roaming target, by making sure it's current before installing ports we can increase the liklihood of success. 
-
-	$fbsd->ports_check_age( days=>"20" );
-
-That'll update the ports tree if it's been more than 20 days since it was last updated.
-
- arguments required:
-   days - how many days old it must be to trigger an update
-
- arguments optional:
-   url - where to fetch the cvsup-ports file.
-
-
-=item ports_update
+=item update_ports
 
 Updates the FreeBSD ports tree (/usr/ports/).
 
-    $fbsd->ports_update(conf=>$conf);
+    $fbsd->update_ports();
 
  arguments required:
    conf - a hashref
@@ -1754,30 +690,11 @@ Updates the FreeBSD ports tree (/usr/ports/).
 See the docs for toaster-watcher.conf for complete details.
 
 
-=item rc_dot_conf_check
+=item conf_check
 
-    $fbsd->rc_dot_conf_check(check=>"snmpd_enable", line=>"snmpd_enable=\"YES\"");
+    $fbsd->conf_check(check=>"snmpd_enable", line=>"snmpd_enable=\"YES\"");
 
 The above example is for snmpd. This checks to verify that an snmpd_enable line exists in /etc/rc.conf. If it doesn't, then it will add it by appending the second argument to the file.
-
-
-=item source_update
-
-Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh FreeBSD world.
-
-    $fbsd->source_update( conf=>$conf);
-
- arguments required:
-     conf 
-
- arguments optional:
-     cvsup_server_preferred - 'fastest',
-     cvsup_server_country   - 'us',
-     cvsup_supfile_sources  - '/etc/cvsup-stable',
-     fatal
-     debug
-
-See the docs for toaster-watcher.conf for complete details.
 
 
 =back
@@ -1809,7 +726,7 @@ The following are all man/perldoc pages:
 
 =head1 COPYRIGHT
 
-Copyright 2003-2008, The Network People, Inc. All Rights Reserved.
+Copyright 2003-2009, The Network People, Inc. All Rights Reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

@@ -48,8 +48,7 @@ If you select fastest and set your country, toaster_setup will find the fastest 
 toaster_setup.pl has two very useful targets: ports, sources. If you have a pre-configured supfile you wisth to use for syncing up your sources with, set it here.  Otherwise, a default file will be installed for you.
 
   toaster_pkg_site               = ftp://ftp.freebsd.org
-  toaster_sf_mirror              = aleron.dl.sourceforge.net/sourceforge
-  toaster_os_release             = 4-stable
+  toaster_sf_mirror              = downloads.sourceforge.net/projects
   toaster_dl_site                = http://www.tnpi.net   # or a mirror
 
 You can alternately use a mirror to fetch the Mail::Toaster files from. The atl and sea mirrors are updated nightly. All other mirrors are updated only after major releases. If you want the last major update you can refer to a mirror.
@@ -75,7 +74,7 @@ This is your document root, normally the "data" directory inside your web root.
 
   toaster_cgi_bin                = /usr/local/www/cgi-bin
 
-The path to your cgi-bin dir where sqwebmail, rrdutil, qmailadmin, and other cgi's should be installed.
+The path to your cgi-bin dir where sqwebmail, qmailadmin, and other cgi apps should be installed.
 
   toaster_tmp_dir                = /tmp
   toaster_src_dir                = /usr/local/src
@@ -208,7 +207,7 @@ If you allow outgoing tcp connections as I do, then you don't need any additiona
   install_bogofilter             = 0
   install_dcc                    = 0
 
-These settings relate to mail filtering using qmail-scanner, ClamAV, SpamAssassin, and Maildrop. There's little reason to change the defaults here on anything other than the SpamAssassin flags. At various points in time, something like dcc might be broken in the ports tree. Setting install_dcc = 0 will get you past that, at the expense of not having that filter installed.
+These settings relate to mail filtering using ClamAV, SpamAssassin, and Maildrop. There's little reason to change the defaults here on anything other than the SpamAssassin flags. At various points in time, something like dcc might be broken in the ports tree. Setting install_dcc = 0 will get you past that, at the expense of not having that filter installed.
 
 If you install DCC, make sure you configure it. If you use a firewall, DCC requires the following firewall rules to be implemented:
 
@@ -328,8 +327,8 @@ Should Vpopmail use MySQL for limits? This is handy, but it is a relatively new 
 Important: If you are not using replication, put in the name of your master database server as BOTH the master and the slave.
 
   vpopmail_mysql_database        = vpopmail
-  vpopmail_mysql_repl_user       = vpopmail
-  vpopmail_mysql_repl_pass       = supersecretword
+  vpopmail_mysql_user            = vpopmail
+  vpopmail_mysql_pass            = supersecretword
 
 Important: Replace "supersecretword" with the correct password for your database server.
 
@@ -337,7 +336,7 @@ Important: Replace "supersecretword" with the correct password for your database
   vpopmail_logging               = 1
   vpopmail_logging_verbose       = 1
   vpopmail_valias                = 1
-  vpopmail_qmail_extensions      = 1
+  vpopmail_qmail_ext             = 1
   vpopmail_rebuild_tcpserver_file = 0
 
 By default, vpopmail updates ~vpopmail/etc/tcp.smtp every time a new user is added to the relay table, which is every time a user successfully authenticates. This generates a lot of disk i/o on a busy mail seerver but is necessary for tcpserver to "see" the update. This is not necessary with the Mail::Toaster because we use the MySQL patch to tcpserver to check the SQL table directly.
@@ -420,7 +419,7 @@ B<maillogs> is a post-processor for your qmail logs, included with the toaster. 
 
   send_log_maxsize_bytes         = 1000000
 
-It's important to make sure maxsize_bytes is larger than 5 minutes of logging. You can determine this by checking the size of the files in /var/log/mail/send. If any approach this file size, raise it. By default, rrdutil will trigger maillogs every 5 minutes, updating your mail message counters.
+It's important to make sure maxsize_bytes is larger than 5 minutes of logging. You can determine this by checking the size of the files in /var/log/mail/send. If any approach this file size, raise it. By default, toaster-watcher will trigger maillogs every 5 minutes, updating your mail message counters.
 
   send_log_isoqlog               = 1
 
@@ -460,7 +459,7 @@ Anything else is considered to be a hostname.
   smtpd_max_connections           = 50
   smtpd_max_memory                = 256
 
-smptd_max_memory_per_connection sets the maximum amount of RAM for any particular SMTP connection (this is enforced by "softlimit"). If you are running qmail-scanner, clamav, and SpamAssassin, it's very possible that 25 megabytes per connection may not be enough. This is a VERY important setting, because softlimit/qmail will start deferring (soft-bouncing) mail if the smtpd processes use more memory than allowed in this value.
+smptd_max_memory_per_connection sets the maximum amount of RAM for any particular SMTP connection (this is enforced by "softlimit"). If you are running clamav, and SpamAssassin, it's very possible that 25 megabytes per connection may not be enough. This is a VERY important setting, because softlimit/qmail will start deferring (soft-bouncing) mail if the smtpd processes use more memory than allowed in this value.
 
 If smtpd_max_connections is exceeded, further connections are deferred. (For those familiar with "Life With Qmail", this replaces the "concurrencyincoming" file).
 
@@ -505,14 +504,6 @@ smtpd_auth_enable lets you choose whether to allow SMTP AUTH, a method of authen
   smtpd_relay_database       = vpopmail_home_dir/etc/tcp.smtp.cdb
 
 Locations of a few programs and standard config files.
-
-  smtpd_qmail_queue          = /var/qmail/bin/qmail-scanner-queue.pl
-
-This is used as your qmailqueue.  If you want to enable/disable qmail-scanner very easily, change this settings to:
-
-  smtpd_qmail_queue          = /var/qmail/bin/qmail-queue
-
-Run toaster-watcher.pl and qmail-scanner will be disabled.
 
   ##
   # smtpd_log_method - [ syslog | multilog | debug | stats | disabled ]
@@ -674,7 +665,6 @@ The options for submission should look familiar by now-- they are identical to t
   submit_auth_enable             = 1
   submit_checkpasswd_bin         = vpopmail_home_dir/bin/vchkpw
   submit_relay_database          = vpopmail_home_dir/etc/tcp.smtp.cdb
-  submit_qmail_queue             = /var/qmail/bin/qmail-scanner-queue.pl
 
   ##
   # submit_log_method - [ syslog | multilog | debug | stats | disabled ]
@@ -768,60 +758,6 @@ http://www.inter7.com/simscan/README
   simscan_received               = 1       
 
 adds the Received: by simscan header
-
-
-  #######################################
-  #    Qmail Scanner Queue Processing   #
-  #######################################
-
-These options relate to qmail-scanner, the queue processing tool which runs antivirus and antispam programs on your mail.
-
-  qmail_scanner_logging          = 1
-  qmail_scanner_debugging        = 0
-
-Beware: If debugging is turned on, qmail-scanner generates huge, massive logfiles that eat small /var partitions for breakfast.
-
-  qmail_scanner_postmaster       = 0
-
-If your qmailscanner emails should go to someone other than the toaster admin, set this to that entities email address.
-
-  qmail_scanner_scanners         = clamdscan,fast_spamassassin
-
-A comma seperated list of scanners that QmailScanner should use. Put anything that Qmail-Scanner recognizes and that you have installed. Following is the list of supported scanners in v1.21.
-
-  auto,none,clamscan,clamdscan,sweep,sophie,vscan,trophie,uvscan,
-  csav,antivir,kavscanner,AvpLinux,kavdaemon,AvpDaemonClient,fsav,
-  fprot,inocucmd,ravlin,vexira,verbose_spamassassin,fast_spamassassin
-
-Note that some users have had trouble running clamdscan.  If you have this problem, try switching to clamscan and re-running C<toaster_setup.pl -s filter>
-
-The following options are deprecated and have been removed as of version 3.38 of Mail::Toaster.
-
-  # qmail_scanner_clamav           = 1
-  # qmail_scanner_spamassassin     = 1
-  # qmail_scanner_spamass_verbose  = 0
-  # qmail_scanner_fprot            = 0
-  # qmail_scanner_uvscan           = 0
-
-Qmail scanner quarantine management:
-
-  qs_quarantine_process          = 1  # check files in qs quarantine
-  qs_quarantine_dir              = /var/spool/qmailscan/quarantine
-  qs_quarantine_clean            = 1  # delete messages?
-
-Several options relating to the qmail-scanner quarantine directory. qs_quarantine_process and qs_quarantine_clean enable toaster-watcher to scan your quarantine directory and delete the files there. This is highly recommended, since otherwise the quarantine will eventually fill up your disk. If you disable this, make sure to set up something to keep that quarantine cleaned up.
-
-  qs_quarantine_verbose          = 1  # report activity?
-  qs_block_virus_senders         = 1  # add virus senders IP to tcp.smtp
-  qs_block_virus_senders_soft    = 0  # use a temporary
-  qs_block_virus_senders_time    = 24 # block virus senders for (hours)
-
-In addition to deleting your quarantined viruses, toaster-watcher can also block the IP addresses of computers that originate viruses. If you want to enable this feature, make sure you add these lines to your tcp.smtp file:
-
-  ### BEGIN QMAIL SCANNER VIRUS ENTRIES ###
-  ### END QMAIL SCANNER VIRUS ENTRIES ###
-
-If you don't, toaster-watcher will remind you to do so, every five minutes. :) This is not done automatically because the order of your entries in tcp.smtp B<is> important.
 
 If your toaster ever accepts mail from other trusted mail servers, and you enable the block virus senders feature, you may want to specifically include overrides (RBLSMTPD="") for those server IPs in tcp.smtp.
 

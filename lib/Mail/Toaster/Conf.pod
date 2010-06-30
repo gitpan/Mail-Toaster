@@ -23,7 +23,7 @@ The reason for having two config files is security. The toaster-watcher.conf fil
    - run time parameters used to configure daemons
    - how the toaster's logs should be processed.
 
-  toaster.conf is for everything else (mailadmin, index.cgi, maillogs)
+  toaster.conf is for everything else (mailadmin, maillogs)
 
 =head1 AUTHOR
 

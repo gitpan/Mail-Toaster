@@ -1,166 +1,128 @@
-#!perl
-
+#!/usr/bin/perl
 use strict;
 #use warnings;
 
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
 
-use lib "lib";
+use lib 'lib';
+use Mail::Toaster;
+my $toaster = Mail::Toaster->new(debug=>0);
+my $util = $toaster->get_util();
+my $conf = $toaster->get_config();
 
-BEGIN { 
-    use_ok( 'Mail::Toaster::Qmail' );
-    use_ok( 'Mail::Toaster::Utility' );
-    use_ok( 'Mail::Toaster' );
-};
 require_ok( 'Mail::Toaster::Qmail' );
-require_ok( 'Mail::Toaster::Utility' );
-require_ok( 'Mail::Toaster' );
 
-# let the testing begin
-
-# basic OO mechanism
-my $qmail = Mail::Toaster::Qmail->new;
+my $qmail = Mail::Toaster::Qmail->new( 'log' => $toaster );
 ok ( defined $qmail, 'get Mail::Toaster::Qmail object' );
 ok ( $qmail->isa('Mail::Toaster::Qmail'), 'check object class' );
-
-# many of the subs expect this to be passed to them
-my $toaster = Mail::Toaster->new;
-my $util = Mail::Toaster::Utility->new;
-my $conf = $util->parse_config( file=>"toaster-watcher.conf", debug=>0 );
 
 my $r;
 my $has_net_dns;
 
 
 # get_list_of_rwls
-    $qmail->_set_config( { 'rwl_list.dnswl.org'=> 1} );
+    $qmail->set_config( { 'rwl_list.dnswl.org'=> 1} );
 	$r = $qmail->get_list_of_rwls(debug=>0 );
 	ok ( @$r[0], 'get_list_of_rwls'); 
-    $qmail->_set_config( $conf );
+    $qmail->set_config( $conf );
 
 # test_each_rbl
     $r = $qmail->test_each_rbl( rbls=>$r, debug=>0, fatal=>0 );
-    ok ( @$r[0], 'test_each_rbl'); 
+    ok ( @$r[0], 'test_each_rbl')
+        or do {
+            $toaster->dump_audit();
+            $toaster->dump_errors();
+        };
 
 
 # get_list_of_rbls
-    $qmail->_set_config( {'rbl_sbl-xbl.spamhaus.org'=> 1} );
+    $qmail->set_config( {'rbl_bl.spamcop.net'=> 1} );
 	$r = $qmail->get_list_of_rbls(debug=>0,fatal=>0 );
-	cmp_ok ( $r, "eq", '\
-		-r sbl-xbl.spamhaus.org ', 'get_list_of_rbls'); 
+	cmp_ok ( $r, "eq", ' \
+		-r bl.spamcop.net', 'get_list_of_rbls'); 
 
 	# test one with a sort order
-    $qmail->_set_config( {'rbl_sbl-xbl.spamhaus.org'=> 2} );
+    $qmail->set_config(  {'rbl_bl.spamcop.net'=> 2} );
 	$r = $qmail->get_list_of_rbls( debug=>0, fatal=>0 );
-	cmp_ok ( $r, "eq", '\
-		-r sbl-xbl.spamhaus.org ', 'get_list_of_rbls'); 
+	cmp_ok ( $r, "eq", ' \
+		-r bl.spamcop.net', 'get_list_of_rbls'); 
 
 	# no enabled rbls!
-    $qmail->_set_config( {'rbl_sbl-xbl.spamhaus.org'=> 0} );
+    $qmail->set_config( {'rbl_bl.spamcop.net'=> 0} );
 	ok ( ! $qmail->get_list_of_rbls( debug=>0, fatal=>0 ), 
         'get_list_of_rbls nok');
 	#cmp_ok ( $r, "eq", "", 'get_list_of_rbls nok');
 
 	# ignore custom error messages
-    $qmail->_set_config( {'rbl_sbl-xbl.spamhaus.org_message'=> 2} );
+    $qmail->set_config( {'rbl_bl.spamcop.net_message'=> 2} );
 	$r = $qmail->get_list_of_rbls( debug=>0, fatal=>0 );
 	ok ( ! $r, 'get_list_of_rbls nok');
 
 
 # get_list_of_rwls
-    $qmail->_set_config( {'rwl_list.dnswl.org'=> 1} );
+    $qmail->set_config( {'rwl_list.dnswl.org'=> 1} );
 	$r = $qmail->get_list_of_rwls( debug=>0 );
 	ok ( @$r[0] eq "list.dnswl.org", 'get_list_of_rwls'); 
 
 	# no enabled rwls!
-    $qmail->_set_config( {'rwl_list.dnswl.org'=> 0} );
+    $qmail->set_config( {'rwl_list.dnswl.org'=> 0} );
 	$r = $qmail->get_list_of_rwls( debug=>0 );
 	ok ( ! @$r[0], 'get_list_of_rwls nok');
 
+$toaster->dump_audit( quiet => 1 );
 
 # service_dir_get
 	# a normal smtp invocation
-    $qmail->_set_config( {qmail_service_smtp=>'/var/service/smtp'} );
-	$r = $qmail->service_dir_get( prot=>"smtp", debug=>0 );
-	ok ( $r eq "/var/service/smtp", 'service_dir_get smtp');
+    $qmail->set_config( {qmail_service_smtp=>'/var/service/smtp'} );
+	ok ( $toaster->service_dir_get( prot=>"smtp" ) eq "/var/service/smtp", 'service_dir_get smtp');
 
 	# a normal invocation with a conf file shortcut
-    $qmail->_set_config( {qmail_service_smtp=>'qmail_service/smtp'} );
-	$r = $qmail->service_dir_get( prot=>"smtp", debug=>0 );
-	ok ( $r eq "/var/service/smtp", 'service_dir_get smtp');
+    $qmail->set_config( {qmail_service_smtp=>'qmail_service/smtp'} );
+	ok ( $toaster->service_dir_get( prot=>"smtp" ) eq "/var/service/smtp", 'service_dir_get smtp');
 
 	# a deprecated invocation
-    $qmail->_set_config( {qmail_service_smtp=>'qmail_service/smtp'} );
-	$r = $qmail->service_dir_get( prot=>"smtpd", debug=>0 );
-	ok ( $r eq "/var/service/smtp", 'service_dir_get smtp');
+    $qmail->set_config( {qmail_service_smtp=>'qmail_service/smtp'} );
+	ok ( $toaster->service_dir_get( prot=>"smtpd" ) eq "/var/service/smtp", 'service_dir_get smtp');
 
 	# a normal send invocation
-    $qmail->_set_config( {qmail_service_send=>'/var/service/send'} );
-	my $send = $qmail->service_dir_get( prot=>"send", debug=>0 );
-	ok ( $send eq "/var/service/send", 'service_dir_get send');
+    $qmail->set_config( {qmail_service_send=>'/var/service/send'} );
+	ok ( $toaster->service_dir_get( prot=>'send' ) eq "/var/service/send", 'service_dir_get send');
 
 	# a normal pop3 invocation
-    $qmail->_set_config( {qmail_service_pop3=>'/var/service/pop3'} );
-	$r = $qmail->service_dir_get( prot=>"pop3", debug=>0 );
-	ok ( $r eq "/var/service/pop3", 'service_dir_get pop3');
+    $qmail->set_config( {qmail_service_pop3=>'/var/service/pop3'} );
+	ok ( $toaster->service_dir_get( prot=>"pop3" ) eq "/var/service/pop3", 'service_dir_get pop3');
 
 	# an invalid protocol
-    $qmail->_set_config( {qmail_service_pop3=>'/var/service/invalid'} );
-	$r = $qmail->service_dir_get( prot=>"invalid", fatal=>0, debug=>0 );
-	ok ( ! $r , 'service_dir_get invalid');
+    $qmail->set_config( {qmail_service_pop3=>'/var/service/invalid'} );
+	ok ( ! $toaster->service_dir_get( prot=>"invalid" ), 'service_dir_get invalid');
 
-$qmail->_set_config( $conf );
+$qmail->set_config( $conf );
+$toaster->dump_audit( quiet => 1 );
 
 # _set_checkpasswd_bin
 	# this test will only succeed on a fully installed toaster
-	if ( -d $conf->{'vpopmail_home_dir'} ) {
-		ok ( $qmail->_set_checkpasswd_bin( prot=>"pop3", debug=>0, fatal=>0 ), 
-			'_set_checkpasswd_bin' );
-	};
+    ok ( $qmail->_set_checkpasswd_bin( prot=>"pop3" ), '_set_checkpasswd_bin' )
+        if -d $conf->{'vpopmail_home_dir'};
 
 
 # supervised_hostname_qmail
-	ok ( $qmail->supervised_hostname_qmail( prot=>'pop3',debug=>0 ), 
+	ok ( $qmail->supervised_hostname_qmail( prot=>'pop3' ), 
 		'supervised_hostname_qmail' );
 
 	# invalid type
-#	ok ( ! $qmail->supervised_hostname_qmail( 
-#			prot=>['invalid'],debug=>0,fatal=>0
-#		), 'supervised_hostname_qmail' );
-
-
-# _supervise_dir_exist
-	ok ( $qmail->_supervise_dir_exist( dir=>'/tmp',name=>'' ), '_supervise_dir_exist' );
-	ok ( ! $qmail->_supervise_dir_exist( dir=>'/var/thingymadowhakker',name=>'',debug=>0 ), '_supervise_dir_exist' );
+#	ok ( ! $qmail->supervised_hostname_qmail( prot=>['invalid'] ), 
+#        'supervised_hostname_qmail' );
 
 
 # build_pop3_run
 	if ( -d $conf->{'qmail_supervise'} && -d $conf->{'vpopmail_home_dir'} ) {
 
-		ok ( $qmail->build_pop3_run( file=>"/tmp/mt-pop3-run", debug=>0), 
-			'build_pop3_run');
-
-		#ok ( ! $qmail->build_pop3_run( file=>"/tmp/mt-pop3-run", debug=>0),
-		#	'build_pop3_run');
-		#ok ( ! $qmail->build_pop3_run( fil=>"/tmp/mt-pop3-run", debug=>0),
-		#	'build_pop3_run');
-
-# build_send_run
-		ok ( $qmail->build_send_run( file=>"/tmp/mt-send-run", debug=>0),
-			'build_send_run');
-
 		# only run these tests if vpopmail is installed
-
-# build_smtp_run
-		ok ( $qmail->build_smtp_run( 
-			file=>"/tmp/mt-smtp-run", debug=>0, fatal=>0
-			), 'build_smtp_run');
-
-# build_submit_run
-		ok ( $qmail->build_submit_run( 
-			file=>"/tmp/mt-submit-run", debug=>0, fatal=>0
-			), 'build_submit_run');
+		ok ( $qmail->build_pop3_run(), 'build_pop3_run');
+		ok ( $qmail->build_send_run(), 'build_send_run');
+		ok ( $qmail->build_smtp_run(), 'build_smtp_run');
+		ok ( $qmail->build_submit_run(), 'build_submit_run');
 	};
 
 # check_control
@@ -202,8 +164,8 @@ $qmail->_set_config( $conf );
 
 
 # install_qmail_control_files
-	ok ( $qmail->install_qmail_control_files( fatal=>0, debug=>0, test_ok=>1), 'install_qmail_control_files');
-	ok ( ! $qmail->install_qmail_control_files( fatal=>0, debug=>0, test_ok=>0), 'install_qmail_control_files');
+	ok ( $qmail->install_qmail_control_files( test_ok=>1), 'install_qmail_control_files');
+	ok ( ! $qmail->install_qmail_control_files(test_ok=>0), 'install_qmail_control_files');
 
 
 # install_qmail_groups_users
@@ -235,8 +197,6 @@ $qmail->_set_config( $conf );
 		ok ( $qmail->queue_check( debug=>0 ), 'queue_check');
 	};
 
-# queue_process
-
 # rebuild_ssl_temp_keys
 	if ( -d $qmail_control_dir ) {
 		ok ( $qmail->rebuild_ssl_temp_keys( debug=>0, fatal=>0, test_ok=>1 ), 'rebuild_ssl_temp_keys');
@@ -244,45 +204,41 @@ $qmail->_set_config( $conf );
 
 
 # restart
+    my $send = $toaster->service_dir_get( prot=>'send');
 	if ( -d $send ) {
-		ok ( $qmail->restart( debug=>0, test_ok=>1 ), 'restart');
+		ok ( $qmail->restart( prot=>'send', test_ok=>1 ), 'restart send');
 	};
 
-# supervise_dir_get 
-    my $qcontrol = $qmail->supervise_dir_get( prot=>"send", debug=>0 );
-	ok ( $qcontrol, 'supervise_dir_get');
-    
-	if ( $toaster->supervised_dir_test( prot=>"send", debug=>0 ) ) {
+	if ( $toaster->supervised_dir_test( prot=>"send", fatal=>0 ) ) {
 
 # send_start
         ok ( $qmail->send_start( test_ok=>1, debug=>0, fatal=>0 ) , 'send_start');
 
 # send_stop
         ok ( $qmail->send_stop( test_ok=>1, debug=>0, fatal=>0 ) , 'send_start');
-
 	}
-	
 
-# smtpd_restart
-	if ( $toaster->supervised_dir_test( prot=>"smtp", debug=>0 ) ) {
-		ok ( $qmail->smtpd_restart( prot=>"smtp", fatal=>0 ), 'smtpd_restart');
+# restart
+	if ( $toaster->supervised_dir_test( prot=>"smtp", fatal=>0 ) ) {
+		ok ( $qmail->restart( prot=>"smtp" ), 'restart smtp');
 	};
 
 
 # smtp_set_qmailqueue
-	if ( -d $qmail_dir ) {
+	if ( -d $qmail_dir && -f "$qmail_dir/bin/qmail-queue" ) {
 
-        $qmail->_set_config( { 'filtering_method' => 'smtp'} );
-		ok ( $qmail->smtp_set_qmailqueue( debug=>0 ), 'smtp_set_qmailqueue');
+        $qmail->set_config( { 'filtering_method' => 'smtp'} );
+		ok ( $qmail->smtp_set_qmailqueue(), 'smtp_set_qmailqueue');
 	
-        $qmail->_set_config( { 'filtering_method' => 'user'} );
+        $qmail->set_config( { 'filtering_method' => 'user'} );
 		$conf->{'filtering_method'} = "user";
-		ok ( ! $qmail->smtp_set_qmailqueue( debug=>0 ), 'smtp_set_qmailqueue');
-        $qmail->_set_config( $conf );
+		ok ( ! $qmail->smtp_set_qmailqueue(), 'smtp_set_qmailqueue');
+        $qmail->set_config( $conf );
 
 # _test_smtpd_config_values
-        if ( -d $conf->{'vpopmail_home_dir'} ) {
-		    ok ( $qmail->_test_smtpd_config_values( debug=>0, fatal=>0, test_ok=>1 ), 
+        my $sup_dir = $toaster->supervised_dir_test( prot=>"send", debug=>0,fatal=>0 );
+        if ( -d $conf->{'vpopmail_home_dir'} && $sup_dir && -d $sup_dir ) {
+		    ok ( $qmail->_test_smtpd_config_values( test_ok=>1 ), 
 		    	'_test_smtpd_config_values');
         };
 	};

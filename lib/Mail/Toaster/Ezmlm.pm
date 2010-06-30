@@ -1,38 +1,59 @@
-#!perl
 use strict;
 use warnings;
 
 package Mail::Toaster::Ezmlm;
 
-our $VERSION = '5.03';
-
-use vars qw($perl $util);
-
-use lib "lib";
+our $VERSION = '5.26';
 
 use Params::Validate qw( :all );;
 use Pod::Usage;
 use English qw( -no_match_vars );
 
-use Mail::Toaster::Utility 5; $util = Mail::Toaster::Utility->new;
-require Mail::Toaster::Perl;  $perl    = Mail::Toaster::Perl->new;
+use lib 'lib';
+use Mail::Toaster          5.26; 
+
+my ( $log, $util, %std_opts );
 
 sub new {
-    my ( $class, $name ) = @_;
-    my $self = { name => $name };
-    bless( $self, $class );
+    my $class = shift;
+    my %p     = validate( @_,
+        {   'log' => { type => OBJECT  },
+            fatal => { type => BOOLEAN, optional => 1, default => 1 },
+            debug => { type => BOOLEAN, optional => 1 },
+        }
+    );
+
+    $log = $p{'log'};
+    $util = $log->get_util;
+
+    my $debug = $log->get_debug;  # inherit from our parent
+    my $fatal = $log->get_fatal;
+    $debug = $p{debug} if defined $p{debug};  # explicity overridden
+    $fatal = $p{fatal} if defined $p{fatal};
+
+    my $self = {
+        'log' => $log,
+        debug => $debug,
+        fatal => $fatal,
+    };
+    bless $self, $class;
+
+    # globally scoped hash, populated with defaults as requested by the caller
+    %std_opts = (
+        'test_ok' => { type => BOOLEAN, optional => 1 },
+        'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
+        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+    );
+
     return $self;
 }
 
 sub authenticate {
-
     my $self = shift;
-    
 	my %p = validate ( @_, {
 	        'domain'   => { type=>SCALAR,  optional=>0, },
 	        'password' => { type=>SCALAR,  optional=>0, },
-            'fatal'    => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'    => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
 	);
 
@@ -41,12 +62,7 @@ sub authenticate {
 
     print "attempting to authenticate postmaster\@$domain..." if $debug;
 
-    $perl->module_load(
-            module      => "vpopmail",
-            port_name  => 'p5-vpopmail',
-            port_group => 'mail',
-            debug      => $debug,
-    );
+    $util->install_module( "vpopmail", debug => $debug,);
 
     require vpopmail;
 
@@ -64,12 +80,8 @@ a user ($UID) that lacks permission to run this script. You can:<br>
   <blockquote>
     a: run this script suid vpopmail<br>
     b: run the web server as user vpopmail<br>
+    c: use suEXEC
   </blockquote>
-
-The easiest and most common methods is:<br>
-<br>
-  chown vpopmail /path/to/ezmlm.cgi<br>
-  chmod 4755 /path/to/ezmlm.cgi<br>
 <br>
 \n\n";
 
@@ -77,14 +89,11 @@ The easiest and most common methods is:<br>
 }
 
 sub dir_check {
-
     my $self = shift;
-    
     my %p = validate( @_, {
             'dir'     => { type=>SCALAR, },
             'br'      => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
@@ -121,14 +130,11 @@ EOFOOTER
 }
 
 sub lists_get {
-
     my $self = shift;
-    
     my %p = validate( @_, {
             'domain'  => { type=>SCALAR, },
             'br'      => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
@@ -137,12 +143,7 @@ sub lists_get {
 
     my %lists;
 
-    $perl->module_load(
-            module      => "vpopmail",
-            port_name  => 'p5-vpopmail',
-            port_group => 'mail',
-            debug      => $debug,
-    );
+    $util->install_module( "vpopmail", debug => $debug,);
 
     require vpopmail;
 
@@ -181,39 +182,29 @@ sub lists_get {
 }
 
 sub logo {
-
     my $self = shift;
-    
     my %p = validate( @_, {
             'conf'         => { type=>HASHREF, optional=>1, },
 	        'web_logo_url' => { type=>SCALAR,  optional=>1, },
 	        'web_logo_alt' => { type=>SCALAR,  optional=>1, },
-            'fatal'        => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'        => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
-	my ($conf, $logo, $alt, $fatal, $debug)
-        = ( $p{'conf'}, $p{'web_logo_url'}, $p{'web_logo_alt'}, $p{'fatal'}, $p{'debug'} );
-
-    $logo ||= $conf->{'web_logo_url'}
-        || "http://www.tnpi.net/images/head.jpg";
-        
-    $alt ||= $conf->{'web_logo_alt_text'}
-        || "tnpi.net logo";
+	my $conf = $p{'conf'};
+    my $logo = $conf->{'web_logo_url'} or return '';
+    my $alt  = $conf->{'web_logo_alt'} || '';
 
     return "<img src=\"$logo\" alt=\"$alt\">";
 }
 
 sub process_cgi {
-
     my $self = shift;
     
     my %p = validate( @_, {
             'list_dir' => { type=>SCALAR,  optional=>1, },
             'br'       => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            'fatal'    => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'    => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
@@ -226,18 +217,9 @@ sub process_cgi {
     use CGI::Carp qw( fatalsToBrowser );
     print header('text/html');
 
-    #use Mail::Toaster::CGI;
+    $util->install_module( "HTML::Template", debug => $debug,);
 
-    $perl->module_load(
-            module      => "HTML::Template",
-            port_name  => "p5-HTML-Template",
-            port_group => "www",
-            debug      => $debug,
-    );
-
-    my $conf = $util->parse_config( file=>"toaster.conf", debug => 0 );
-
-    #die "FAILURE: Could not find toaster.conf!\n" unless $conf;
+    my $conf = $log->parse_config( file=>"toaster.conf", debug => 0 );
 
     $debug = 0;
 
@@ -302,22 +284,10 @@ sub process_cgi {
             exit 0;
         }
 
-        $perl->module_load(
-                module      => "vpopmail",
-                port_name  => 'p5-vpopmail',
-                port_group => 'mail',
-                debug      => $debug,
-        );
+        $util->install_module( "vpopmail", debug => $debug,);
         print "running vpopmail v", vpopmail::vgetversion(), "<br>" if $debug;
 
-        #		print "selected list: $list_sel<br>" if $debug;
-
-        $perl->module_load(
-                module      => "Mail::Ezmlm",
-                port_name  => "p5-Mail::Ezmlm",
-                port_group => "mail",
-                debug      => $debug,
-        );
+        $util->install_module( "Mail::Ezmlm", debug => $debug,);
         require Mail::Ezmlm;
 
         $list_dir = $ezlists->{$list_sel};
@@ -345,23 +315,17 @@ sub process_cgi {
 }
 
 sub process_shell {
-
-    my ($self) = @_;
+    my $self = shift;
     use vars qw($opt_a $opt_d $opt_f $opt_v $list $debug);
 
-    $perl->module_load(
-        module      => "Mail::Ezmlm",
-        port_name  => "p5-Mail::Ezmlm",
-        port_group => "mail",
-        debug      => 0,
-    );
+    $util->install_module( "Mail::Ezmlm", debug => 0,);
     require Mail::Ezmlm;
 
     use Getopt::Std;
     getopts('a:d:f:v');
 
     my $br = "\n";
-    $opt_v ? $debug = 1 : $debug = 0;
+    $debug = $opt_v ? 1 : 0;
 
     # set up based on command line options
     my $list_dir;
@@ -396,7 +360,7 @@ sub process_shell {
     }
 
     if ( -r $list_file ) {
-        my @lines = $util->file_read(file=>$list_file, debug=>$debug);
+        my @lines = $util->file_read($list_file, debug=>$debug);
         $requested = \@lines;
     }
     else {
@@ -414,16 +378,13 @@ sub process_shell {
 }
 
 sub subs_add {
-
     my $self = shift;
-    
     my %p = validate( @_, {
 	        'list'      => { type=>SCALAR,   },
             'list_dir'  => { type=>SCALAR,   },
 	        'requested' => { type=>ARRAYREF, },
             'br'        => { type=>SCALAR,   },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
@@ -435,8 +396,7 @@ sub subs_add {
         return 0;
     }
     
-    my ( $duplicates, $success, $failed, @list_dups, @list_success,
-        @list_fail );
+    my ( $duplicates, $success, $failed, @list_dups, @list_success, @list_fail );
 
     print "$br";
 
@@ -452,12 +412,14 @@ sub subs_add {
 
         printf "adding %25s...", $addy;
 
+        no warnings;
         require Email::Valid;
         unless ( Email::Valid->address($addy) ) {
             print "FAILED! (address fails $Email::Valid::Details check). $br";
             $failed++;
             next;
         }
+        use warnings;
 
         if ( $list->issub($addy) ) {
             $duplicates++;
@@ -483,15 +445,12 @@ sub subs_add {
 }
 
 sub subs_list {
-
     my $self = shift;
-
     my %p = validate( @_, {
 	        'list'      => { type=>HASHREF,   },
             'list_dir'  => { type=>SCALAR,   },
             'br'        => { type=>SCALAR,  optional=>1, default=>'\n' },
-            'fatal'     => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'     => { type=>BOOLEAN, optional=>1, default=>1 },
+            %std_opts,
         },
     );
 
@@ -525,15 +484,11 @@ __END__
 # =head1 ACKNOWLEDGEMENTS
 #
 # Funded by Sam Mayes (sam.mayes@sudhian.com) and donated to the toaster community
-# I'll add this back in if Sam ever pays up.
+# I'll add this back in if Sam ever pays.
 
 =head1 NAME
 
 Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists
-
-=head1 VERSION
-
-5.02
 
 =head1 SYNOPSIS
 

@@ -1,6 +1,8 @@
 #!/usr/bin/perl
 
 use strict;
+use warnings;
+
 use English;
 
 my $http_url = "http://secure.example.com";
@@ -55,17 +57,17 @@ robots_dot_txt();
 
 sub access_control
 {
-    my $hosts_allow = "hosts.allow"
-    my $hosts_sshd  = "hosts.allow.ssh"
-    my $hosts_mysql = "hosts.allow.mysql"
-    my $hosts_http  = "hosts.allow.http"
+    my $hosts_allow = "hosts.allow";
+    my $hosts_sshd  = "hosts.allow.ssh";
+    my $hosts_mysql = "hosts.allow.mysql";
+    my $hosts_http  = "hosts.allow.http";
 
     return 0;
 
-    file_get("$http_url/$hosts_allow");
-    file_get("$http_url/$hosts_sshd");
-    file_get("$http_url/$hosts_mysql");
-    file_get("$http_url/$hosts_http");
+    get_url("$http_url/$hosts_allow");
+    get_url("$http_url/$hosts_sshd");
+    get_url("$http_url/$hosts_mysql");
+    get_url("$http_url/$hosts_http");
 };
 
 sub xploit_turds
@@ -99,15 +101,15 @@ sub valid_accounts
     my $good_users = "users.valid";
     my $bad_users  = "users.invalid";
 
-    file_get("$http_url/$good_users");
-    file_get("$http_url/$bad_users");
+    get_url("$http_url/$good_users");
+    get_url("$http_url/$bad_users");
 
     my @tmp = `cat $good_users`; chomp @tmp;
     push @valid_accounts, @tmp;
     #print "adding users: " . join(" ", @tmp) . "\n";
     my %valid = map { $_ => 1 } @valid_accounts;
 
-    @tmp = `cat $badlist`; chomp @tmp;
+    @tmp = `cat $bad_users`; chomp @tmp;
     push @invalid_accounts, @tmp;
     my %invalid = map { $_ => 1 } @invalid_accounts;
 
@@ -129,7 +131,7 @@ sub valid_accounts
     };
 
     unlink $good_users;
-    unlink $badlist;
+    unlink $bad_users;
 
     _changes($changes, "ALERT: please verify the accounts shown above\n");
 };
@@ -781,23 +783,23 @@ sub _changes
     sleep 2;
 };
 
-sub file_get {
+sub get_url {
 
     my ($url, $timer, $fatal, $debug) = @_;
 
     my ( $fetchbin, $found );
 
-    print "file_get: fetching $url\n" if $debug;
+    print "get_url: fetching $url\n" if $debug;
 
     if ( $OSNAME eq "freebsd" ) {
-        $fetchbin = find_the_bin("fetch");
+        $fetchbin = find_bin('fetch');
         if ( $fetchbin && -x $fetchbin ) {
             $found = "fetch";
             $found .= " -q" unless $debug;
         }
     }
     elsif ( $OSNAME eq "darwin" ) {
-        $fetchbin = find_the_bin( "curl" );
+        $fetchbin = find_bin( 'curl' );
         if ( $fetchbin && -x $fetchbin ) {
             $found = "curl -O";
             $found .= " -s " unless $debug;
@@ -805,7 +807,7 @@ sub file_get {
     }
 
     unless ($found) {
-        $fetchbin = find_the_bin( "wget" );
+        $fetchbin = find_bin( 'wget' );
         if ( $fetchbin && -x $fetchbin ) { $found = "wget"; }
     }
 
@@ -840,17 +842,17 @@ sub file_get {
     }
 }
 
-sub find_the_bin {
+sub find_bin {
 
     my $bin = shift;
     my $dir = shift;
 
     if ( ! $bin ) {
-        warn "invalid params to find_the_bin.\n";
+        warn "invalid params to find_bin.\n";
         return;
     }
 
-    #print "find_the_bin: searching for $bin\n" if $debug;
+    #print "find_bin: searching for $bin\n" if $debug;
 
     my $prefix = "/usr/local";
 
@@ -868,7 +870,7 @@ sub find_the_bin {
     elsif ( -x "/opt/local/bin/$bin" )    { return "/opt/local/bin/$bin"; }
     elsif ( -x "/opt/local/sbin/$bin" )   { return "/opt/local/sbin/$bin"; }
     else {
-        warn "find_the_bin: WARNING: could not find $bin";
+        warn "find_bin: WARNING: could not find $bin";
         return;
     }
 }

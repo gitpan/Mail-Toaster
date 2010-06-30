@@ -17,99 +17,6 @@ A current copy of toaster.conf is posted on the Mail::Toaster web site at http:/
 
 =head2 SITE SETTINGS
 
-  ######################################
-  #            TOASTER
-  ######################################
-
-  toaster_http_base              = /usr/local/www
-
-This sets your apache root. Note that this isn't your document root-- the toaster expects to find directories called "data" and "cgi-bin" inside this directory. "data" is your document root. This is the default layout for Apache on FreeBSD; only change this if you use a different web server or a non-standard file layout. 
-
-  system_config_dir              = /usr/local/etc
-
-This is where the toaster will install its other config files, such as isoqlog.conf, rrdutil.conf, clamav.conf, etc. The default is correct for FreeBSD systems.
-
-
-  #######################################
-  #         Mail::Toaster::CGI          #
-  #######################################
-
-This section controls the layout and wording of the toaster's home page, index.cgi. 
-
- web_logo_url        = /images/logo.jpg
- web_logo_alt_text   = example.com logo
- web_heading_text    = Mail Center
- web_instructions    = Fill in the account info and click go
-
-This first block of options lets you set a few elements that will be included on the toaster's home page. The web_logo_url allows you to do some easy branding of your login page. More extensive changes can be made by editing the index.tmpl file in your web document root. 
-
-The toaster's home page will display buttons for several programs-- most toasters will include, at minimum, a webmail program and qmailadmin. You have the option to include two webmail programs and three statistics programs. Each program has a block of options in the config file. Since all the blocks are the same, I'll go through only one example in depth. 
-
- web_sqwebmail                   = 1
-
-Do you want a button for sqwebmail to appear on your toaster's home page? If not, set this to 0. (Some people may wish to turn off some of these programs for support or administrative reasons).
-
- web_sqwebmail_host              = 0       # 0 | FQDN
-
-Do you require a specific hostname for sqwebmail? If your toaster answers to many hostnames, but only one of them has an SSL certificate, then you might want to set this option. Otherwise, the sqwebmail button will just use the hostname through which the homepage is accessed.
-
- web_sqwebmail_url               = /cgi-bin/sqwebmail
-
-The location of sqwebmail within your toaster_http_base directory.
-
- web_sqwebmail_require_ssl       = 1
-
-The default is the best choice-- SSL security provides your users with security for their email, but more importantly for their username and password. 
-
-If you don't have an SSL certificate for your toaster, or you want to give your users the option to use SSL or not use it, then turn this off. 
-
- web_sqwebmail_name              = Sqwebmail:
-
-What should the name of Sqwebmail be on the toaster's home page? Perhaps you've decided to call your implementation of Sqwebmail "Funky Fresh Mail" on the theory that "Sqwebmail" is impossible to pronounce. 
-
- web_sqwebmail_description       = a fast, capable web mail
-
-This is the description that appears next to the program name on your toaster's home page. 
-
-That's the end of the Sqwebmail configuration. It's followed by identical blocks for squirrelmail, qmailadmin, rrdutil, isoqlog, and qss. As more web-based programs are added to the toaster, they'll be added here. 
-
-
- web_squirrelmail                = 1
- web_squirrelmail_host           = 0
- web_squirrelmail_url            = /squirrelmail/src/redirect.php
- web_squirrelmail_require_ssl    = 1
- web_squirrelmail_name           = Squirrelmail:
- web_squirrelmail_description    = attractive, many features, customizable
-
- web_qmailadmin                  = 1
- web_qmailadmin_host             = 0
- web_qmailadmin_url              = /cgi-bin/qmailadmin
- web_qmailadmin_require_ssl      = 1
- web_qmailadmin_name             = Qmailadmin:
- web_qmailadmin_description      = modify your mail settings
-
- web_rrdutil                     = 1
- web_rrdutil_host                = 0
- web_rrdutil_url                 = /cgi-bin/rrdutil.cgi
- web_rrdutil_require_ssl         = 0
- web_rrdutil_name                = RRDutil:
- web_rrdutil_description         = mail server activity
-
- web_isoqlog                     = 1
- web_isoqlog_host                = 0
- web_isoqlog_url                 = /isoqlog/
- web_isoqlog_require_ssl         = 0
- web_isoqlog_name                = Isoqlog:
- web_isoqlog_description         = detailed message statistics
- 
- web_qs_stat                     = 1
- web_qs_stat_host                = 0
- web_qs_stat_url                 = /qss/index.php
- web_qs_stat_require_ssl         = 0
- web_qs_stat_name                = Qmail Scanner Stats:
- web_qs_stat_description         = Virus blocks
- 
-
  #######################################
  #         Mail::Toaster::Logs         #
  #######################################
@@ -168,7 +75,7 @@ The directory to your qmailanalog bin files.
 
  logs_counters     = counters  
 
-A directory inside your logs_base directory, which stores the counter files used by rrdutil. 
+A directory inside your logs_base directory, which stores the counter files used by maillogs. 
 
  logs_rbl_count    = smtp_rbl.txt
  logs_smtp_count   = smtp_auth.txt
@@ -180,83 +87,6 @@ A directory inside your logs_base directory, which stores the counter files used
  logs_web_count    = webmail.txt
 
 The names of the counter files in the logs_counters directory.
-
- #######################################
- #       Mail::Toaster::Admin          #
- #######################################
-
-Many of the options in this section relate to to the mailadmin script, which the toaster installs in /usr/local/sbin. This script used to be called maildomain. The script serves several purposes. 
-
-Its primary function is to act as the layer of abstraction between a Mail::Toaster cluster and a provisioning system. The provisioning system has defined set of parameters it calls mailadmin with and mailadmin does what's necessary to make changes to the mail cluster. 
-
-Its secondary function is to act as an interface for support staff to make (limited) changes to the mail cluster. There are tiered support levels so you can allow different classes of support agents abilities as their needs and skills permit.
-
- admin_update           = /usr/local/sbin/update
-
-This script is used by the update function of the mailadmin script, which is not yet implemented in the toaster. The update script is a wrapper for securely copying files from the cluster master to the slaves using a standard file distribution mechanism (rdist, rsync, etc). It required manual configuration at this time and is only available when Matt installs your cluster of toasters.
-
- admin_home             = /usr/home 
- admin_quotafs          = /home    
-
-Where home directories live on your system. If you don't have a quota-enabled file system, there's no harm in leaving admin_qutoafs at the default setting. This is only critical when you have multiple file servers in your cluster.
-
- admin_qmailpath        = /var/qmail  # where qmail is installed
-
-The location of qmail. Think twice about changing this, as you'll be creating a very non-standard qmail installation.
-
- admin_qmailadminlimits = /var/qmail/control/.qmailadmin-limits
-
-The location of your qmailadmin-limits template file. This is depreciated now as vpopmail and qmailadmin limits are now stored in MySQL and a default template is now included in ~vpopmail/etc.
-
- admin_adminhost        = matt.cadillac.net   # the "master" 
- admin_fileservers      = matt                # file servers
- admin_mailservers      = mail1 mail2 mail3 mail4 mail5
-
-On a typical toaster, all three of these will contain the same hostname, the name of the toaster. As you scale your toaster up, you can create a cluster of multiple servers.
-
-In a cluster, you will have one "admin" server (ie, the place you go to make changes), as many file servers as are necessary to handle the expected disk i/o, and enough front end mail servers to hand the CPU load required to service web/pop3/imap/smtp sessions. 
-
- admin_vpopbin          = /usr/local/vpopmail/bin
-
-This is the directory where your vpopmail programs are installed. 
-
- singleuid           = vpopmail
-
-In the default configuration of the toaster, this option should be set to "vpopmail", the user that will own the mail domains. Other configurations are possible; you can have domains be owned by specific system users.
-
- create_sys_user     = 0 
-
-By default, when in single uid mode this script won't create a new system user. This flag overrides that. (y/n). If you depend on file system quotas to enforce limits on customers (say Joe Customer has 6 domains that all share a 100MB quota), then the only way to accomplish that is by creating a system user account and using file system quotas to enforce it. This enables that ability.
-
- homedirtree         = 0
-
-Using a homedir tree? (/usr/home/a/ab/abcuser instead of /usr/home/abcuser)
-
- homedir_base        = u   # u(ser) | d(omain)
-
-If using a system user account, where do we put their home dir? IE, is it based on user or domain name (u/d)
-
-On an unmodified FreeBSD system, all home directories are stored in a "flat" structure-- they all live in /usr/home. If this is the case on your server, homedirtree should be set to 0 and homedir_base should be set to u. If you've chosen another system for organizing your home directories, set the appropriate options here. 
-
- use_passwords       = 0
-
-If this option is set, the postmaster password for new domains will be placed in the system password file, so the postmaster will have shell access to the mail server. 
-
- show_function       = 1
-
-This enables the "show" function in the mailadmin script.
-
- vauth               = mysql 
-
-Where vpopmail stores its auth info (cdb, mysql, ldap). On most toasters, this should be set to mysql. If you store user information in cdb files or on an LDAP server, change this setting. 
-
- delete_old_archives = 0 
-
-If the mailadmin script is used to archive deleted domains, this setting determines whether the archives should be deleted when the domain is restored to service.
-
- secure_levels       = 1 
-
-This enables a function in the mailadmin script whereby different users have different levels of access to the script. Currently the access levels are hard-coded in the script itself, by username.
 
 
 =head1 AUTHOR

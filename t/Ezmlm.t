@@ -16,20 +16,18 @@ else {
     plan 'no_plan';
 };
 
-require_ok( 'Mail::Toaster::Utility' );
+require_ok( 'Mail::Toaster' );
 require_ok( 'Mail::Toaster::Ezmlm' );
 
 # basic OO mechanism
-	my $ezmlm = Mail::Toaster::Ezmlm->new;                       # create an object
-	ok ( defined $ezmlm, 'get Mail::Toaster::Ezmlm object' );    # check it
-	ok ( $ezmlm->isa('Mail::Toaster::Ezmlm'), 'check object class' );
+my $toaster = Mail::Toaster->new();
+my $ezmlm = Mail::Toaster::Ezmlm->new( 'log' => $toaster );
 
+ok ( defined $ezmlm, 'get Mail::Toaster::Ezmlm object' );
+ok ( $ezmlm->isa('Mail::Toaster::Ezmlm'), 'check object class' );
 
-my $util = Mail::Toaster::Utility->new();
-my $conf = $util->parse_config( 
-    file  => "toaster-watcher.conf", 
-    debug => 0,
-);
+my $conf = $toaster->get_config;
+my $util = $toaster->get_util;
 
 ok( $conf, 'toaster-watcher.conf loaded');
 

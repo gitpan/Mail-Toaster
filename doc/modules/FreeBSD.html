@@ -4,18 +4,19 @@
 <head>
 <title>Mail::Toaster::FreeBSD</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@sprybook-pro.local" />
+<link rev="made" href="mailto:matt@imac24.simerson.net" />
 </head>
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
 	<li><a href="#name">NAME</a></li>
-	<li><a href="#version">VERSION</a></li>
 	<li><a href="#synopsis">SYNOPSIS</a></li>
 	<li><a href="#description">DESCRIPTION</a></li>
 	<li><a href="#subroutines">SUBROUTINES</a></li>
@@ -25,18 +26,15 @@
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#copyright">COPYRIGHT</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
 <p>Mail::Toaster::FreeBSD - FreeBSD specific Mail::Toaster functions.</p>
-<p>
-</p>
-<hr />
-<h1><a name="version">VERSION</a></h1>
-<p>5.07</p>
 <p>
 </p>
 <hr />
@@ -52,62 +50,35 @@
 <hr />
 <h1><a name="subroutines">SUBROUTINES</a></h1>
 <dl>
-<dt><strong><a name="item_new">new</a></strong>
+<dt><strong><a name="new" class="item">new</a></strong></dt>
 
 <dd>
 <pre>
         use Mail::Toaster::FreeBSD;
         my $fbsd = Mail::Toaster::FreeBSD-&gt;new;</pre>
 </dd>
-<dt><strong><a name="item_cvsup_select_host">cvsup_select_host</a></strong>
-
-<dd>
-<p>Selects a host to cvsup port updates from. If you pass $conf to it, it will detect your country automatically. If fastest_cvsup is installed, it will detect it and use it to pick the fastest host in your country. If it is not installed and the hostname is set to ``fastest'', it will try to install fastest_cvsup from ports.</p>
-</dd>
-<dd>
-<pre>
- arguments optional:
-    conf</pre>
-</dd>
-<dd>
-<pre>
- result:
-    a hostname to grab cvsup sources from</pre>
-</dd>
-</li>
-<dt><strong><a name="item_is_port_installed">is_port_installed</a></strong>
+<dt><strong><a name="is_port_installed" class="item">is_port_installed</a></strong></dt>
 
 <dd>
 <p>Checks to see if a port is installed.</p>
-</dd>
-<dd>
 <pre>
-    $fbsd-&gt;is_port_installed( port=&gt;&quot;p5-CGI&quot; );</pre>
-</dd>
-<dd>
+    $fbsd-&gt;is_port_installed( &quot;p5-CGI&quot; );</pre>
 <pre>
  arguments required
    port - the name of the port/package</pre>
-</dd>
-<dd>
 <pre>
  arguments optional:
    alt - alternate package name. This can help as ports evolve and register themselves differently in the ports database.</pre>
-</dd>
-<dd>
 <pre>
  result:
    0 - not installed
    1 - if installed</pre>
 </dd>
-</li>
-<dt><strong><a name="item_jail_create">jail_create</a></strong>
+<dt><strong><a name="jail_create" class="item">jail_create</a></strong></dt>
 
 <dd>
 <pre>
     $fbsd-&gt;jail_create( );</pre>
-</dd>
-<dd>
 <pre>
  arguments required:
     ip        - 10.0.1.1
@@ -116,32 +87,18 @@
     hostname  - jail36.example.com,
     jail_home - /home/jail,
     debug</pre>
-</dd>
-<dd>
 <p>If hostname is not passed and reverse DNS is set up, it will
-be looked up. Otherwise, the hostname defaults to ``jail''.</p>
-</dd>
-<dd>
-<p>jail_home defaults to ``/home/jail''.</p>
-</dd>
-<dd>
+be looked up. Otherwise, the hostname defaults to &quot;jail&quot;.</p>
+<p>jail_home defaults to &quot;/home/jail&quot;.</p>
 <p>Here's an example of how I use it:</p>
-</dd>
-<dd>
 <pre>
     ifconfig fxp0 inet alias 10.0.1.175/32</pre>
-</dd>
-<dd>
 <pre>
     perl -e 'use Mail::Toaster::FreeBSD;  
          my $fbsd = Mail::Toaster::FreeBSD-&gt;new; 
          $fbsd-&gt;jail_create( ip=&gt;&quot;10.0.1.175&quot; )';</pre>
-</dd>
-<dd>
 <p>After running $fbsd-&gt;jail_create, you need to set up the jail. 
 At the very least, you need to:</p>
-</dd>
-<dd>
 <pre>
     1. set root password
     2. create a user account
@@ -150,126 +107,74 @@ At the very least, you need to:</p>
         b) add user to wheel group (vi /etc/group)
         c) modify /etc/ssh/sshd_config to permit root login
     4. install perl (pkg_add -r perl)</pre>
-</dd>
-<dd>
 <p>Here's how I set up my jails:</p>
-</dd>
-<dd>
 <pre>
     pw useradd -n matt -d /home/matt -s /bin/tcsh -m -h 0
     passwd root
     pkg_add -r sudo rsync perl5.8
     rehash; visudo
     sh /etc/rc</pre>
-</dd>
-<dd>
 <p>Ssh into the jail from another terminal. Once successfully 
 logged in with root privs, you can drop the initial shell 
 and access the jail directly.</p>
-</dd>
-<dd>
 <p>Read the jail man pages for more details. Read the perl code
 to see what else it does.</p>
 </dd>
-<dt><strong><a name="item_jail_delete">jail_delete</a></strong>
+<dt><strong><a name="jail_delete" class="item">jail_delete</a></strong></dt>
 
 <dd>
 <p>Delete a jail.</p>
-</dd>
-<dd>
 <pre>
   $freebsd-&gt;jail_delete( ip=&gt;'10.0.1.160' );</pre>
-</dd>
-<dd>
 <p>This script unmounts the proc and dev filesystems and then nukes the jail directory.</p>
-</dd>
-<dd>
 <p>It would be a good idea to shut down any processes in the jail first.</p>
 </dd>
-</li>
-<dt><strong><a name="item_jail_start">jail_start</a></strong>
+<dt><strong><a name="jail_start" class="item">jail_start</a></strong></dt>
 
 <dd>
 <p>Starts up a FreeBSD jail.</p>
-</dd>
-<dd>
 <pre>
         $fbsd-&gt;jail_start( ip=&gt;'10.0.1.1', hostname=&gt;'jail03.example.com' );</pre>
-</dd>
-<dd>
 <pre>
  arguments required:
     ip        - 10.0.1.1,</pre>
-</dd>
-<dd>
 <pre>
  arguments optional:
     hostname  - jail36.example.com,
     jail_home - /home/jail,
     debug</pre>
-</dd>
-<dd>
 <p>If hostname is not passed and reverse DNS is set up, it will be
-looked up. Otherwise, the hostname defaults to ``jail''.</p>
-</dd>
-<dd>
-<p>jail_home defaults to ``/home/jail''.</p>
-</dd>
-<dd>
+looked up. Otherwise, the hostname defaults to &quot;jail&quot;.</p>
+<p>jail_home defaults to &quot;/home/jail&quot;.</p>
 <p>Here's an example of how I use it:</p>
-</dd>
-<dd>
 <pre>
     perl -e 'use Mail::Toaster::FreeBSD; 
       $fbsd = Mail::Toaster::FreeBSD-&gt;new;
       $fbsd-&gt;jail_start( ip=&gt;&quot;10.0.1.175&quot; )';</pre>
-</dd>
-<dd>
 <pre>
     
-=item port_install</pre>
-</dd>
-<dd>
+=item install_port</pre>
 <pre>
-    $fbsd-&gt;port_install( port=&gt;&quot;openldap2&quot;, base=&gt;&quot;net&quot; );</pre>
-</dd>
-<dd>
-<p>That's it. Really. Well, OK, sometimes it can get a little more complex. port_install checks first to determine if a port is already installed and if so, skips right on by. It is very intelligent that way. However, sometimes port maintainers do goofy things and we need to override settings that would normally work. A good example of this is currently openldap2.</p>
-</dd>
-<dd>
+    $fbsd-&gt;install_port( &quot;openldap&quot; );</pre>
+<p>That's it. Really. Well, OK, sometimes it can get a little more complex. install_port checks first to determine if a port is already installed and if so, skips right on by. It is very intelligent that way. However, sometimes port maintainers do goofy things and we need to override settings that would normally work. A good example of this is currently openldap.</p>
 <p>If you want to install OpenLDAP 2, then you can install from any of:</p>
-</dd>
-<dd>
 <pre>
-                /usr/ports/net/openldap2
-                /usr/ports/net/openldap20
-                /usr/ports/net/openldap21
-                /usr/ports/net/openldap22</pre>
-</dd>
-<dd>
-<p>So, a full complement of settings could look like:
-</p>
-</dd>
-<dd>
+                /usr/ports/net/openldap23-server
+                /usr/ports/net/openldap23-client
+                /usr/ports/net/openldap24-server
+                /usr/ports/net/openldap24-client</pre>
+<p>So, a full complement of settings could look like:</p>
 <pre>
 
-    $freebsd-&gt;port_install(
-                port  =&gt; &quot;openldap2&quot;, 
-                base  =&gt; &quot;net&quot;,
-                dir   =&gt; &quot;openldap22&quot;,
-                check =&gt; &quot;openldap-2.2&quot;,
+    $freebsd-&gt;install_port( &quot;openldap-client&quot;,
+                dir   =&gt; &quot;openldap24-server&quot;,
+                check =&gt; &quot;openldap-client-2.4&quot;,
                 flags =&gt; &quot;NOPORTDOCS=true&quot;, 
                 fatal =&gt; 0,
-                debug =&gt; 1,
         );</pre>
-</dd>
-<dd>
 <pre>
  arguments required:
-   port - the name of the directory in which the port resides
-   base - the base or category the port is in (security, net, lang, etc.)</pre>
-</dd>
-<dd>
+   port - the name of the directory in which the port resides</pre>
 <pre>
  arguments optional:
    dir   - overrides 'port' for the build directory
@@ -277,126 +182,50 @@ looked up. Otherwise, the hostname defaults to ``jail''.</p>
    flags - comma separated list of arguments to pass when building
    fatal
    debug</pre>
-</dd>
-<dd>
 <pre>
  NOTES:</pre>
-</dd>
-<dd>
 <p>#1 - On rare occasion, a port will get installed as a name other than the ports name. Of course, that wreaks all sorts of havoc so when one of them nasties is found, you can optionally pass along a fourth parameter which can be used as the port installation name to check with.</p>
 </dd>
-</li>
-<dt><strong><a name="item_package_install">package_install</a></strong>
+<dt><strong><a name="install_package" class="item">install_package</a></strong></dt>
 
 <dd>
 <pre>
-        $fbsd-&gt;package_install( port=&gt;&quot;ispell&quot; );</pre>
-</dd>
-<dd>
+        $fbsd-&gt;install_package( &quot;ispell&quot; );</pre>
 <p>Suggested usage:</p>
-</dd>
-<dd>
 <pre>
-        unless ( $fbsd-&gt;package_install( port=&gt;&quot;ispell&quot; ) ) {
-                $fbsd-&gt;port_install( port=&gt;&quot;ispell&quot;, base=&gt;&quot;textproc&quot; );
+        unless ( $fbsd-&gt;install_package( &quot;ispell&quot; ) ) {
+                $fbsd-&gt;install_port( &quot;ispell&quot; );
         };</pre>
-</dd>
-<dd>
 <p>Installs the selected package from FreeBSD packages. If the first install fails, it will try again using an alternate FTP site (ftp2.freebsd.org). If that fails, it returns 0 (failure) so you know it failed and can try something else, like installing via ports.</p>
-</dd>
-<dd>
 <p>If the package is registered in FreeBSD's package registry as another name and you want to check against that name (so it doesn't try installing a package that's already installed), instead, pass it along as alt.</p>
-</dd>
-<dd>
 <pre>
  arguments required:
     port - the name of the package to install</pre>
-</dd>
-<dd>
 <pre>
  arguments optional:
     alt  - a name the package is registered in the ports tree as
     url  - a URL to fetch the package from</pre>
-</dd>
-<dd>
 <p>See the pkg_add man page for more details on using an alternate URL.</p>
 </dd>
-<dt><strong><a name="item_ports_check_age">ports_check_age</a></strong>
-
-<dd>
-<p>Checks how long it's been since you've updated your ports tree. Since the ports tree can be a roaming target, by making sure it's current before installing ports we can increase the liklihood of success.</p>
-</dd>
-<dd>
-<pre>
-        $fbsd-&gt;ports_check_age( days=&gt;&quot;20&quot; );</pre>
-</dd>
-<dd>
-<p>That'll update the ports tree if it's been more than 20 days since it was last updated.</p>
-</dd>
-<dd>
-<pre>
- arguments required:
-   days - how many days old it must be to trigger an update</pre>
-</dd>
-<dd>
-<pre>
- arguments optional:
-   url - where to fetch the cvsup-ports file.</pre>
-</dd>
-</li>
-<dt><strong><a name="item_ports_update">ports_update</a></strong>
+<dt><strong><a name="update_ports" class="item">update_ports</a></strong></dt>
 
 <dd>
 <p>Updates the FreeBSD ports tree (/usr/ports/).</p>
-</dd>
-<dd>
 <pre>
-    $fbsd-&gt;ports_update(conf=&gt;$conf);</pre>
-</dd>
-<dd>
+    $fbsd-&gt;update_ports();</pre>
 <pre>
  arguments required:
    conf - a hashref
  
 See the docs for toaster-watcher.conf for complete details.</pre>
 </dd>
-</li>
-<dt><strong><a name="item_rc_dot_conf_check">rc_dot_conf_check</a></strong>
+<dt><strong><a name="conf_check" class="item">conf_check</a></strong></dt>
 
 <dd>
 <pre>
-    $fbsd-&gt;rc_dot_conf_check(check=&gt;&quot;snmpd_enable&quot;, line=&gt;&quot;snmpd_enable=\&quot;YES\&quot;&quot;);</pre>
-</dd>
-<dd>
+    $fbsd-&gt;conf_check(check=&gt;&quot;snmpd_enable&quot;, line=&gt;&quot;snmpd_enable=\&quot;YES\&quot;&quot;);</pre>
 <p>The above example is for snmpd. This checks to verify that an snmpd_enable line exists in /etc/rc.conf. If it doesn't, then it will add it by appending the second argument to the file.</p>
 </dd>
-<dt><strong><a name="item_source_update">source_update</a></strong>
-
-<dd>
-<p>Updates the FreeBSD sources (/usr/src/) in preparation for building a fresh FreeBSD world.</p>
-</dd>
-<dd>
-<pre>
-    $fbsd-&gt;source_update( conf=&gt;$conf);</pre>
-</dd>
-<dd>
-<pre>
- arguments required:
-     conf</pre>
-</dd>
-<dd>
-<pre>
- arguments optional:
-     cvsup_server_preferred - 'fastest',
-     cvsup_server_country   - 'us',
-     cvsup_supfile_sources  - '/etc/cvsup-stable',
-     fatal
-     debug</pre>
-</dd>
-<dd>
-<p>See the docs for toaster-watcher.conf for complete details.</p>
-</dd>
-</li>
 </dl>
 <p>
 </p>
@@ -430,16 +259,12 @@ See the docs for toaster-watcher.conf for complete details.</pre>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright 2003-2008, The Network People, Inc. All Rights Reserved.</p>
+<p>Copyright 2003-2009, The Network People, Inc. All Rights Reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
-<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-</p>
-<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-</p>
+<p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

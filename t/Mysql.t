@@ -11,9 +11,9 @@ use lib "lib";
 BEGIN { use_ok('Mail::Toaster::Mysql'); }
 require_ok('Mail::Toaster::Mysql');
 
+my $toaster = Mail::Toaster->new(debug=>0);
+my $mysql = Mail::Toaster::Mysql->new('log'=>$toaster);
 
-my $mysql = Mail::Toaster::Mysql->new;
 ok($mysql, 'mysql object');
-
 ok( $mysql->db_vars(), 'db_vars');
 

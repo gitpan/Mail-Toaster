@@ -20,7 +20,7 @@ var default_webmail = "windex";    // the webmail index page
     there ("") instead. The same applies for statistics. */
 
 var default_admin      = "qmailadmin";
-var default_statistics = "rrdutil";
+var default_statistics = "munin";
 
 // these color selectors determine the color of elements updated
 
@@ -394,7 +394,7 @@ function display_subhead_menu_item (activateme) {
 	var bottom_divs = new Array(
 	    "squirrel",   "sqwebmail",   "vwebmail",
 	    "imp",        "roundcube",   "qmailadmin", 
-	    "ezmlm",      "rrdutil",     "webmail_help",
+	    "ezmlm",      "rrdutil",     "munin",          "webmail_help",
 	    "isoqlog",    "qss",         "ssl_help",       "vqadmin",
 	    "pop3_help",  "imap_help",   "filtering_help", "vpopmail_help",
 	    "antivirus_help", "windex",  "userguide"
@@ -484,6 +484,10 @@ function launch_selected_web_app(activateme) {
         case "rrdutil":
             document.rrdutil.action = mailhost+'/cgi-bin/rrdutil.cgi';
             document.rrdutil.submit();
+            break;
+        case "munin":
+            document.munin.action = mailhost+'/munin/';
+            document.munin.submit();
             break;
         case "ezmlm":
             document.ezmlm.action = mailhost+'/ezmlm.cgi';

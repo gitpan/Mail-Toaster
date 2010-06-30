@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Mail-Toaster
-version:            5.13
+version:            5.26
 abstract:           Mail::Toaster perl programs and modules
 author:
     - Matt Simerson (matt@tnpi.net)
@@ -14,6 +14,7 @@ requires:
     Email::Valid:      0
     IO::Socket::SSL:   0
     Mail::Ezmlm:       0
+    Mail::Send:        0
     Net::DNS:          0.2
     Params::Validate:  0.7
     Test::Simple:      0
@@ -22,7 +23,7 @@ no_index:
     directory:
         - t
         - inc
-generated_by:       ExtUtils::MakeMaker version 6.46
+generated_by:       ExtUtils::MakeMaker version 6.48
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4

@@ -1,24 +1,31 @@
-#!perl
 use strict;
 use warnings;
 
 use Cwd;
 use English qw( -no_match_vars );
-use Test::More 'no_plan';
+use Test::More;
 
-use lib "lib";
+use lib 'lib';
+use Mail::Toaster;
 
-BEGIN {
-    use_ok('Mail::Toaster::Logs');
-    use_ok('Mail::Toaster::Utility');
+my $toaster = Mail::Toaster->new(debug=>0);
+my $util = $toaster->{util};
+my $conf = $toaster->parse_config( file => "toaster.conf", debug => 0 );
+
+my $logdir = $conf->{logs_base};
+my $count  = $conf->{logs_counters};
+my $count_dir = "$logdir/$count";
+
+if ( ! $logdir || ! -d $logdir ) {
+    plan skip_all => "Logging not set up yet";
 }
+else {
+    plan 'no_plan';
+};
+
 require_ok('Mail::Toaster::Logs');
 
-my $util = Mail::Toaster::Utility->new;
-my $conf = $util->parse_config( file=>"toaster.conf", debug=>0 );
-
-# basic OO mechanism
-my $log = Mail::Toaster::Logs->new(conf=>$conf);    # create an object
+my $log = Mail::Toaster::Logs->new('log' => $toaster, conf=>$conf);
 ok( defined $log, 'get Mail::Toaster::Logs object' );
 ok( $log->isa('Mail::Toaster::Logs'), 'check object class' );
 
@@ -33,11 +40,8 @@ SKIP: {
 }
 
 # verify_settings
-    eval {
-        # this will certainly fail before Mail::Toaster is installed
-        $log->verify_settings;
-    };
-    if ( ! $EVAL_ERROR ) {
+        # this will fail before Mail::Toaster is installed
+    if (  $log->verify_settings(fatal=>0) ) {
         ok( $log->verify_settings(), 'verify_settings');
     };
 
@@ -47,6 +51,9 @@ SKIP: {
 
 
 # set_countfile
+SKIP: {
+    skip "counters not configured yet", 10 if ! -d $count_dir;
+
     ok( $log->set_countfile(prot=>"imap"), 'set_countfile');
     cmp_ok( 
     $log->set_countfile(prot=>"imap"), 'eq', "/var/log/mail/counters/imap.txt", 
@@ -54,9 +61,7 @@ SKIP: {
 
 # rbl_count
     #skip "rbl_count, needs root permissions", 1 if ( $UID != 0 );
-    require Mail::Toaster::Perl;
-    my $perl = Mail::Toaster::Perl->new();
-    if ( $perl->has_module("Date::Format") ) {
+    if ( $toaster->has_module("Date::Format") ) {
         ok( $log->rbl_count(), 'rbl_count');
     };
 
@@ -67,7 +72,7 @@ SKIP: {
 
 
 # send_count
-    if ( $perl->has_module("Date::Format") ) {
+    if ( $toaster->has_module("Date::Format") ) {
         ok( $log->send_count(), 'send_count');
     };
 
@@ -92,7 +97,7 @@ SKIP: {
 
 # qms_count
     ok( $log->qms_count(), 'qms_count');
-
+};
 
 ###### start of STDIN subs #######
 # these subs expect to recieve log files via STDIN, so they will hang if
@@ -108,35 +113,25 @@ SKIP: {
 ###### end of STDIN subs ########
 
 # compress_yesterdays_logs
-    if ( $perl->has_module("Date::Format") ) {
+    if ( $toaster->has_module("Date::Format") ) {
         ok( $log->compress_yesterdays_logs( file=>"sendlog" ), 'compress_yesterdays_logs');
 
 # purge_last_months_logs
         ok( $log->purge_last_months_logs(), 'purge_last_months_logs');
     };
 
-# rotate_supervised_logs
-    if ( $UID != 0 ) {
-        ok( ! $log->rotate_supervised_logs(), 'rotate_supervised_logs');
-    } 
-    else {
-        ok( $log->rotate_supervised_logs(), 'rotate_supervised_logs');
-    }
-
 # check_log_files
     is_deeply( [], $log->check_log_files( [] ), 'check_log_files empty');
 
     if ( $OSNAME eq "darwin" ) {
         is_deeply ( 
-            ["/var/log/system.log"], 
-            $log->check_log_files( ["/var/log/system.log"] ),
+            ["/var/log/system.log"], $log->check_log_files( "/var/log/system.log" ),
             'check_log_files system'
         );
 
         if ( -e "/var/log/mail.log" ) {
             is_deeply ( 
-                ["/var/log/mail.log"],
-                $log->check_log_files( ["/var/log/mail.log"] ), 
+                ["/var/log/mail.log"], $log->check_log_files( "/var/log/mail.log" ), 
                 'check_log_files mail',
             );
         };
@@ -165,6 +160,9 @@ SKIP: {
     ok( $log->count_send_line('@40000000450c020b32315f74 new msg 71198'), 'count_send_line');
 
 
+SKIP: {
+    skip "counters not configured yet", 4 if ! -d $count_dir;
+
     my $countfile = $log->set_countfile(prot=>"pop3");
 # counter_read
     my ( $path, $file ) = $util->path_parse($countfile);
@@ -189,7 +187,7 @@ SKIP: {
             fatal => 0,
         ), 'counter_write');
     };
-
+}
 
 ok( $log->what_am_i(), 'what_am_i' );
 cmp_ok( $log->what_am_i(), "eq", "Logs.t", 'what_am_i' );

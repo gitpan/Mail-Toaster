@@ -49,15 +49,12 @@ docs:
 
 	pod2html --title="$(MT)"          lib/Mail/Toaster.pm          > $(MODULES)/Toaster.html
 	pod2html --title="$(MT)::Apache"  lib/Mail/Toaster/Apache.pm   > $(MODULES)/Apache.html
-	pod2html --title="$(MT)::CGI"     lib/Mail/Toaster/CGI.pm      > $(MODULES)/CGI.html
 	pod2html --title="$(MT)::Darwin"  lib/Mail/Toaster/Darwin.pm   > $(MODULES)/Darwin.html
 	pod2html --title="$(MT)::DNS"     lib/Mail/Toaster/DNS.pm      > $(MODULES)/DNS.html
 	pod2html --title="$(MT)::Ezmlm"   lib/Mail/Toaster/Ezmlm.pm    > $(MODULES)/Ezmlm.html
 	pod2html --title="$(MT)::FreeBSD" lib/Mail/Toaster/FreeBSD.pm  > $(MODULES)/FreeBSD.html
 	pod2html --title="$(MT)::Logs"    lib/Mail/Toaster/Logs.pm     > $(MODULES)/Logs.html
 	pod2html --title="$(MT)::Mysql"   lib/Mail/Toaster/Mysql.pm    > $(MODULES)/Mysql.html
-	pod2html --title="$(MT)::Passwd"  lib/Mail/Toaster/Passwd.pm   > $(MODULES)/Passwd.html
-	pod2html --title="$(MT)::Perl"    lib/Mail/Toaster/Perl.pm     > $(MODULES)/Perl.html
 	pod2html --title="$(MT)::Qmail"   lib/Mail/Toaster/Qmail.pm    > $(MODULES)/Qmail.html
 	pod2html --title="$(MT)::Setup"   lib/Mail/Toaster/Setup.pm    > $(MODULES)/Setup.html
 	pod2html --title="$(MT)::Utility" lib/Mail/Toaster/Utility.pm  > $(MODULES)/Utility.html
@@ -77,7 +74,6 @@ deps:
 
 web:
 	install bin/toaster_setup.pl       $(TNPITOASTER)/
-	install cgi_files/index.cgi        $(TNPITOASTER)/index.cgi.txt
 	install bin/toaster-watcher.pl     $(TNPITOASTER)/watcher/
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/watcher/toaster-watcher.conf
 	install toaster-watcher.conf-dist  $(TNPITOASTER)/etc/toaster-watcher.conf
@@ -87,15 +83,12 @@ web:
 
 	install -m 0644 $(MODULES)/Toaster.html   $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Apache.html    $(TNPITOASTER)/modules/
-	install -m 0644 $(MODULES)/CGI.html       $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/DNS.html       $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Darwin.html    $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Ezmlm.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/FreeBSD.html   $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Logs.html      $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Mysql.html     $(TNPITOASTER)/modules/
-	install -m 0644 $(MODULES)/Passwd.html    $(TNPITOASTER)/modules/
-	install -m 0644 $(MODULES)/Perl.html      $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Qmail.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Setup.html     $(TNPITOASTER)/modules/
 	install -m 0644 $(MODULES)/Utility.html   $(TNPITOASTER)/modules/
@@ -109,12 +102,11 @@ web:
 WriteMakefile(
 	'NAME'           => 'Mail::Toaster',
 	'VERSION_FROM'   => 'lib/Mail/Toaster.pm', # finds $VERSION
-	'EXE_FILES'      => [ 'cgi_files/index.cgi', 
-                          'bin/toaster_setup.pl', 
-                          'bin/toaster-watcher.pl',
-                          'bin/maillogs', 
-                          'bin/qqtool.pl',
-                        ],
+	'EXE_FILES'      => [ 'bin/toaster_setup.pl', 
+                              'bin/toaster-watcher.pl',
+                              'bin/maillogs', 
+                              'bin/qqtool.pl',
+                            ],
 	'INSTALLSCRIPT'  => '/usr/local/sbin',
 	'PREREQ_PM'      => { 
 			'DBI'             => 1, 
@@ -125,6 +117,7 @@ WriteMakefile(
 			'Email::Valid'    => 0, 
 			'IO::Socket::SSL' => 0,
 			'Mail::Ezmlm'     => 0,
+			'Mail::Send'      => 0,
             'version'         => 0,
 #			'vpopmail'      => 0, 
 #			'HTML::Template' => 1,

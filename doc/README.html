@@ -4,13 +4,15 @@
 <head>
 <title>toaster_setup.pl - runs various build and testing functions for Mail::Toaster</title>
 <meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<link rev="made" href="mailto:matt@sprybook-pro.local" />
+<link rev="made" href="mailto:matt@imac24.simerson.net" />
 </head>
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 <!--
 
 <ul>
@@ -27,7 +29,11 @@
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#copyright">COPYRIGHT</a></li>
 </ul>
+
 -->
+
+
+</div>
 <!-- INDEX END -->
 
 <p>
@@ -58,7 +64,7 @@
 <h1><a name="description">DESCRIPTION</a></h1>
 <p>The mail toaster is a collection of open-source software which provides a full-featured mail server running on FreeBSD, Mac OS X, and Linux. The system is built around the qmail mail transport agent, with many additions and modifications. Matt Simerson is the primary author and maintainer of the toaster. There is an active and friendly community of toaster owners which supports the toaster on a mailing list and web forum.</p>
 <p>The toaster is built around qmail, a robust mail transfer agent by Daniel J. Bernstein, and vpopmail, a virtual domain manager by Inter7 systems. Matt keeps up with releases of the core software, evaluates them, decides when they are stable, and then integrates them into the toaster. Matt has also added several patches which add functionality to these core programs.</p>
-<p>A complete set of instructions for building a mail toaster are on the toaster install page. There is a substantial amount of documentation available for the ``Mail::Toaster'' toaster. Much of it is also readable via ``perldoc Mail::Toaster'', and the subsequent pages. Don't forget to read the Install, Configure, and FAQ pages on the web site. If you still have questions, there is a Web Forum and mailing list. Both are browseable and searchable for your convenience.</p>
+<p>A complete set of instructions for building a mail toaster are on the toaster install page. There is a substantial amount of documentation available for the &quot;Mail::Toaster&quot; toaster. Much of it is also readable via &quot;perldoc Mail::Toaster&quot;, and the subsequent pages. Don't forget to read the Install, Configure, and FAQ pages on the web site. If you still have questions, there is a Web Forum and mailing list. Both are browseable and searchable for your convenience.</p>
 <pre>
   
 =head2 URLs</pre>
@@ -131,7 +137,6 @@
             qss - installs qmailscanner stats
         socklog - installs socklog
         isoqlog - installs and configured isoqlog
-        rrdutil - installs rrdutil
       supervise - creates the directories to be used by svscan</pre>
 <pre>
            test - runs a complete test suite against your server
@@ -151,13 +156,11 @@
 <hr />
 <h1><a name="methods">METHODS</a></h1>
 <dl>
-<dt><strong><a name="item_all">all</a></strong>
+<dt><strong><a name="all" class="item">all</a></strong></dt>
 
 <dd>
 <pre>
   toaster_setup.pl -s all</pre>
-</dd>
-<dd>
 <p>a special target that tries to build the entire Mail::Toaster without any interaction from you. Unlike other targets, it will keep right on going when it encounters an error, getting as much built as it possibly can. It is presumed that the administrator is logging the output for later review. I use this target primarily in testing.</p>
 </dd>
 </dl>
@@ -171,7 +174,7 @@
 <hr />
 <h1><a name="bugs">BUGS</a></h1>
 <p>None known. Report any to author, preferably via RT <a href="http://rt.cpan.org/Public/Bug/Report.html?Queue=Mail-Toaster">http://rt.cpan.org/Public/Bug/Report.html?Queue=Mail-Toaster</a></p>
-<p>Patches welcome in ``diff -u'' format.</p>
+<p>Patches welcome in &quot;diff -u&quot; format.</p>
 <p>
 </p>
 <hr />
@@ -199,9 +202,6 @@
   Mail::Toaster::FreeBSD
   Mail::Toaster::Logs
   Mail::Toaster::Mysql
-  Mail::Toaster::Passwd
-  Mail::Toaster::Perl
-  Mail::Toaster::Provision
   Mail::Toaster::Qmail
   Mail::Toaster::Setup
   Mail::Toaster::Utility</pre>
@@ -214,12 +214,12 @@
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (c) 2004-2008, The Network People, Inc. All rights reserved.</p>
+<p>Copyright (c) 2004-2010, The Network People, Inc. All rights reserved.</p>
 <p>Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:</p>
 <p>Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.</p>
 <p>Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.</p>
 <p>Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.</p>
-<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+<p>THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS &quot;AS IS&quot; AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
 
 </body>
 

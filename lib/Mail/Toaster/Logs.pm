@@ -1,14 +1,12 @@
-#!perl
+package Mail::Toaster::Logs;
+
+our $VERSION = '5.25';
+
 use strict;
 use warnings;
 # the output of warnings and diagnostics should not be enabled in production.
 # the SNMP daemon depends on the output of maillogs, so we need to return
 # nothing or valid counters.
-
-package Mail::Toaster::Logs;
-our $VERSION = "5.10";
-
-use lib "lib";
 
 use Carp;
 use English qw( -no_match_vars );
@@ -19,84 +17,86 @@ use Pod::Usage;
 
 use vars qw( $spam_ref $count_ref );
 
-use Mail::Toaster::Utility 5; 
-my $util = Mail::Toaster::Utility->new;
+use lib 'lib';
+use Mail::Toaster 5.25; 
+my ( $log, $util, $conf, %std_opts );
 
 sub new {
     my $class = shift;
-    # to create an object of this class, you must pass in a hashref which
-    # should contains the contents of toaster.conf
-    my %p = validate(@_, { 'conf'=>HASHREF, }, );
+    my %p = validate(@_, { 
+            'conf'  => HASHREF, 
+            'log'   => OBJECT,
+            test_ok => { type => BOOLEAN, optional => 1 },
+            fatal   => { type => BOOLEAN, optional => 1, default => 1 },
+            debug   => { type => BOOLEAN, optional => 1, default => 1 },
+        }, 
+    );
+
+    $conf = $p{conf};
+    $log = $p{'log'};
+    $util = $log->get_util();
+    my $debug = $log->get_debug;
+    $debug = $conf->{'logs_debug'} if defined $conf->{'logs_debug'};
+
     my $self = { 
-        class => $class, 
-        conf  => $p{'conf'}, 
-        debug => $p{'conf'}->{'logs_debug'} || 0,
+        conf  => $conf, 
+        debug => $debug,
+        util  => $util,
     };
     bless( $self, $class );
+
+    %std_opts = (
+        'test_ok' => { type => BOOLEAN, optional => 1 },
+        'fatal'   => { type => BOOLEAN, optional => 1, default => $p{fatal} },
+        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+    );
+
     return $self;
 }
 
 sub report_yesterdays_activity {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
-    my %p = validate(@_, { test_ok => {type=>BOOLEAN, optional=>1}, } );
+    my %p = validate(@_, { %std_opts } );
 
-    if ( defined $p{'test_ok'} ) { return $p{'test_ok'}; }
+    return $p{'test_ok'} if defined $p{'test_ok'};
 
-    my $email = $conf->{'toaster_admin_email'} || "postmaster";
+    my $email   = $conf->{'toaster_admin_email'} || "postmaster";
+    my $qma_dir = $self->find_qmailanalog() or return;
 
-    my $qmailanalog_dir = $self->find_qmailanalog();
-    return unless ( $qmailanalog_dir );
+#    if ( ! -s $self->get_yesterdays_smtp_log() ) {
+#        carp "no smtp log file for yesterday found!\n";
+#        return;
+#    };
 
-    my $log = $self->get_yesterdays_smtp_log();
-    if ( ! -s $log ) {
-        carp "no smtp log file for yesterday found!\n";
-        return;
-    };
-
-    $log = $self->get_yesterdays_send_log();
+    my $log = $self->get_yesterdays_send_log();
     if ( ! -s $log ) {
         carp "no send log file for yesterday found!\n";
         return;
     };
 
-    print "processing log: $log\n" if $debug;
+    $log->audit( "processing log: $log" );
 
-    my $cat = $log =~ m/\.bz2$/ ? $util->find_the_bin( bin => "bzcat",debug=>0 )
-            : $log =~ m/\.gz$/  ? $util->find_the_bin( bin => "gzcat",debug=>0 )
-            : $util->find_the_bin(bin=>"cat", debug=>0)
-            ;
+    my $cat = $log =~ m/\.bz2$/ ? $util->find_bin( "bzcat" )
+            : $log =~ m/\.gz$/  ? $util->find_bin( "gzcat" )
+            : $util->find_bin( "cat" );
 
-    print "calculating overall stats with:\n" if $debug;
-    print "`$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zoverall`\n"
-      if $debug;
-    my $overall = `$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zoverall`;
+    my %cmds = (
+        overall  => { cmd => "$qma_dir/zoverall"   },
+        failure  => { cmd => "$qma_dir/zfailures"  },
+        deferral => { cmd => "$qma_dir/zdeferrals" },
+    );
 
-    print "calculating failure stats with:\n" if $debug;
-    print "`$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zfailures`\n"
-      if $debug;
-    my $failures =
-      `$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zfailures`;
-      
-    print "calculating deferral stats\n" if $debug;
-    print "`$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zdeferrals`\n"
-      if $debug;
-    my $deferrals =
-      `$cat $log | $qmailanalog_dir/matchup 5>/dev/null | $qmailanalog_dir/zdeferrals`;
+    foreach ( keys %cmds ) {
+        my $cmd = "$cat $log | $qma_dir/matchup 5>/dev/null | " . $cmds{$_}->{'cmd'};
+        $log->audit( "calculating $_ stats with: $cmd");
+        $cmds{'out'} = `$cmd`;
+    };
 
-    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0);
     my $date = "$yy.$mm.$dd";
-    print "date: $yy.$mm.$dd\n" if $debug;
-
-    #require Mail::Toaster::Perl;
-    #my $perl = Mail::Toaster::Perl->new;
-    #if ( $perl->has_module("Perl6::Form") ) {
-    #    $self->pretty_yesterday($date, $overall, $failures, $deferrals);
-    #    return;
-    #};
+    $log->date( "date: $yy.$mm.$dd" );
 
     ## no critic
     open my $EMAIL, "| /var/qmail/bin/qmail-inject";
@@ -109,178 +109,25 @@ Subject: Daily Mail Toaster Report for $date
  ==================================================================== 
                OVERALL MESSAGE DELIVERY STATISTICS                  
  ____________________________________________________________________
-
-$overall
-
-
+\n$cmds{'overall'}{out}\n\n
  ==================================================================== 
                         MESSAGE FAILURE REPORT                         
  ____________________________________________________________________
-$failures
-
-
+$cmds{'failure'}{out}\n\n
  ==================================================================== 
                       MESSAGE DEFERRAL REPORT                       
  ____________________________________________________________________
-$deferrals
+$cmds{'deferral'}{out}
 EO_EMAIL
 
     close $EMAIL;
 
-    print "all done!\n" if $debug;
-
     return 1;
 }
-
-sub pretty_yesterday {
-
-    my $self = shift;
-    my $conf = $self->{'conf'};
-
-    my ($date, $overall, $failures, $deferrals) = @_;
-
-    my $email = $conf->{'toaster_admin_email'} || "postmaster";
-    my $host  = $conf->{'toaster_hostname'} || "localhost";
-
-    #use Perl6::Form;
-    #Perl6::Form->import;
-
-    #my $overall = format_me($overall);
-
-    #print form,
-    print 
-        "To: $email
-From: postmaster\@$host
-Subject: Daily Mail Toaster Report for $date",
-        '',
-        '==================================================================== ',
-        '               OVERALL MESSAGE DELIVERY STATISTICS                  |',
-        '--------------------------------------------------------------------|',
-        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}    |',
-        $overall,
-
-        ' ==================================================================== ',
-        '|                     MESSAGE FAILURE REPORT                         |',
-        '|--------------------------------------------------------------------|',
-        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}     |',
-        $failures,
-
-        ' ==================================================================== ',
-        '|                      MESSAGE DEFERRAL REPORT                       |',
-        '|--------------------------------------------------------------------|',
-        '|   {[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[}     |',
-        $deferrals,
-        ' ==================================================================== ';
-
-
-    ## no critic
-    #open my $EMAIL, "| /var/qmail/bin/qmail-inject";
-    ## use critic
-    #print $mess;
-
-    sub format_me {
-        my $overall = shift;
-        my @lines = split(/\n/, $overall);
-        print join("\t", @lines) . "\n";
-    }
-
-};
-
-sub get_yesterdays_send_log {
-
-    my $self  = shift;
-    my $conf  = $self->{'conf'};
-    my $debug = $self->{'debug'};
-
-    if ( $conf->{'send_log_method'} && $conf->{'send_log_method'} eq "syslog" ) {
-        # freebsd's maillog is rotated daily
-        if ( $OSNAME eq "freebsd" ) {
-             my $file = "/var/log/maillog.0";
-
-             return -e "$file.gz" ? "$file.gz"
-                  : -e "$file.bz2" ? "$file.bz2" 
-                  : croak "could not find your mail logs from yesterday! "
-                    . "Check your send_log_method setting in toaster-watcher.conf "
-                    . "and make sure it is configured appropriately for your system.";
-        } 
-        elsif ( $OSNAME eq "darwin" ) {
-            # logs are rotated weekly.
-            return "/var/log/mail.log";
-        }
-        
-        my $file = "/var/log/mail.log.0";
-
-        return  -e "$file.gz" ? "$file.gz"
-              : -e "$file.bz2" ? "$file.bz2" 
-              : croak "could not find your mail logs from yesterday!\n";
-    };
-
-    # some form of multilog logging
-    my $logbase = $conf->{'logs_base'}
-                || $conf->{'qmail_log_base'}
-                || "/var/log/mail";
-
-    # set up our date variables for today
-    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
-
-    # where todays logs are being archived
-    my $log = "$logbase/$yy/$mm/$dd/sendlog";
-
-    print "report_yesterdays_activity: updating todays symlink for sendlogs\n"
-        if $debug;
-    unlink("$logbase/sendlog") if ( -l "$logbase/sendlog" );
-    symlink( $log, "$logbase/sendlog" );
-
-    # where yesterdays logs are being archived
-    print "report_yesterdays_activity: updating yesterdays symlink for sendlogs\n"
-        if $debug;
-    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1,debug=>$debug);
-    $log = "$logbase/$yy/$mm/$dd/sendlog.gz";
-
-    unlink("$logbase/sendlog.gz") if ( -l "$logbase/sendlog.gz" );
-    symlink( $log, "$logbase/sendlog.gz" );
-
-    return $log;
-};
-
-sub get_yesterdays_smtp_log {
-
-    my $self  = shift;
-    my $conf  = $self->{'conf'};
-    my $debug = $self->{'debug'};
-
-    my $logbase = $conf->{'logs_base'}   # some form of multilog logging
-        || $conf->{'qmail_log_base'}
-        || "/var/log/mail";
-
-    # set up our date variables for today
-    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0,debug=>$debug);
-
-    # where todays logs are being archived
-    my $log = "$logbase/$yy/$mm/$dd/smtplog";
-
-    print "report_yesterdays_activity: updating todays symlink for smtplogs\n"
-        if $debug;
-    unlink("$logbase/smtplog") if ( -l "$logbase/smtplog" );
-    symlink( $log, "$logbase/smtplog" );
-
-    # where yesterdays logs are being archived
-    print "report_yesterdays_activity: updating yesterdays symlink for smtplogs\n"
-        if $debug;
-
-    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1,debug=>$debug);
-    $log = "$logbase/$yy/$mm/$dd/smtplog.gz";
-
-    unlink("$logbase/smtplog.gz") if ( -l "$logbase/smtplog.gz" );
-    symlink( $log, "$logbase/smtplog.gz" );
-
-    return $log;
-};
 
 sub find_qmailanalog {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $qmailanalog_dir = $conf->{'qmailanalog_bin'} || "/var/qmail/qmailanalog/bin";
@@ -322,100 +169,160 @@ EO_NO_MATCHUP
     return $qmailanalog_dir;
 };
 
-sub verify_settings {
+sub get_yesterdays_send_log {
 
-    my $self = shift;
+    my $self  = shift;
+    my $debug = $self->{'debug'};
 
-    my $conf     = $self->{'conf'};
-    my $logbase  = $conf->{'logs_base'}     || $conf->{'qmail_log_base'};
-    my $counters = $conf->{'logs_counters'} || "counters" || "/var/log/mail";
-
-    my $user  = $conf->{'logs_user'}  || "qmaill";
-    my $group = $conf->{'logs_group'} || "qnofiles";
-    
-    my $uid   = getpwnam($user);
-    my $gid   = getgrnam($group);
-
-    unless ( $uid && $gid ) {
-        croak "
-     The log user ($user)  or group ($group) is not installed!\n\n";
+    if ( $conf->{'send_log_method'} && $conf->{'send_log_method'} eq "syslog" ) {
+        return $self->get_yesterdays_send_log_syslog();
     };
 
-    unless ( -e $logbase ) {
-        mkpath( $logbase, 0, oct('0755') )
-            or croak "Couldn't create $logbase: $!\n";
+    # some form of multilog logging
+    my $logbase = $conf->{'logs_base'}
+                || $conf->{'qmail_log_base'}
+                || "/var/log/mail";
 
-        chown( $uid, $gid, $logbase ) 
-            or croak "Couldn't chown $logbase to $uid: $!\n";
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0);
+
+    # where todays logs are being archived
+    my $today = "$logbase/$yy/$mm/$dd/sendlog";
+    $log->audit( "updating todays symlink for sendlogs to $today");
+    unlink "$logbase/sendlog" if -l "$logbase/sendlog";
+    symlink( $today, "$logbase/sendlog" );
+
+    # where yesterdays logs are being archived
+    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1);
+    my $yester = "$logbase/$yy/$mm/$dd/sendlog.gz";
+    $log->audit( "updating yesterdays symlink for sendlogs to $yester" );
+    unlink "$logbase/sendlog.gz" if -l "$logbase/sendlog.gz";
+    symlink( $yester, "$logbase/sendlog.gz" );
+
+    return $yester;
+};
+
+sub get_yesterdays_send_log_syslog {
+    my $self = shift;
+
+    # freebsd's maillog is rotated daily
+    if ( $OSNAME eq "freebsd" ) {
+        my $file = "/var/log/maillog.0";
+
+        return -e "$file.bz2" ? "$file.bz2"
+            : -e "$file.gz" ? "$file.gz" 
+            : croak "could not find yesterdays qmail-send logs! ";
+    } 
+
+    if ( $OSNAME eq "darwin" ) {
+        return "/var/log/mail.log"; # logs are rotated weekly.
+    }
+    
+    my $file = "/var/log/mail.log.0";
+
+    return -e "$file.gz" ? "$file.gz"
+         : -e "$file.bz2" ? "$file.bz2" 
+         : croak "could not find your mail logs from yesterday!\n";
+};
+
+sub get_yesterdays_smtp_log {
+
+    my $self  = shift;
+    my $debug = $self->{'debug'};
+
+    my $logbase = $conf->{'logs_base'}   # some form of multilog logging
+        || $conf->{'qmail_log_base'}
+        || "/var/log/mail";
+
+    # set up our date variables for today
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>0);
+
+    # where todays logs are being archived
+    my $today = "$logbase/$yy/$mm/$dd/smtplog";
+    $log->audit( "updating todays symlink for smtplogs to $today" );
+    unlink("$logbase/smtplog") if -l "$logbase/smtplog";
+    symlink( $today, "$logbase/smtplog" );
+
+    ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1);
+
+    # where yesterdays logs are being archived
+    my $yester = "$logbase/$yy/$mm/$dd/smtplog.gz";
+    $log->audit( "updating yesterdays symlink for smtplogs" );
+    unlink("$logbase/smtplog.gz") if -l "$logbase/smtplog.gz";
+    symlink( $yester, "$logbase/smtplog.gz" );
+
+    return $yester;
+};
+
+sub verify_settings {
+    my $self = shift;
+    my %p = validate(@_, { %std_opts } );
+    return $p{'test_ok'} if defined $p{'test_ok'};
+
+    my $logbase  = $conf->{'logs_base'} || $conf->{'qmail_log_base'} || '/var/log/mail';
+    my $counters = $conf->{'logs_counters'} || "counters";
+
+    my $user  = $conf->{'logs_user'}  || 'qmaill';
+    my $group = $conf->{'logs_group'} || 'qnofiles';
+
+    if ( !-e $logbase ) {
+        mkpath( $logbase, 0, oct('0755') )
+            or return $log->error( "Couldn't create $logbase: $!", %p );
+        $util->chown($logbase, uid=>$user, gid=>$group) or return;
     };
 
     if ( -w $logbase ) {
-        chown( $uid, $gid, $logbase )
-            or croak "Couldn't chown $logbase to $uid: $!\n";
+        $util->chown($logbase, uid=>$user, gid=>$group) or return;
     }
 
     my $dir = "$logbase/$counters";
 
-    unless ( -e $dir ) {
-        mkpath( $dir, 0, oct('0755') ) or croak "Couldn't create $dir: $!\n";
-        chown( $uid, $gid, $dir ) or croak "Couldn't chown $dir to $uid: $!\n";
+    if ( ! -e $dir ) {
+        eval { mkpath( $dir, 0, oct('0755') ); };
+        return $log->error( "Couldn't create $dir: $!",fatal=>0) if $EVAL_ERROR;
+        $util->chown($dir, uid=>$user, gid=>$group) or return;
     }
-    else {
-        unless ( -d $dir ) {
-            croak"$dir should be a directory and is not! \n";
-        }
-    }
+    $log->error( "$dir is not a directory!",fatal=>0) if ! -d $dir;
 
-    my $script = "/usr/local/sbin/maillogs";
+    my $script = "/usr/local/bin/maillogs";
+       $script = '/usr/local/sbin/maillogs' if ! -x $script;
 
-    print "WARNING: $script must be installed!\n"  unless ( -e $script );
-    print "WARNING: $script must be executable!\n" unless ( -x $script );
+    return $log->error( "$script must be installed!",fatal=>0) if ! -e $script;
+    return $log->error( "$script must be executable!",fatal=>0) if ! -x $script;
+    return 1;
 }
 
 sub parse_cmdline_flags {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my %p = validate(@_, {
-            'prot' => {type=>SCALAR|UNDEF, optional=>1, },
-            'debug'=> {type=>BOOLEAN, optional=>1, default=>$debug},
+        'prot' => { type=>SCALAR, optional=>1, },
+        %std_opts,
     } );
 
-    my $prot  = $p{'prot'};
+    my $prot  = $p{'prot'} or pod2usage;
        $debug = $p{'debug'};
 
-    my %valid_prots = (
-        'smtp' => 1,   'yesterday'    => 1,
-        'send' => 1,   'qmailscanner' => 1,
-        'imap' => 1,   'spamassassin' => 1,
-        'pop3' => 1,   'webmail' => 1,
-        'rbl'  => 1,   'test'    => 1,
-    );
+    my @prots = qw/ smtp send imap pop3 rbl yesterday qmailscanner
+                    spamassassin webmail test /;
+    my %valid_prots = map { $_ => 1 } @prots;
 
-    pod2usage() if !$prot;
+    pod2usage if !$valid_prots{$prot};
 
-    if ( $prot eq "test" ) { return 1; };
-    
-    print "parse_cmdline_flags: prot is $prot\n" if $debug;
+    return 1 if $prot eq "test";
 
+    $log->audit( "parse_cmdline_flags: prot is $prot" );
 
-    # in case it was passed to us via $conf
-    if ( $conf->{'debug'} ) { $debug  = $conf->{'debug'} };
-
-    print "working on protocol: $prot\n" if $debug;
- 
-      $prot eq "smtp" ? $self->smtp_auth_count()
-    : $prot eq "rbl"  ? $self->rbl_count  ()
-    : $prot eq "send" ? $self->send_count ()
-    : $prot eq "pop3" ? $self->pop3_count ()
-    : $prot eq "imap" ? $self->imap_count ()
-    : $prot eq "spamassassin" ? $self->spama_count()
-    : $prot eq "qmailscanner" ? $self->qms_count()
-    : $prot eq "webmail"      ? $self->webmail_count()
-    : $prot eq "yesterday"    ? $self->report_yesterdays_activity() 
-    : pod2usage();
+       if ( $prot eq "smtp"         ) { $self->smtp_auth_count() }
+    elsif ( $prot eq "rbl"          ) { $self->rbl_count  ()     }
+    elsif ( $prot eq "send"         ) { $self->send_count ()     }
+    elsif ( $prot eq "pop3"         ) { $self->pop3_count ()     }
+    elsif ( $prot eq "imap"         ) { $self->imap_count ()     }
+    elsif ( $prot eq "spamassassin" ) { $self->spama_count() }
+    elsif ( $prot eq "qmailscanner" ) { $self->qms_count() }
+    elsif ( $prot eq "webmail"      ) { $self->webmail_count() }
+    elsif ( $prot eq "yesterday"    ) { $self->report_yesterdays_activity() }
+    else                              { pod2usage() };
 }
 
 sub what_am_i {
@@ -423,53 +330,39 @@ sub what_am_i {
     my $self  = shift;
     my $debug = $self->{'debug'};
 
-    print "what_am_i: $0 \n" if $debug;
+    $log->audit( "what_am_i: $0");
     $0 =~ /([a-zA-Z0-9\.]*)$/;
-    print "what_am_i: returning $1\n" if $debug;
+    $log->audit( "  returning $1" );
     return $1;
 }
 
 sub rbl_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $countfile = $self->set_countfile(prot=>"rbl");
     $spam_ref     = $self->counter_read( file=>$countfile );
-
     my $logbase   = $conf->{'logs_base'} || "/var/log/mail";
 
     $self->process_rbl_logs( 
-        files => $self->check_log_files( ["$logbase/smtp/current"] ),
+        files => $self->check_log_files( "$logbase/smtp/current" ),
     );
 
     print "      Spam Counts\n\n" if $debug;
 
     my $i = 0;
     while ( my ($description,$count) =  each %$spam_ref ) {
-        print ":" if ( $i > 0 );
+        print ":" if $i > 0;
         print "$description:$count";
         $i++;
     }
     print "\n" if $i > 0;
-
-    my $supervise = $conf->{'logs_supervise'} || "/var/qmail/supervise";
-
-    $self->rotate_supervised_logs("$supervise/smtp/log");
-
-    $self->compress_yesterdays_logs( file=>"smtplog" );
-
     return 1;
-
-  #  do not write out the counters, they get updated when we rotate the logs
-  #	$self->counter_write(log=>$countfile, values=>$spam_ref );
 }
 
 sub smtp_auth_count {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $countfile = $self->set_countfile(prot=>"smtp");
@@ -477,35 +370,31 @@ sub smtp_auth_count {
 
     print "      SMTP Counts\n\n" if $debug;
 
-    my $logfiles = $self->check_log_files( [ $self->syslog_locate() ] );
+    my $logfiles = $self->check_log_files( $self->syslog_locate() );
     if ( $logfiles->[0] eq "" ) {
         carp "\nsmtp_auth_count: Ack, no logfiles! You may want to see why?";
         return 1;
     }
 
-    my (%new_entries, $lines);
+    my ($lines, %new_entries);
 
     # we could have one log file, or dozens (multilog)
-    # so we go through them all adding their entries to the new_entries hash.
+    # go through each, adding their entries to the new_entries hash.
     foreach (@$logfiles) {
         open my $LOGF, "<", $_;
 
         while ( my $log_line = <$LOGF> ) {
-            next
-              unless ( $log_line =~ /vchkpw-smtp/ || $log_line =~ /vchkpw-submission/ );
+            next unless ( $log_line =~ /vchkpw-(smtp|submission)/ );
 
             $lines++;
             $new_entries{'connect'}++;
-            $new_entries{'success'}++ if ( $log_line =~ /success/ );
+            $new_entries{'success'}++ if ( $log_line =~ /success/i );
         }
     }
 
-    # no point in all the following if there were no log entries.
-    return 1 unless $lines;
-
     if ( $new_entries{'success'} ) {
 
-        # because rrdutil needs ever increasing counters (ie, not starting new
+        # because rrdtool expects ever increasing counters (ie, not starting new
         # each day), we keep track of when the counts suddenly reset (ie, after a
         # syslog gets rotated). To reliably know when this happens, we save the
         # last counter in a _last count. If the new count is greater the last
@@ -523,7 +412,7 @@ sub smtp_auth_count {
         };
 
         $count_ref->{'success_last'} = $new_entries{'success'};
-    };
+    }
 
     if ( $new_entries{'connect'} ) {
         if ( $new_entries{'connect'} >= $count_ref->{'connect_last'} ) {
@@ -537,6 +426,10 @@ sub smtp_auth_count {
         $count_ref->{'connect_last'} = $new_entries{'connect'};
     };
 
+    foreach ( qw/ connect success / ) {
+        $count_ref->{$_} = 0 if ! defined $count_ref->{$_};
+    };
+
     print "smtp_auth_connect:$count_ref->{'connect'}:"
          ."smtp_auth_success:$count_ref->{'success'}\n";
 
@@ -546,7 +439,6 @@ sub smtp_auth_count {
 sub send_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $logbase   = $conf->{'logs_base'} || "/var/log/mail";
@@ -557,7 +449,7 @@ sub send_count {
 
     $self->process_send_logs(
         roll  => 0,
-        files => $self->check_log_files( ["$logbase/send/current"] ),
+        files => $self->check_log_files( "$logbase/send/current" ),
     );
 
     if ( $count_ref->{'status_remotep'} && $count_ref->{'status'} ) {
@@ -574,28 +466,11 @@ sub send_count {
         $i++;
     }
     print "\n";
-
-    # rotate the multilog files
-    my $supervise = $conf->{'logs_supervise'}  || "/var/qmail/supervise";
-    if ( -d "$supervise/send/log" ) {
-        $self->rotate_supervised_logs("$supervise/send/log");
-    };
-
-    # update multilog (this is normally off on toaster.conf)
-    if ( $conf->{'logs_isoqlog'} && $UID == 0 ) {
-        $util->syscmd( command => "isoqlog", debug=>$debug, fatal=>0 );
-    }
-
-    $self->compress_yesterdays_logs( file=>"sendlog" );
-    $self->purge_last_months_logs() if $conf->{'logs_archive_purge'};
-
     return 1;
 }
 
 sub imap_count {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my ( $imap_success, $imap_connect, $imap_ssl_success, $imap_ssl_connect );
@@ -603,7 +478,7 @@ sub imap_count {
     my $countfile = $self->set_countfile(prot=>"imap");
        $count_ref = $self->counter_read( file=>$countfile );
 
-    my $logfiles  = $self->check_log_files( [ $self->syslog_locate() ] );
+    my $logfiles  = $self->check_log_files( $self->syslog_locate() );
     if ( @$logfiles[0] eq "" ) {
         carp "\n   imap_count ERROR: no logfiles!";
         return;
@@ -619,11 +494,8 @@ sub imap_count {
             $lines++;
 
             if ( $line =~ /imap-login/ ) {   # dovecot
-                if ( $line =~ /secured/ ) {
-                    $imap_ssl_success++;
-                } else {
-                    $imap_success++; 
-                }
+                if ( $line =~ /secured/ ) { $imap_ssl_success++; } 
+                else {                      $imap_success++;     };
                 next;
             };
 
@@ -707,7 +579,6 @@ sub imap_count {
 sub pop3_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     # read our counters from disk
@@ -718,7 +589,7 @@ sub pop3_count {
 
     # get the location of log files to process
     print "finding the log files to process.\n" if $debug;
-    my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
+    my $logfiles  = $self->check_log_files( $self->syslog_locate() );
     if ( $logfiles->[0] eq "" ) {
         carp "    pop3_count: ERROR: no logfiles to process!";
         return;
@@ -841,14 +712,6 @@ sub pop3_count {
 
     pop3_report();
 
-    my $pop3_logs = $conf->{'logs_pop3d'} || "courier";
-
-    if ( $pop3_logs eq "qpop3d" ) {
-        my $supervise = $conf->{'logs_supervise'} || "/var/qmail/supervise";
-        $self->rotate_supervised_logs("$supervise/pop3/log");
-        $self->compress_yesterdays_logs( file=>"pop3log", fatal=>0 );
-    }
-
     return $self->counter_write( log=>$countfile, values=>$count_ref, fatal=>0 );
 }
 
@@ -869,13 +732,12 @@ sub pop3_report {
 sub webmail_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $countfile = $self->set_countfile(prot=>"web");
        $count_ref = $self->counter_read( file=>$countfile );
 
-    my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
+    my $logfiles  = $self->check_log_files( $self->syslog_locate() );
     if ( @$logfiles[0] eq "" ) {
         carp "\n    ERROR: no logfiles!";
         return 0;
@@ -957,13 +819,12 @@ sub webmail_count {
 sub spama_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $countfile = $self->set_countfile(prot=>"spam");
        $count_ref = $self->counter_read( file=>$countfile );
 
-    my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
+    my $logfiles  = $self->check_log_files( $self->syslog_locate() );
     if ( @$logfiles[0] eq "" ) {
         carp "\n   spamassassin_count ERROR: no logfiles!";
         return;
@@ -1076,7 +937,6 @@ sub spama_count {
 sub qms_count {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my ( $qs_clean, $qs_virus, $qs_all );
@@ -1084,14 +944,14 @@ sub qms_count {
     my $countfile = $self->set_countfile(prot=>"virus");
     my $count_ref = $self->counter_read( file=>$countfile );
 
-    my $logfiles  = $self->check_log_files( [$self->syslog_locate()] );
+    my $logfiles  = $self->check_log_files( $self->syslog_locate() );
     if ( ! defined @$logfiles[0] || @$logfiles[0] eq "" ) {
         carp "    qms_count: ERROR: no logfiles!";
         return 1;
     }
 
-    my $grep = $util->find_the_bin(bin=>"grep", debug=>0);
-    my $wc   = $util->find_the_bin(bin=>"wc", debug=>0);
+    my $grep = $util->find_bin("grep", debug=>0);
+    my $wc   = $util->find_bin("wc", debug=>0);
 
     $qs_clean = `$grep " qmail-scanner" @$logfiles | $grep "Clear:" | $wc -l`;
     $qs_clean = $qs_clean * 1;
@@ -1133,11 +993,9 @@ sub qms_count {
     return $self->counter_write( log=>$countfile, values=>$count_ref, fatal=>0 );
 }
 
-
 sub roll_send_logs {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $logbase  = $conf->{'logs_base'} || "/var/log/mail";
@@ -1148,7 +1006,7 @@ sub roll_send_logs {
 
     $self->process_send_logs( 
         roll  => 1,
-        files => $self->check_log_files( ["$logbase/send/current"] ),
+        files => $self->check_log_files( "$logbase/send/current" ),
     );
 
     $self->counter_write( log=>$countfile, values=>$count_ref, fatal=>0 );
@@ -1157,7 +1015,6 @@ sub roll_send_logs {
 sub roll_rbl_logs {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my $logbase = $conf->{'logs_base'} || "/var/log/mail";
@@ -1172,7 +1029,7 @@ sub roll_rbl_logs {
 
     $self->process_rbl_logs( 
         roll  => 1,
-        files => $self->check_log_files( ["$logbase/smtp/current"] ),
+        files => $self->check_log_files( "$logbase/smtp/current" ),
     );
 
     $self->counter_write( log=>$countfile, values=>$spam_ref, fatal=>0 );
@@ -1181,7 +1038,6 @@ sub roll_rbl_logs {
 sub roll_pop3_logs {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     #	my $countfile = "$logbase/$counters/$qpop_log";
@@ -1191,88 +1047,49 @@ sub roll_pop3_logs {
 
     $self->process_pop3_logs( 
         roll  => 1, 
-        files => $self->check_log_files( [ "$logbase/pop3/current" ] ),
+        files => $self->check_log_files( "$logbase/pop3/current" ),
     );
 
-    #	$self->counter_write(log=>$countfile, values=>\%count);
-    #$self->rotate_supervised_logs( "$supervise/pop3/log" );
+    #$self->counter_write(log=>$countfile, values=>\%count);
     $self->compress_yesterdays_logs( file=>"pop3log" );
 }
 
 sub compress_yesterdays_logs {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
-    my $debug = $self->{'debug'};
 
-    my %p = validate( @_, {
-            'file'    => { type=>SCALAR,  },
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-            'debug'   => { type=>BOOLEAN, optional=>1, default=>$debug },
-        },
-    );
+    my %p = validate( @_, { 'file' => SCALAR } );
+    my $file = $p{'file'};
 
-    my ( $file, $fatal ) = ( $p{'file'}, $p{'fatal'} );
-
-    $debug = $p{'debug'};
-
-    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1, debug=>$debug);
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>1 );
 
     my $logbase = $conf->{'logs_base'} || "/var/log/mail";
-    my $log     = "$logbase/$yy/$mm/$dd/$file";
+    $file    = "$logbase/$yy/$mm/$dd/$file";
     
-    if ( -e "$log.gz" ) {
-        print "   $log is already compressed\n\n" if $debug;
-        return 1;
-    }
+    return $log->audit( "  $file is already compressed") if -e "$file.gz";
+    return $log->audit( "  $file does not exist.") if ! -e $file;
+    return $log->error( "insufficient permissions to compress $file",fatal=>0)
+        if ! $util->is_writable( "$file.gz",fatal=>0 );
 
-    if ( ! -e $log ) {
-        print "   $log does not exist.\n\n" if $debug;
-        return 1;
-    };
+    my $gzip = $util->find_bin('gzip',fatal=>0) or return;
+    $util->syscmd( "$gzip $file", fatal=>0 ) 
+        or return $log->error( "compressing the logfile $file: $!", fatal=>0);
 
-    if ( ! $util->is_writable(file=>"$log.gz",fatal=>0,debug=>$debug) ) {
-        carp "could not compress $log because I do not have write permissions!";
-        return;
-    };
-
-    print "   Compressing the logfile $log..." if $debug;
-    
-    if ( $util->syscmd( command=>"gzip $log", debug=>$debug, fatal=>$fatal) ) {
-        print "done.\n\n" if $debug;
-        return 1;
-    };
-
-    carp "compressing $log FAILED." if $debug;
-    return;
+    $log->audit("compressed $file");
+    return 1;
 }
 
 sub purge_last_months_logs {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
-    my %p = validate( @_, {
-            'fatal'   => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
     if ( ! $conf->{'logs_archive_purge'} ) {
-        print "purge_last_months_logs is disabled in toaster.conf, skipping.\n";
+        $log->audit( "logs_archive_purge is disabled in toaster.conf, skipping.\n");
         return 1;
     };
 
-    my $fatal = $p{'fatal'};
+    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>31 ) or return;
 
-    my ( $dd, $mm, $yy ) = $util->get_the_date(bump=>31, debug=>$debug);
-
-    if ( ! $mm || !$yy ) {
-        carp "purge_last_months_logs: ERROR: get_the_date returned invalid values!";
-        return;
-    };
-
-    my $logbase    = $conf->{'logs_base'} || "/var/log/mail";
+    my $logbase = $conf->{'logs_base'} || "/var/log/mail";
 
     unless ( $logbase && -d $logbase ) {
         carp "purge_last_months_logs: no log directory $logbase. I'm done!";
@@ -1295,53 +1112,18 @@ sub purge_last_months_logs {
     return;
 }
 
-sub rotate_supervised_logs {
-
-    my $self  = shift;
-    my $debug = $self->{'debug'};
-
-    my (@dirs) = @_;
-
-    unless ( $UID == 0 ) {
-        carp "rotate_supervsed_logs: root privs are needed to restart daemons."
-            . " log rotate FAILED." if $debug;
-        return;
-    }
-
-    DIR:
-    for (@dirs) { 
-        if ( ! -d $_ ) {
-            carp "rotate_supervised_logs: the log directory $_ is missing!";
-            next DIR;
-        };
-        if ( ! -e "$_/run" ) {
-            carp  "the run file in the log direcory $_ is missing!";
-            next  DIR;
-        };
-        $util->syscmd( command => "svc -a $_", debug=>0, fatal=>0 );
-    };
-    return 1;
-}
-
 sub check_log_files {
-
     my $self  = shift;
-    my $check = shift;;
- 
     my @exists;
-
-    foreach my $file ( @$check ) {
-        next if !$file;
-        if ( -e $file ) { push @exists, $file; };
+    foreach my $file ( @_ ) {
+        next if !$file || ! -e $file;
+        push @exists, $file;
     };
-
     return \@exists;
 }
 
 sub process_pop3_logs {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my %p = validate(@_, {
@@ -1352,21 +1134,15 @@ sub process_pop3_logs {
 
     my $files_ref = $p{'files'};
 
-    my $skip_archive;
+    my $skip_archive = 0;
+       $skip_archive++ if !$files_ref || !$files_ref->[0]; # no log file(s)!
 
     if ( $p{'roll'} ) {
 
-        # no log file(s)! 
-        if ( !$files_ref->[0] ) {
-            $skip_archive++;
-        };
-
         my $PIPE_TO_CRONOLOG;
         if ( ! $skip_archive ) {
-            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"pop3log");
-            if ( ! $PIPE_TO_CRONOLOG ) {
-                $skip_archive++;
-            };
+            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"pop3log")
+                or $skip_archive++;
         };
 
         while (<STDIN>) {
@@ -1374,15 +1150,15 @@ sub process_pop3_logs {
             print $PIPE_TO_CRONOLOG $_ if ! $skip_archive;
         }
         close $PIPE_TO_CRONOLOG if ! $skip_archive;
-        $skip_archive ? return : return 1;
+        return $skip_archive;
     }
 
     # these logfiles are empty unless debugging is enabled
     foreach my $file ( @$files_ref ) {
-        print "process_pop3_logs: reading file $file..." if $debug;
+        $log->audit( "  reading file $file...");
 
         my $MULTILOG_FILE;
-        if ( ! open $MULTILOG_FILE, "<", $file ) {
+        open ($MULTILOG_FILE, '<', $file ) or do {
             carp "couldn't read $file: $!";
             $skip_archive++;
             next;
@@ -1392,17 +1168,15 @@ sub process_pop3_logs {
             chomp;
             #count_pop3_line( $_ );
         }
-        close($MULTILOG_FILE);
-        print "done.\n" if $debug;
+        close $MULTILOG_FILE;
+        $log->audit( "done.") if $debug;
     }
 
-    $skip_archive ? return : return 1;
+    return $skip_archive;
 }
 
 sub process_rbl_logs {
-
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my %p = validate( @_, {
@@ -1414,16 +1188,13 @@ sub process_rbl_logs {
     my $files_ref = $p{'files'};
 
     my $skip_archive = 0;
+       $skip_archive++ if ! $files_ref || !$files_ref->[0];  # no log file(s)! 
 
     if ( $p{'roll'} ) {
-
-        # no log file(s)! 
-        $skip_archive++ if !$files_ref->[0];
-
         my $PIPE_TO_CRONOLOG;
         if ( ! $skip_archive ) {
-            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"smtplog");
-            $skip_archive++ if ! $PIPE_TO_CRONOLOG;
+            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"smtplog")
+                or $skip_archive++;
         };
 
         while (<STDIN>) {
@@ -1432,74 +1203,79 @@ sub process_rbl_logs {
             print $PIPE_TO_CRONOLOG $_ if ! $skip_archive;
         }
         close $PIPE_TO_CRONOLOG if ! $skip_archive;
-        $skip_archive ? return : return 1;
+        return $skip_archive;
     }
 
     foreach my $file ( @$files_ref ) {
         print "process_rbl_logs: reading file $file..." if $debug;
 
         my $MULTILOG_FILE;
-        if ( ! open $MULTILOG_FILE, "<", $file ) {
+        open ($MULTILOG_FILE, "<", $file ) or do {
             carp "couldn't read $file: $!";
             $skip_archive++;
             next;
         };
 
-        while (<$MULTILOG_FILE>) {
-            $self->count_rbl_line( $_ );
-        }
-        close($MULTILOG_FILE);
+        while (<$MULTILOG_FILE>) { $self->count_rbl_line( $_ ); }
+        close $MULTILOG_FILE ;
         print "done.\n" if $debug;
     }
 
-    $skip_archive ? return : return 1;
+    return $skip_archive;
 }
 
 sub count_rbl_line {
 
     my $self = shift;
-    my $line = shift;
+    my $line = shift or return;
 
     # comment out print lines
-    return unless $line;
     chomp $line;
 
     if ( $line =~ /rblsmtpd/ ) {
         # match the most common entries earliest
-          $line =~ /spamhaus/     ? $spam_ref->{'spamhaus'}++
-        : $line =~ /spamcop/      ? $spam_ref->{'spamcop'}++
-        : $line =~ /dsbl\.org/    ? $spam_ref->{'dsbl'}++
-        : $line =~ /services/     ? $spam_ref->{'services'}++
-        : $line =~ /rfc-ignorant/ ? $spam_ref->{'ignorant'}++
-        : $line =~ /sorbs/        ? $spam_ref->{'sorbs'}++
-        : $line =~ /njabl/        ? $spam_ref->{'njabl'}++
-        : $line =~ /ORDB/         ? $spam_ref->{'ordb'}++
-        : $line =~ /mail-abuse/   ? $spam_ref->{'maps'}++
-        : $line =~ /monkeys/      ? $spam_ref->{'monkeys'}++
-        : $line =~ /visi/         ? $spam_ref->{'visi'}++
-        #: print $line;
-        : $spam_ref->{'other'}++
+          if  ( $line =~ /spamhaus/     ) { $spam_ref->{'spamhaus'}++ }
+        elsif ( $line =~ /spamcop/      ) { $spam_ref->{'spamcop'}++  }
+        elsif ( $line =~ /dsbl\.org/    ) { $spam_ref->{'dsbl'}++     }
+        elsif ( $line =~ /services/     ) { $spam_ref->{'services'}++ }
+        elsif ( $line =~ /rfc-ignorant/ ) { $spam_ref->{'ignorant'}++ }
+        elsif ( $line =~ /sorbs/        ) { $spam_ref->{'sorbs'}++    }
+        elsif ( $line =~ /njabl/        ) { $spam_ref->{'njabl'}++    }
+        elsif ( $line =~ /ORDB/         ) { $spam_ref->{'ordb'}++     }
+        elsif ( $line =~ /mail-abuse/   ) { $spam_ref->{'maps'}++     }
+        elsif ( $line =~ /monkeys/      ) { $spam_ref->{'monkeys'}++  }
+        elsif ( $line =~ /visi/         ) { $spam_ref->{'visi'}++     }
+        else {
+            #print $line; 
+            $spam_ref->{'other'}++;
+        }
     }
     elsif ( $line =~ /CHKUSER/ ) {
-          $line =~ /CHKUSER acce/ ? $spam_ref->{'ham'}++
-        : $line =~ /CHKUSER reje/ ? $spam_ref->{'chkuser'}++
-        #: print $line;
-        : $spam_ref->{'other'}++;
+           if ( $line =~ /CHKUSER acce/ ) { $spam_ref->{'ham'}++     }
+        elsif ( $line =~ /CHKUSER reje/ ) { $spam_ref->{'chkuser'}++ }
+        else {
+            #print $line;
+            $spam_ref->{'other'}++;
+        }
     }
-    elsif ( $line =~ /simscan/ ) {
-           lc($line) =~ /clean/   ? $spam_ref->{'ham'}++
-        : lc($line) =~ /virus:/   ? $spam_ref->{'virus'}++
-        : lc($line) =~ /spam rej/ ? $spam_ref->{'spamassassin'}++
-        #: print $line;    
-        : $spam_ref->{'other'}++;
+    elsif ( $line =~ /simscan/i ) {
+           if ( $line =~ /clean/i    ) { $spam_ref->{'ham'}++          }
+        elsif ( $line =~ /virus:/i   ) { $spam_ref->{'virus'}++        }
+        elsif ( $line =~ /spam rej/i ) { $spam_ref->{'spamassassin'}++ }
+        else {  
+            #print $line;    
+            $spam_ref->{'other'}++;
+        };
     }
     else {
-          $line =~ /badhelo:/       ? $spam_ref->{'badhelo'}++
-        : $line =~ /badmailfrom:/   ? $spam_ref->{'badmailfrom'}++
-        : $line =~ /badmailto:/     ? $spam_ref->{'badmailto'}++
-        : $line =~ /Reverse/        ? $spam_ref->{'dns'}++
-        #: print $line;
-        : $spam_ref->{'other'}++
+           if ( $line =~ /badhelo:/     ) { $spam_ref->{'badhelo'}++     }
+        elsif ( $line =~ /badmailfrom:/ ) { $spam_ref->{'badmailfrom'}++ }
+        elsif ( $line =~ /badmailto:/   ) { $spam_ref->{'badmailto'}++   }
+        elsif ( $line =~ /Reverse/      ) { $spam_ref->{'dns'}++         }
+        else { 
+            #print $line;
+            $spam_ref->{'other'}++;
+        };
     }
 
     $spam_ref->{'count'}++;
@@ -1509,7 +1285,6 @@ sub count_rbl_line {
 sub process_send_logs {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my %p = validate( @_, {
@@ -1521,19 +1296,16 @@ sub process_send_logs {
     my $files_ref = $p{'files'};
 
     my $skip_archive = 0;
+       $skip_archive++ if ! $files_ref || !$files_ref->[0]; # no log files
 
     if ( $p{'roll'} ) {
 
         print "process_send_logs: log rolling is enabled.\n" if $debug;
 
-        # no log file(s)! 
-        $skip_archive++ if !$files_ref->[0];
-
         my $PIPE_TO_CRONOLOG;
         if ( ! $skip_archive ) {
-            unless ( $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"sendlog") ) {
-                $skip_archive++;
-            };
+            $PIPE_TO_CRONOLOG = $self->get_cronolog_handle(file=>"sendlog")
+                or $skip_archive++;
         };
 
         while (<STDIN>) {
@@ -1542,17 +1314,17 @@ sub process_send_logs {
             print $PIPE_TO_CRONOLOG $_ if ! $skip_archive;
         }
         close $PIPE_TO_CRONOLOG if ! $skip_archive;
-        $skip_archive ? return : return 1;
+        return $skip_archive;
     }
 
     print "process_send_logs: log rolling is disabled.\n" if $debug;
 
     foreach my $file ( @$files_ref ) {
         
-        print "process_send_logs: reading file $file.\n" if ($debug);
-        
+        print "process_send_logs: reading file $file.\n" if $debug;
+ 
         my $INFILE;
-        if ( ! open( $INFILE, "<", $file ) ) {
+        open( $INFILE, "<", $file ) or do {
             carp "process_send_logs couldn't read $file: $!";
             $skip_archive++;
             next;
@@ -1562,16 +1334,19 @@ sub process_send_logs {
             chomp;
             $self->count_send_line( $_ );
         }
-        close($INFILE);
+        close $INFILE;
     }
 
-    $skip_archive ? return : return 1;
+    return $skip_archive;
 }
 
 sub count_send_line {
 
     my $self = shift;
-    my $line = shift;
+    my $line = shift or do {
+        $count_ref->{'message_other'}++;
+        return; 
+    };
 
 ########## $line will have a log entry in this format ########
 # @40000000450c020b32315f74 new msg 71198
@@ -1583,12 +1358,7 @@ sub count_send_line {
 # @40000000450c020c06be6ae4 end msg 71198
 ################################################
 
-    unless ($line) {
-        $count_ref->{'message_other'}++;
-        return; 
-    };
     chomp $line;
-
     #carp "$line";
 
     # split the line into date and activity
@@ -1599,27 +1369,17 @@ sub count_send_line {
         return; 
     };
 
-    # because we have to process these regexps for every line,
-    # we use a simple regexp in the cascading if/elsif and then run a
-    # more complete regexp to get the values we want after we match. This
-    # considerably reduces the number of regexp operations required. 
-    # There is likely a more efficient way to do this.
-
     if    ( $activity =~ /^new msg/ ) {
         # new msg 71512
         # the complete line match: /^new msg ([0-9]*)/ 
         $count_ref->{'message_new'}++; 
     }
     elsif ( $activity =~ /^info msg / ) {
-        
-        # sample line
         # info msg 71766: bytes 28420 from <elfer@club-internet.fr> qp 5419 uid 89
-        
-        # a bigger slower regexp, but we want to bytes
-        $activity =~ /^info msg ([0-9]*): bytes ([0-9]*) from/;
-        
-        # the complete line match
+        # a complete line match
         # /^info msg ([0-9]*): bytes ([0-9]*) from \<(.*)\> qp ([0-9]*)/
+
+        $activity =~ /^info msg ([0-9]*): bytes ([0-9]*) from/;
 
         $count_ref->{'message_bytes'} += $2;
         $count_ref->{'message_info'}++;
@@ -1633,9 +1393,9 @@ sub count_send_line {
         
         $activity =~ /^starting delivery ([0-9]*): msg ([0-9]*) to ([a-z]*) /;
         
-          $3 eq "remote" ? $count_ref->{'start_delivery_remote'}++
-        : $3 eq "local"  ? $count_ref->{'start_delivery_local'}++
-        : print "count_send_line: error, unknown delivery line format\n";
+           if ( $3 eq "remote" ) { $count_ref->{'start_delivery_remote'}++ }
+        elsif ( $3 eq "local"  ) { $count_ref->{'start_delivery_local'}++  }
+        else { print "count_send_line: unknown delivery line format\n"; };
 
         $count_ref->{'start_delivery'}++;
     }
@@ -1643,8 +1403,8 @@ sub count_send_line {
         # status: local 0/10 remote 3/100
         $activity =~ /^status: local ([0-9]*)\/([0-9]*) remote ([0-9]*)\/([0-9]*)/;
         
-        $count_ref->{'status_localp'}  = $count_ref->{'status_localp'} +  ( $1 / $2 );
-        $count_ref->{'status_remotep'} = $count_ref->{'status_remotep'} + ( $3 / $4 );
+        $count_ref->{'status_localp'}  += ( $1 / $2 );
+        $count_ref->{'status_remotep'} += ( $3 / $4 );
         
         $count_ref->{'status'}++;
     }
@@ -1663,10 +1423,10 @@ sub count_send_line {
         
         $activity =~ /^delivery ([0-9]*): ([a-z]*): /;
         
-          $2 eq "success"  ? $count_ref->{'delivery_success'}++
-        : $2 eq "deferral" ? $count_ref->{'delivery_deferral'}++
-        : $2 eq "failure"  ? $count_ref->{'delivery_failure'}++
-        : print "unknown " . $activity . "\n";
+           if ( $2 eq "success"  ) { $count_ref->{'delivery_success'}++  }
+        elsif ( $2 eq "deferral" ) { $count_ref->{'delivery_deferral'}++ }
+        elsif ( $2 eq "failure"  ) { $count_ref->{'delivery_failure'}++  }
+        else { print "unknown " . $activity . "\n"; };
 
         $count_ref->{'delivery'}++;
     }
@@ -1683,6 +1443,30 @@ sub count_send_line {
 }
 
 
+sub counter_create {
+    my $self = shift;
+    my $file = shift;
+
+    my $debug = $self->{'debug'};
+    carp "\nWARN: the file $file is missing! I will try to create it." if $debug;
+
+    if ( ! $util->is_writable( $file,debug=>0,fatal=>0) ) {
+        carp "FAILED.\n $file does not exist and the user $UID has "
+            . "insufficent privileges to create it!" if $debug;
+        return;
+    };
+
+    $self->counter_write( log => $file, values => { created => time(), },);
+
+    my $user = $self->{'conf'}{'logs_user'} || "qmaill";
+    my $group = $self->{'conf'}{'logs_group'} || "qnofiles";
+
+    $util->chown( $file, uid=>$user, gid=>$group, debug=>0);
+
+    print "done.\n";
+    return 1;
+};
+
 sub counter_read {
 
     my $self  = shift;
@@ -1694,46 +1478,19 @@ sub counter_read {
         } 
     );
 
-    my $file  = $p{'file'};
+    my $file  = $p{'file'} or croak "you must pass a filename!\n";
        $debug = $p{'debug'};
-
-    my %hash;
-
-    unless ( $file ) {
-        croak "you must pass a filename!\n";
-    };
 
     print "counter_read: fetching counters from $file..." if $debug;
 
     if ( ! -e $file ) {
-        carp "\nWARN: the file $file is missing! I will try to create it." if $debug;
-
-        if ( ! $util->is_writable(file=>$file,debug=>0,fatal=>0) ) {
-            carp "FAILED.\n $file does not exist and the user $UID has "
-                . "insufficent privileges to create it!" if $debug;
-            return;
-        };
-
-        $self->counter_write( 
-            log    => $file, 
-            values => { created => time(), },
-        );
-
-        my $user = $self->{'conf'}->{'logs_user'} || "qmaill";
-        my $group = $self->{'conf'}->{'logs_group'} || "qnofiles";
-
-        $util->file_chown( file=>$file, uid=>$user, gid=>$group, debug=>0);
-
-        print "done.\n";
-        return;
+        $self->counter_create( $file ) or return;
     }
     
-    my @lines = $util->file_read( file => $file, debug=>$debug );
+    my %hash;
 
-    foreach (@lines) {
+    foreach ( $util->file_read( $file, debug=>$debug ) ) {
         my ($description, $count) = split( ":", $_ );
-
-        # sets key = $value in %hash
         $hash{ $description } = $count;
     }
 
@@ -1758,17 +1515,15 @@ sub counter_write {
     $debug = $p{'debug'};
     my ( $log, $values_ref, $fatal ) = ( $p{'log'}, $p{'values'}, $p{'fatal'} );
 
-    my @lines;
-
-    if ( -d $log ) { print "FAILURE: counter_write $log is a directory!\n"; }
-
-    unless ( $util->is_writable( file => $log, debug => 0, fatal=>$fatal ) ) {
-        $util->_formatted( "counter_write: $log is not writable", "FAILED" );
-        return;
+    if ( -d $log ) { 
+        print "FAILURE: counter_write $log is a directory!\n"; 
     }
 
+    return $log->error( "counter_write: $log is not writable",fatal=>0 )
+        unless $util->is_writable( $log, debug => 0, fatal=>$fatal );
+
     unless ( -e $log ) {
-        print "WARNING: counter_write $log does not exist! Creating...";
+        print "NOTICE: counter_write is creating $log";
     }
 
     # it might be necessary to wrap the counters
@@ -1777,6 +1532,7 @@ sub counter_write {
     # check the number, and subtract the maximum value for it.
     # rrdtool will continue to Do The Right Thing. :)
 
+    my @lines;
     while ( my ($key, $value) = each %$values_ref ) {
         print "key: $key  \t val: $value \n" if $debug;
         if ( $key && defined $value ) {
@@ -1792,8 +1548,7 @@ sub counter_write {
         #print Data::Dumper::Dumper ($values_ref); 
     };
 
-    return $util->file_write( 
-        file  => $log, 
+    return $util->file_write( $log, 
         lines => \@lines, 
         debug => $debug,
         fatal => $fatal,
@@ -1803,7 +1558,6 @@ sub counter_write {
 sub get_cronolog_handle {
 
     my $self  = shift;
-    my $conf  = $self->{'conf'};
     my $debug = $self->{'debug'};
     
     my %p = validate(@_, { 'file' => SCALAR, },);
@@ -1824,7 +1578,7 @@ sub get_cronolog_handle {
         return;
     }
 
-    my $cronolog = $util->find_the_bin( bin => "cronolog", debug=>0, fatal=>0 );
+    my $cronolog = $util->find_bin( "cronolog", debug=>0, fatal=>0 );
     if ( ! $cronolog || !-x $cronolog) {
         carp "cronolog could not be found. Please install it!";
         return;
@@ -1833,7 +1587,7 @@ sub get_cronolog_handle {
     my $tai64nlocal;
 
     if ( $conf->{'logs_archive_untai'} ) {
-        my $taibin = $util->find_the_bin( bin=>"tai64nlocal",debug=>0, fatal=>0 );
+        my $taibin = $util->find_bin( "tai64nlocal",debug=>0, fatal=>0 );
 
         if ( ! $taibin ) {
             carp "tai64nlocal is selected in toaster.conf but cannot be found!";
@@ -1892,7 +1646,6 @@ sub syslog_locate {
 sub set_countfile {
 
     my $self = shift;
-    my $conf = $self->{'conf'};
     my $debug = $self->{'debug'};
 
     my %p = validate(@_, { prot=>SCALAR }, );
@@ -1916,28 +1669,6 @@ __END__
 =head1 NAME
 
 Mail::Toaster::Logs - objects and functions for interacting with email logs
-
-=head1 NAME
-
-5.10
-
-=head1 SYNOPSIS
-
-    maillog <protocol> [-r] [-v]
-
-    <protocol> is one of: 
-
-         smtp - report SMTP AUTH attempts and successes
-          rbl - report RBL, virus, and invalid format message blocks
-         send - report qmail-send counters
-         pop3 - report pop3 counters
-         imap - report imap counters
- spamassassin - report spamassassin counters
- qmailscanner - report qmailscanner counters
-      webmail - count webmail authentications
-
-    yesterday - mail an activity report to the admin
-
 
 This module contains functions related to mail logging and are used primarily in maillogs. Some functions are also used in toaster-watcher.pl and toaster_setup.pl.
 
@@ -1963,7 +1694,7 @@ email a report of yesterdays email traffic.
 
 Does some checks to make sure things are set up correctly.
 
-    $logs->verify_settings(conf=>$conf);
+    $logs->verify_settings();
 
 tests: 
 
@@ -1986,7 +1717,7 @@ $prot is the protocol we're supposed to work on.
 
 =item check_log_files
 
-	$logs->check_log_files( [$check] );
+	$logs->check_log_files( $check );
 
 
 =item compress_yesterdays_logs
@@ -2059,7 +1790,7 @@ Count the number of connections and successful authentications via POP3 and POP3
 
     process_rbl_logs(
         roll  => 0,
-        files => $self->check_log_files(["$logbase/smtp/current"]),
+        files => $self->check_log_files( "$logbase/smtp/current" ),
     );
 
 
@@ -2082,14 +1813,6 @@ Count statistics logged by qmail scanner.
 	);
 
 For a supplied protocol, cleans out last months email logs.
-
-
-
-=item rotate_supervised_logs
-
-	$logs->rotate_supervised_logs(@dirs);
-
-Tell multilog to rotate the maillogs for the array of dirs supplied.
 
 
 =item rbl_count
