@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Mail-Toaster
-version:            5.26
+version:            5.27_02
 abstract:           Mail::Toaster perl programs and modules
 author:
     - Matt Simerson (matt@tnpi.net)
@@ -18,6 +18,7 @@ requires:
     Net::DNS:          0.2
     Params::Validate:  0.7
     Test::Simple:      0
+    URI:               0
     version:           0
 no_index:
     directory:
