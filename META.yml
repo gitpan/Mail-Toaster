@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Mail-Toaster
-version:            5.27_02
+version:            5.27_03
 abstract:           Mail::Toaster perl programs and modules
 author:
     - Matt Simerson (matt@tnpi.net)
