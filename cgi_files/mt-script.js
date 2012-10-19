@@ -159,11 +159,11 @@ function showThis(show_me) {
 }
 function hideThis(hide_me) {
 
-    // show the object we were passed
+    // hide the object we were passed
 	var styleObject = getStyleObject(hide_me);
 	styleObject.visibility = "hidden";
 
-    // enables display for hidden blocks
+    // disable display for block elements
 	styleObject.display = "none";
 }
 
@@ -457,7 +457,7 @@ function launch_selected_web_app(activateme) {
             if ( ! auth_valid() ) {
                 return false;
             };
-            document.imp.action = mailhost+'/horde/imp/redirect.php';
+            document.imp.action = mailhost+'/horde/imp/index.php';
             document.imp.submit();
             break;
         case "roundcube":

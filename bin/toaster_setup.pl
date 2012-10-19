@@ -56,92 +56,92 @@ else {
 
 my $setup = Mail::Toaster::Setup->new('log'=>$toaster, conf=>$conf);
 
-  $section eq "pre"        ? $setup->dependencies      ()
-: $section eq "cpan"       ? $setup->cpan              ()
-: $section eq "docs"       ? $setup->docs              ()
-: $section eq "help"       ? pod2usage                 ( {-verbose=>1 } )
-: $section eq "config"     ? $setup->config            ()
+  $section eq 'pre'        ? $setup->dependencies      ()
+: $section eq 'cpan'       ? $setup->cpan              ()
+: $section eq 'docs'       ? $setup->docs              ()
+: $section eq 'help'       ? pod2usage                 ( {-verbose=>1 } )
+: $section eq 'config'     ? $setup->config            ()
+: $section eq 'ssl'        ? $setup->openssl_conf      ()
 
-: $section eq "ssl"        ? $setup->openssl_conf       ()
-
-#  Updates the ports tree on FreeBSD and Darwin
-: $section eq "ports"      ? $setup->ports            ( )
+#  port management on FreeBSD and Darwin
+: $section eq 'ports'      ? $setup->ports            ()
+: $section eq 'portmaster' ? $setup->portmaster       ()
 
 #  Standard daemons & utilities
-: $section eq "mysql"      ? $setup->mysql            ()
-: $section eq "phpmyadmin" ? $setup->phpmyadmin       ()
-: $section eq "lighttpd"   ? $setup->lighttpd         ()
-: $section eq "apache"     ? $setup->apache           ()
-: $section eq "apache1"    ? $setup->apache   ( ver=>1,)
-: $section eq "apache2"    ? $setup->apache   ( ver=>2,)
-: $section eq "apachessl"  ? $setup->apache(ver=>'ssl',)
-: $section eq "apacheconf" ? $apache->conf_patch      (conf=>$conf, debug=>$debug)
-: $section eq "cronolog"   ? $setup->cronolog         ()
+: $section eq 'mysql'      ? $setup->mysql            ()
+: $section eq 'lighttpd'   ? $setup->lighttpd         ()
+: $section eq 'apache'     ? $setup->apache           ()
+: $section eq 'apachessl'  ? $setup->apache(ver=>'ssl' )
+: $section eq 'cronolog'   ? $setup->cronolog         ()
 
 #  Qmail & related
-: $section eq "ucspi"      ? $setup->ucspi_tcp        ( )
-: $section eq "daemontools"? $setup->daemontools      ( )
-: $section eq "ezmlm"      ? $setup->ezmlm            ( )
-: $section eq "autorespond"? $setup->autorespond      ( )
-: $section eq "vpopmail"   ? $setup->vpopmail         ( )
-: $section eq "vpeconfig"  ? $setup->vpopmail_etc     ( )
-: $section eq "vpopmysql"  ? $setup->vpopmail_mysql_privs()
-: $section eq "vqadmin"    ? $setup->vqadmin          ( )
-: $section eq "qmail"      ? $qmail->install_qmail    (debug=>$debug )
-: $section eq "qmailconf"  ? $qmail->config           (debug=>$debug )
-: $section eq "netqmail"   ? $qmail->netqmail         (debug=>$debug )
-: $section eq "netqmailmac"? $qmail->netqmail_virgin  (debug=>$debug )
-: $section eq "djbdns"     ? $setup->djbdns           ( )
+: $section eq 'ucspi'      ? $setup->ucspi_tcp        ()
+: $section eq 'daemontools'? $setup->daemontools      ()
+: $section eq 'ezmlm'      ? $setup->ezmlm            ()
+: $section eq 'autorespond'? $setup->autorespond      ()
+: $section eq 'vpopmail'   ? $setup->vpopmail         ()
+: $section eq 'vpeconfig'  ? $setup->vpopmail_etc     ()
+: $section eq 'vpopmysql'  ? $setup->vpopmail_mysql_privs()
+: $section eq 'vqadmin'    ? $setup->vqadmin          ()
+: $section eq 'qmail'      ? $qmail->install_qmail    (debug=>$debug )
+: $section eq 'qmailconf'  ? $qmail->config           (debug=>$debug )
+: $section eq 'netqmail'   ? $qmail->netqmail         (debug=>$debug )
+: $section eq 'netqmailmac'? $qmail->netqmail_virgin  (debug=>$debug )
+: $section eq 'djbdns'     ? $setup->djbdns           ()
 
 # mail servers
-: $section eq "dovecot"    ? $setup->dovecot          ( )
-: $section eq "courier"    ? $setup->courier_imap     ( )
-: $section eq "courierconf"? $setup->courier_config   ( )
+: $section eq 'dovecot'    ? $setup->dovecot          ()
+: $section eq 'courier'    ? $setup->courier_imap     ()
+: $section eq 'courierconf'? $setup->courier_config   ()
 
 #  Web Mail & Admin interfaces
-: $section eq "qmailadmin"  ? $setup->qmailadmin       ( )
-: $section eq "sqwebmail"   ? $setup->sqwebmail        ( )
-: $section eq "squirrelmail"? $setup->squirrelmail     ( )
-: $section eq "roundcube"   ? $setup->roundcube        ( )
+: $section eq 'qmailadmin'  ? $setup->qmailadmin       ()
+: $section eq 'sqwebmail'   ? $setup->sqwebmail        ()
+: $section eq 'squirrelmail'? $setup->squirrelmail     ()
+: $section eq 'roundcube'   ? $setup->roundcube        ()
 
 #  Mail Filtering
-: $section eq "filter"      ? $setup->filtering        ( )
-: $section eq "razor"       ? $setup->razor            ( )
-: $section eq "maildrop"    ? $setup->maildrop         ( )
-: $section eq "clamav"      ? $setup->clamav           ( )
-: $section eq "simscan"     ? $setup->simscan          ( )
-: $section eq "simconf"     ? $setup->simscan_conf     ( )
-: $section eq "simtest"     ? $setup->simscan_test     ( )
-: $section eq "spamassassin"? $setup->spamassassin     ( )
-: $section eq "allspam"     ? $setup->enable_all_spam  ( )
+: $section eq 'filter'      ? $setup->filtering        ( )
+: $section eq 'razor'       ? $setup->razor            ( )
+: $section eq 'maildrop'    ? $setup->maildrop         ( )
+: $section eq 'clamav'      ? $setup->clamav           ( )
+: $section eq 'simscan'     ? $setup->simscan          ( )
+: $section eq 'simconf'     ? $setup->simscan_conf     ( )
+: $section eq 'simtest'     ? $setup->simscan_test     ( )
+: $section eq 'spamassassin'? $setup->spamassassin     ( )
+: $section eq 'allspam'     ? $setup->enable_all_spam  ( )
 
 #  Logs, Statistics & Monitoring
-: $section eq "maillogs"    ? $setup->maillogs         ( )
-: $section eq "qss"         ? $setup->qs_stats         ( )
-: $section eq "socklog"     ? $setup->socklog          ( )
-: $section eq "isoqlog"     ? $setup->isoqlog          ( )
-: $section eq "supervise"   ? $setup->supervise        ( )
-: $section eq "munin"       ? $setup->munin            ( )
+: $section eq 'maillogs'    ? $setup->maillogs         ( )
+: $section eq 'socklog'     ? $setup->socklog          ( )
+: $section eq 'isoqlog'     ? $setup->isoqlog          ( )
+: $section eq 'supervise'   ? $setup->supervise        ( )
+: $section eq 'munin'       ? $setup->munin            ( )
 
 # test targets
-: $section eq "test"        ? $setup->test             ( )
-: $section eq "filtertest"  ? $setup->filtering_test   ( )
-: $section eq "authtest"    ? $setup->test_auth        ( )
-: $section eq "proctest"    ? $toaster->check_processes (debug=>$debug)
-: $section eq "imap"        ? $setup->imap_test_auth   ( )
-: $section eq "pop3"        ? $setup->pop3_test_auth   ( )
-: $section eq "smtp"        ? $setup->smtp_test_auth   ( )
-: $section eq "rbltest"     ? $setup->test_rbls        ( )
-: $section eq "test2"       ? exit 0
+: $section eq 'test'        ? $setup->test             ( )
+: $section eq 'filtertest'  ? $setup->filtering_test   ( )
+: $section eq 'authtest'    ? $setup->test_auth        ( )
+: $section eq 'proctest'    ? $toaster->check_processes (debug=>$debug)
+: $section eq 'imap'        ? $setup->imap_test_auth   ( )
+: $section eq 'pop3'        ? $setup->pop3_test_auth   ( )
+: $section eq 'smtp'        ? $setup->smtp_test_auth   ( )
+: $section eq 'rbltest'     ? $setup->test_rbls        ( )
+: $section eq 'test2'       ? exit 0
 
 #  misc 
-: $section eq "mattbundle"  ? $setup->mattbundle       ( )
-: $section eq "logmonster"  ? $setup->logmonster       ( )
-: $section eq "mrm"         ? $setup->mrm              ( )
-: $section eq "toaster"     ? $setup->mailtoaster      ( )
-: $section eq "nictool"     ? $setup->nictool          ( )
-: $section eq "webmail"     ? $setup->webmail          ( )
-: $section eq "all"         ? all()
+: $section eq 'toaster'     ? $util->mail_toaster      ( )
+: $section eq 'nictool'     ? $setup->nictool          ( )
+: $section eq 'webmail'     ? $setup->webmail          ( )
+: $section eq 'all'         ? all()
+
+# deprecated
+: $section eq 'mattbundle'  ? $setup->mattbundle       ( )
+: $section eq 'qss'         ? $setup->qs_stats         ( )
+: $section eq 'logmonster'  ? $setup->logmonster       ( )
+: $section eq 'mrm'         ? $setup->mrm              ( )
+: $section eq 'phpmyadmin'  ? $setup->phpmyadmin       ()
+
 : pod2usage( {-verbose=>1} );
 
 sub all {
@@ -160,7 +160,7 @@ sub all {
 	$setup->openssl_conf  ( );
 	$setup->ports         ( );
 	$setup->mysql         ( ); 
-	$setup->apache        ( ver=>2 );
+	$setup->apache        ( );
 	$setup->webmail       ( fatal=>0 );
 	$setup->phpmyadmin    ( );
 	$setup->ucspi_tcp     ( );
@@ -192,11 +192,6 @@ __END__
 =head1 NAME
 
 toaster_setup.pl - runs various build and testing functions for Mail::Toaster
-
-
-=head1 VERSION
-
-This document refers to Mail::Toaster version 5.00
 
 
 =head1 SYNOPSIS
@@ -242,7 +237,6 @@ A complete set of instructions for building a mail toaster are on the toaster in
      phpmyadmin - installs phpMyAdmin
          apache - installs Apache 
       apachessl - installs self signed SSL certs for Apache
-     apacheconf - patches httpd.conf for use with Mail::Toaster
 
                      Qmail and related tools
           ucspi - install ucspi-tcp w/MySQL patch

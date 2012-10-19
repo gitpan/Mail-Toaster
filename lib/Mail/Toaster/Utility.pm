@@ -1,9 +1,10 @@
 package Mail::Toaster::Utility;
+# ABSTRACT: utility subroutines for sysadmin tasks
 
 use strict;
 use warnings;
 
-our $VERSION = '5.30';
+our $VERSION = '5.33';
 
 use Cwd;
 use Carp;
@@ -11,26 +12,27 @@ use English qw( -no_match_vars );
 use File::Basename;
 use File::Copy;
 use File::Path;
+use File::Spec;
 use File::stat;
 use Params::Validate qw(:all);
 use Scalar::Util qw( openhandle );
 use URI;
 
 use lib 'lib';
-use vars qw/ $log %std_opts /;
+use vars qw/ $log $toaster %std_opts /;
 
 sub new {
     my $class = shift;
     my %p     = validate( @_,
-        {   'log' => { type => OBJECT   },
+        {   'log' => { type => OBJECT,  optional => 1 },
             fatal => { type => BOOLEAN, optional => 1, default => 1 },
-            debug => { type => BOOLEAN, optional => 1 },
+            debug => { type => BOOLEAN, optional => 1, default => 1 },
         }
     );
 
-    $log = $p{'log'};
+    $log = $toaster = $p{'log'};
     if ( ! $log ) {
-        my @bits = split '::', $class; pop @bits;
+        my @bits = split /::/, $class; pop @bits;
         my $parent_class = join '::', grep { defined $_ } @bits;
 ## no critic ( ProhibitStringyEval )
         eval "require $parent_class";
@@ -50,11 +52,12 @@ sub new {
     };
     bless $self, $class;
 
-    # globally scoped hash, populated with defaults as requested by the caller
+# globally scoped hash, populated with defaults as requested by the caller
     %std_opts = (
         'test_ok' => { type => BOOLEAN, optional => 1 },
         'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
         'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+        'quiet'   => { type => BOOLEAN, optional => 1, default => 0 },
     );
 
     $log->audit( $class . sprintf( " loaded by %s, %s, %s", caller ) );
@@ -66,7 +69,7 @@ sub ask {
     my $question = shift;
     my %p = validate(
         @_,
-        {   default  => { type => SCALAR,  optional => 1 },
+        {   default  => { type => SCALAR|UNDEF, optional => 1 },
             timeout  => { type => SCALAR,  optional => 1 },
             password => { type => BOOLEAN, optional => 1, default => 0 },
             test_ok  => { type => BOOLEAN, optional => 1 },
@@ -132,48 +135,59 @@ sub archive_file {
     my $self = shift;
     my $file = shift or return $log->error("missing filename in request");
     my %p = validate( @_,
-        {   %std_opts,
-            'sudo'  => { type => BOOLEAN, optional => 1, default => 1 },
+        {   'sudo'  => { type => BOOLEAN, optional => 1, default => 1 },
+            'mode'  => { type => SCALAR,  optional => 1 },
+            destdir => { type => SCALAR,  optional => 1 },
+            %std_opts,
         }
     );
 
-    my $date = time;
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
-    return $log->error( "file ($file) is missing!", %args ) if !-e $file;
+    return $log->error( "file ($file) is missing!", %args )
+        if !-e $file;
+
+    my $archive = $file . '.' . time;
+
+    if ( $p{destdir} && -d $p{destdir} ) {
+        my ($vol,$dirs,$file_wo_path) = File::Spec->splitpath( $archive );
+        $archive = File::Spec->catfile( $p{destdir}, $file_wo_path );
+    };
 
     # see if we can write to both files (new & archive) with current user
     if (    $self->is_writable( $file, %args )
-         && $self->is_writable( "$file.$date", %args ) ) {
+         && $self->is_writable( $archive, %args ) ) {
 
         # we have permission, use perl's native copy
-        copy( $file, "$file.$date" ) and do {
-            $log->audit("archive_file: $file backed up to $file.$date");
-            return "$file.$date" if -e "$file.$date";
+        copy( $file, $archive );
+        if ( -e $archive ) {
+            $log->audit("archive_file: $file backed up to $archive");
+            $self->chmod( file => $file, mode => $p{mode}, %args ) if $p{mode};
+            return $archive;
         };
     }
 
     # we failed with existing permissions, try to escalate
     $self->archive_file_sudo( $file ) if ( $p{sudo} && $< != 0 );
 
-    if ( -e "$file.$date" ) {
-        $log->audit("$file backed up to $file.$date");
-        return "$file.$date";
-    }
+    return $log->error( "backup of $file to $archive failed: $!", %args)
+        if ! -e $archive;
 
-    return $log->error( "backup of $file to $file.$date failed: $!", %args);
+    $self->chmod( file => $file, mode => $p{mode}, %args ) if $p{mode};
+
+    $log->audit("$file backed up to $archive");
+    return $archive;
 }
 
 sub archive_file_sudo {
     my $self = shift;
-    my $file = shift;
+    my ($file, $archive) = @_;
 
     my $sudo = $self->sudo();
     my $cp = $self->find_bin( 'cp',fatal=>0 );
 
     if ( $sudo && $cp ) {
-        my $date = time;
-        return $self->syscmd( "$sudo $cp $file $file.$date",fatal=>0 );
+        return $self->syscmd( "$sudo $cp $file $archive",fatal=>0 );
     }
     $log->error( "archive_file: sudo or cp was missing, could not escalate.",fatal=>0);
     return;
@@ -188,14 +202,12 @@ sub chmod {
             'dir'         => { type => SCALAR,  optional => 1, },
             'mode'        => { type => SCALAR,  optional => 0, },
             'sudo'        => { type => BOOLEAN, optional => 1, default => 0 },
-            'fatal'       => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug'       => { type => BOOLEAN, optional => 1, default => 1 },
-            'test_ok'     => { type => BOOLEAN, optional => 1 },
+            %std_opts,
         }
     );
 
     my $mode = $p{mode};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     my $file = $p{file} || $p{file_or_dir} || $p{dir}
         or return $log->error( "invalid params to chmod in ". ref $self  );
@@ -203,7 +215,7 @@ sub chmod {
     if ( $p{sudo} ) {
         my $chmod = $self->find_bin( 'chmod', debug => 0 );
         my $sudo  = $self->sudo();
-        $self->syscmd( "$sudo $chmod $mode $file", debug => 0 ) 
+        $self->syscmd( "$sudo $chmod $mode $file", debug => 0 )
             or return $log->error( "couldn't chmod $file: $!", %args );
     }
 
@@ -225,8 +237,8 @@ sub chown {
         }
     );
 
+    my %args = $toaster->get_std_args( %p );
     my ( $uid, $gid, $sudo ) = ( $p{uid}, $p{gid}, $p{sudo} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
 
     $file or return $log->error( "missing file or dir", %args );
     return $log->error( "file $file does not exist!", %args ) if ! -e $file;
@@ -240,20 +252,19 @@ sub chown {
         group => $gid,
     ) if $sudo;
 
-    my ( $nuid, $ngid );
+    my ( $nuid, $ngid ); # if uid or gid is not numeric, convert it
 
     if ( $uid =~ /\A[0-9]+\z/ ) {
-        $nuid = int($uid); 
+        $nuid = int($uid);
         $log->audit("  using $nuid from int($uid)");
     }
     else {
-        # if uid or gid is not numeric, convert it
         $nuid = getpwnam($uid);
         return $log->error( "failed to get uid for $uid", %args) if ! defined $nuid;
         $log->audit("  converted $uid to a number: $nuid");
     }
 
-    if ( $p{gid} =~ /\A[0-9\-]+\z/ ) {
+    if ( $gid =~ /\A[0-9\-]+\z/ ) {
         $ngid = int( $gid );
         $log->audit("  using $ngid from int($gid)");
     }
@@ -272,8 +283,7 @@ sub chown {
 sub chown_system {
     my $self = shift;
     my $dir = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'user'    => { type => SCALAR,  optional => 0, },
             'group'   => { type => SCALAR,  optional => 1, },
             'recurse' => { type => BOOLEAN, optional => 1, },
@@ -282,9 +292,9 @@ sub chown_system {
     );
 
     my ( $user, $group, $recurse ) = ( $p{user}, $p{group}, $p{recurse} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
-    $dir or return $log->error( "missing file or dir", %args ); 
+    $dir or return $log->error( "missing file or dir", %args );
     my $cmd = $self->find_bin( 'chown', %args );
 
     $cmd .= " -R"     if $recurse;
@@ -294,7 +304,7 @@ sub chown_system {
 
     $log->audit( "cmd: $cmd" );
 
-    $self->syscmd( $cmd, %args ) or 
+    $self->syscmd( $cmd, %args ) or
         return $log->error( "couldn't chown with $cmd: $!", %args);
 
     my $mess;
@@ -307,21 +317,18 @@ sub chown_system {
 
 sub clean_tmp_dir {
     my $self = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'dir'   => { type => SCALAR,  optional => 0, },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
+            %std_opts
         }
     );
 
     my $dir = $p{dir};
-    my ($debug, $fatal) = ($p{debug}, $p{fatal});
+    my %args = $toaster->get_std_args( %p );
 
     my $before = cwd;   # remember where we started
 
-    return $log->error( "couldn't chdir to $dir: $!", fatal => $fatal )
-        if !chdir $dir;
+    return $log->error( "couldn't chdir to $dir: $!", %args) if !chdir $dir;
 
     foreach ( $self->get_dir_files( dir => $dir ) ) {
         next unless $_;
@@ -332,7 +339,7 @@ sub clean_tmp_dir {
 
         if ( -f $file ) {
             unlink $file or
-                $self->file_delete( file => $file, debug => $debug );
+                $self->file_delete( file => $file, %args );
         }
         elsif ( -d $file ) {
             use File::Path;
@@ -350,8 +357,7 @@ sub clean_tmp_dir {
 sub cwd_source_dir {
     my $self = shift;
     my $dir = shift or die "missing dir in request\n";
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'src'   => { type => SCALAR,  optional => 1, },
             'sudo'  => { type => BOOLEAN, optional => 1, },
             %std_opts,
@@ -359,9 +365,9 @@ sub cwd_source_dir {
     );
 
     my ( $src, $sudo, ) = ( $p{src}, $p{sudo}, );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
-    return $log->error( "Something (other than a directory) is at $dir and " . 
+    return $log->error( "Something (other than a directory) is at $dir and " .
         "that's my build directory. Please remove it and try again!", %args )
         if ( -e $dir && !-d $dir );
 
@@ -375,7 +381,7 @@ sub cwd_source_dir {
 
             if ( !-d $dir ) {
                 $log->audit( "trying one last time with $sudo mkdir -p....");
-                $self->mkdir_system( dir  => $dir, sudo => 1, %args) 
+                $self->mkdir_system( dir  => $dir, sudo => 1, %args)
                     or return $log->error("Couldn't create $dir.", %args);
             }
         }
@@ -387,7 +393,7 @@ sub cwd_source_dir {
 
 sub _try_mkdir {
     my ( $dir ) = @_;
-    mkpath( $dir, 0, oct('0755') ) 
+    mkpath( $dir, 0, oct('0755') )
         or return $log->error( "mkdir $dir failed: $!");
     $log->audit( "created $dir");
     return 1;
@@ -397,8 +403,8 @@ sub extract_archive {
     my $self = shift;
     my $archive = shift or die "missing archive name";
     my %p = validate( @_, { %std_opts } );
+    my %args = $toaster->get_std_args( %p );
 
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
     my $r;
 
     if ( !-e $archive ) {
@@ -414,29 +420,29 @@ sub extract_archive {
 
     $ENV{PATH} = '/bin:/usr/bin'; # do this or taint checks will blow up on ``
 
-    return $log->error( "unknown archive type: $archive", %args)
+    return $log->error( "unknown archive type: $archive", %args )
         if $archive !~ /[bz2|gz]$/;
 
     # find these binaries, we need them to inspect and expand the archive
-    my $tar  = $self->find_bin( 'tar'  );
-    my $file = $self->find_bin( 'file' );
+    my $tar  = $self->find_bin( 'tar',  %args );
+    my $file = $self->find_bin( 'file', %args );
 
     my %types = (
         gzip => { bin => 'gunzip',  content => 'gzip',       },
-        bzip => { bin => 'bunzip2', content => 'b(un)?zip2', }, 
+        bzip => { bin => 'bunzip2', content => 'b(un)?zip2', },
             # on BSD bunzip2, on Linux bzip2
     );
 
     my $type
         = $archive =~ /bz2$/ ? 'bzip'
         : $archive =~ /gz$/  ? 'gzip'
-        :  return $log->error( 'unknown archive type',%args);
+        :  return $log->error( 'unknown archive type', %args);
 
     # make sure the archive contents match the file extension
-    return $log->error( "$archive not a $type compressed file",%args)
+    return $log->error( "$archive not a $type compressed file", %args)
         unless grep ( /$types{$type}{content}/, `$file $archive` );
 
-    my $bin = $self->find_bin( $types{$type}{bin}, %args );
+    my $bin = $self->find_bin( $types{$type}{bin}, %args);
 
     $self->syscmd( "$bin -c $archive | $tar -xf -" ) or return;
 
@@ -446,8 +452,7 @@ sub extract_archive {
 
 sub file_delete {
     my $self = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'file'  => { type => SCALAR },
             'sudo'  => { type => BOOLEAN, optional => 1, default => 0 },
             %std_opts,
@@ -455,7 +460,7 @@ sub file_delete {
     );
 
     my $file = $p{file};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->error( "$file does not exist", %args ) if !-e $file;
 
@@ -468,7 +473,7 @@ sub file_delete {
         return 1;
     }
 
-    if ( !$p{sudo} ) {
+    if ( !$p{sudo} ) {    # all done
         return -e $file ? undef : 1;
     }
 
@@ -482,7 +487,7 @@ sub file_delete {
         $err .= " (sudo)";
     }
 
-    $self->syscmd( $rm_command, %args ) 
+    $self->syscmd( $rm_command, %args )
         or return $log->error( $err, %args );
 
     return -e $file ? 0 : 1;
@@ -490,8 +495,7 @@ sub file_delete {
 
 sub file_is_newer {
     my $self = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   f1  => { type => SCALAR },
             f2  => { type => SCALAR },
             %std_opts,
@@ -528,18 +532,17 @@ sub file_read {
         @_,
         {   'max_lines'  => { type => SCALAR, optional => 1 },
             'max_length' => { type => SCALAR, optional => 1 },
-            'fatal'      => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug'      => { type => BOOLEAN, optional => 1, default => 1 },
+            %std_opts
         }
     );
 
     my ( $max_lines, $max_length ) = ( $p{max_lines}, $p{max_length} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->error( "$file does not exist!", %args) if !-e $file;
     return $log->error( "$file is not readable", %args ) if !-r $file;
 
-    open my $FILE, '<', $file or 
+    open my $FILE, '<', $file or
         return $log->error( "could not open $file: $OS_ERROR", %args );
 
     my ( $line, @lines );
@@ -552,9 +555,12 @@ sub file_read {
 # reading in the entire line and then truncating it.
     };
 
-    while ( my $i < $max_lines ) {
+    my $i = 0;
+    while ( $i < $max_lines ) {
         if ($max_length) { $line = substr <$FILE>, 0, $max_length; }
         else             { $line = <$FILE>; };
+        last if ! $line;
+        last if eof $FILE;
         push @lines, $line;
         $i++;
     }
@@ -565,16 +571,14 @@ sub file_read {
 
 sub file_mode {
     my $self = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'file'  => { type => SCALAR },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 0 },
+            %std_opts
         }
     );
 
     my $file = $p{file};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->error( "file '$file' does not exist!", %args)
         if !-e $file;
@@ -600,17 +604,16 @@ sub file_write {
         {   'lines'  => { type => ARRAYREF },
             'append' => { type => BOOLEAN, optional => 1, default => 0 },
             'mode'  => { type => SCALAR,  optional => 1 },
-            'fatal' => { type => BOOLEAN, optional => 1, default => $self->{fatal} },
-            'debug' => { type => BOOLEAN, optional => 1, default => $self->{debug} },
+            %std_opts
         }
     );
 
     my $append = $p{append};
     my $lines  = $p{lines};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->error( "oops, $file is a directory", %args) if -d $file;
-    return $log->error( "oops, $file is not writable", %args ) 
+    return $log->error( "oops, $file is not writable", %args )
         if ( ! $self->is_writable( $file, %args) );
 
     my $m = "wrote";
@@ -625,7 +628,7 @@ sub file_write {
         };
     };
 
-    open my $HANDLE, $write_mode, "$file.tmp" 
+    open my $HANDLE, $write_mode, "$file.tmp"
         or return $log->error( "file_write: couldn't open $file: $!", %args );
 
     my $c = 0;
@@ -634,11 +637,11 @@ sub file_write {
 
     $log->audit( "file_write: $m $c lines to $file", %args );
 
-    move( "$file.tmp", $file ) 
+    move( "$file.tmp", $file )
         or return $log->error("  unable to update $file", %args);
 
     # set file permissions mode if requested
-    $self->chmod( file => $file, mode => $p{mode}, %args ) 
+    $self->chmod( file => $file, mode => $p{mode}, %args )
         or return if $p{mode};
 
     return 1;
@@ -651,13 +654,12 @@ sub files_diff {
         {   f1    => { type => SCALAR },
             f2    => { type => SCALAR },
             type  => { type => SCALAR,  optional => 1, default => 'text' },
-            fatal => { type => BOOLEAN, optional => 1, default => $self->{fatal} },
-            debug => { type => BOOLEAN, optional => 1, default => $self->{debug} },
+            %std_opts,
         }
     );
 
-    my ( $f1, $f2, $type, $debug ) = ( $p{f1}, $p{f2}, $p{type}, $p{debug} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my ( $f1, $f2, $type ) = ( $p{f1}, $p{f2}, $p{type} );
+    my %args = $log->get_std_args(%p);
 
     if ( !-e $f1 || !-e $f2 ) {
         $log->error( "$f1 or $f2 does not exist!", %args );
@@ -726,10 +728,9 @@ sub files_diff_md5 {
 sub find_bin {
     my $self = shift;
     my $bin  = shift or die "missing argument to find_bin\n";
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'dir'   => { type => SCALAR, optional => 1, },
-            %std_opts
+            %std_opts,
         },
     );
 
@@ -737,7 +738,7 @@ sub find_bin {
     my %args = $log->get_std_args(%p);
 
     if ( $bin =~ /^\// && -x $bin ) {  # we got a full path
-        $log->audit( "find_bin: found $bin", %args);
+        $log->audit( "find_bin: found $bin", %args );
         return $bin;
     };
 
@@ -750,10 +751,10 @@ sub find_bin {
     push @prefixes, cwd;
 
     my $found;
-    foreach my $prefix ( @prefixes ) { 
+    foreach my $prefix ( @prefixes ) {
         if ( -x "$prefix/$bin" ) {
             $found = "$prefix/$bin" and last;
-        };  
+        };
     };
 
     if ($found) {
@@ -766,12 +767,7 @@ sub find_bin {
 
 sub fstab_list {
     my $self = shift;
-    my %p = validate(
-        @_,
-        {   'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
-        }
-    );
+    my %p = validate( @_, {   %std_opts, } );
 
     if ( $OSNAME eq "darwin" ) {
         return ['fstab not used on Darwin!'];
@@ -788,7 +784,7 @@ sub fstab_list {
 
     #	foreach my $fstab (@fstabs)
     #	{}
-    #		my @fields = split(" ", $fstab);
+    #		my @fields = split(/ /, $fstab);
     #		#print "device: $fields[0]  mount: $fields[1]\n";
     #	{};
     #	print "\n\n END of fstabs\n\n";
@@ -805,7 +801,7 @@ sub get_cpan_config {
     my $make = `which make`; chomp $make;
     my $wget = `which wget`; chomp $wget;
 
-    return 
+    return
 {
   'build_cache' => q[10],
   'build_dir' => qq[$ENV{HOME}/.cpan/build],
@@ -839,23 +835,21 @@ sub get_cpan_config {
   'term_is_latin' => q[1],
   'unzip' => $unzip,
   'urllist' => [ 'http://www.perl.com/CPAN/', 'ftp://cpan.cs.utah.edu/pub/CPAN/', 'ftp://mirrors.kernel.org/pub/CPAN', 'ftp://osl.uoregon.edu/CPAN/', 'http://cpan.yahoo.com/' ],
-  'wget' => $wget, 
+  'wget' => $wget,
 };
 
 }
 
 sub get_dir_files {
     my $self = shift;
-    my %p = validate(
-        @_,
+    my %p = validate( @_,
         {   'dir'   => { type => SCALAR,  optional => 0, },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
+            %std_opts,
         }
     );
 
-    my ( $dir, $fatal, $debug ) = ( $p{dir}, $p{fatal}, $p{debug} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my $dir = $p{dir};
+    my %args = $toaster->get_std_args( %p );
 
     my @files;
 
@@ -897,8 +891,7 @@ sub get_my_ips {
                 { type => BOOLEAN, optional => 1, default => 1 },
             'exclude_ipv6' =>
                 { type => BOOLEAN, optional => 1, default => 1 },
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => 1 },
+            %std_opts,
         }
     );
 
@@ -913,10 +906,10 @@ TRY:
     my @ips = grep {/inet/} `$ifconfig`; chomp @ips;
        @ips = grep {!/inet6/} @ips if $p{exclude_ipv6};
        @ips = grep {!/inet 127\.0\.0/} @ips if $p{exclude_localhost};
-       @ips = grep {!/inet (192\.168\.|10\.|172\.16\.|169\.254\.)/} @ips 
+       @ips = grep {!/inet (192\.168\.|10\.|172\.16\.|169\.254\.)/} @ips
             if $p{exclude_internals};
 
-    # this keeps us from failing if the box has only internal IPs 
+    # this keeps us from failing if the box has only internal IPs
     if ( @ips < 1 || $ips[0] eq "" ) {
         carp "yikes, you really don't have any public IPs?!" if $debug;
         $p{exclude_internals} = 0;
@@ -936,13 +929,12 @@ sub get_the_date {
     my %p = validate(
         @_,
         {   'bump'  => { type => SCALAR,  optional => 1, },
-            'fatal' => { type => BOOLEAN, optional => 1, default => $self->{fatal} },
-            'debug' => { type => BOOLEAN, optional => 1, default => $self->{debug} },
+            %std_opts
         }
     );
 
     my $bump  = $p{bump} || 0;
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     my $time = time;
     my $mess = "get_the_date time: " . time;
@@ -1022,7 +1014,7 @@ sub get_url {
     );
 
     my $dir = $p{dir};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $log->get_std_args( %p );
 
     my ($ua, $response);
     ## no critic ( ProhibitStringyEval )
@@ -1071,7 +1063,7 @@ sub get_url_system {
 
     my $dir      = $p{dir};
     my $debug    = $p{debug};
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $log->get_std_args( %p );
 
     my ($fetchbin, $found);
     if ( $OSNAME eq "freebsd" ) {
@@ -1143,15 +1135,14 @@ sub install_if_changed {
             email   => { type => SCALAR, optional => 1, default => 'postmaster' },
             clean   => { type => BOOLEAN, optional => 1, default => 1 },
             archive => { type => BOOLEAN, optional => 1, default => 0 },
-            fatal   => { type => BOOLEAN, optional => 1, default => $self->{fatal} },
-            debug   => { type => BOOLEAN, optional => 1, default => $self->{debug} },
+            %std_opts,
         },
     );
 
     my ( $newfile, $existing, $mode, $uid, $gid, $email) = (
         $p{newfile}, $p{existing}, $p{mode}, $p{uid}, $p{gid}, $p{email} );
-    my ($debug, $sudo, $notify ) = ($p{debug}, $p{sudo}, $p{notify} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my ($sudo, $notify ) = ($p{sudo}, $p{notify} );
+    my %args = $toaster->get_std_args( %p );
 
     if ( $newfile !~ /\// ) {
         # relative filename given
@@ -1199,7 +1190,7 @@ sub install_if_changed {
         gid => $gid,
         sudo => $sudo,
         %args
-    ) 
+    )
     if ( $uid && $gid );  # set file ownership on the new file
 
     # set file permissions on the new file
@@ -1314,11 +1305,11 @@ sub install_from_source {
     );
 
     return $p{test_ok} if defined $p{test_ok};
+    my %args = $toaster->get_std_args( %p );
 
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
-    my ( $site, $url, $package, $targets, $patches, $debug, $bintest ) =
+    my ( $site, $url, $package, $targets, $patches, $bintest ) =
         ( $p{site},    $p{url}, $p{package},
-          $p{targets}, $p{patches}, $p{debug}, $p{bintest} );
+          $p{targets}, $p{patches}, $p{bintest} );
 
     my $patch_args = $p{patch_args} || '';
     my $src = $p{source_dir} || "/usr/local/src";
@@ -1330,7 +1321,7 @@ sub install_from_source {
 
     if ( $bintest && $self->find_bin( $bintest, fatal => 0, debug => 0 ) ) {
         return if ! $self->yes_or_no(
-            "$bintest exists, suggesting that"
+            "$bintest exists, suggesting that "
                 . "$package is installed. Do you want to reinstall?",
             timeout  => 60,
         );
@@ -1347,8 +1338,8 @@ sub install_from_source {
     # cd into the package directory
     my $sub_path;
     if ( -d $package ) {
-        chdir $package or 
-            return $log->error( "FAILED to chdir $package!", %args ); 
+        chdir $package or
+            return $log->error( "FAILED to chdir $package!", %args );
     }
     else {
 
@@ -1372,7 +1363,7 @@ sub install_from_source {
 
     my $msg = "install_from_source: using targets\n";
     foreach (@$targets) { $msg .= "\t$_\n" };
-    $log->audit( $msg ) if $debug;
+    $log->audit( $msg ) if $p{debug};
 
     # build the program
     foreach my $target (@$targets) {
@@ -1383,13 +1374,13 @@ sub install_from_source {
             next;
         }
 
-        $self->syscmd( $target, debug => $debug ) or
+        $self->syscmd( $target, %args ) or
             return $log->error( "pwd: " . cwd .  "\n$target failed: $!", %args );
     }
 
     # clean up the build sources
     chdir $src;
-    $self->syscmd( "rm -rf $package", debug => $debug ) if -d $package;
+    $self->syscmd( "rm -rf $package", %args ) if -d $package;
 
     $self->syscmd( "rm -rf $package/$sub_path", %args )
         if defined $sub_path && -d "$package/$sub_path";
@@ -1434,7 +1425,7 @@ sub install_from_source_get_files {
     my $self = shift;
     my ($package,$site,$url,$patch_url,$patches) = @_;
 
-    $self->sources_get( 
+    $self->sources_get(
         package => $package,
         site    => $site,
         path    => $url,
@@ -1443,7 +1434,7 @@ sub install_from_source_get_files {
     if ( ! $patches || ! $patches->[0] ) {
         $log->audit( "install_from_source: no patches to fetch." );
         return 1;
-    };  
+    };
 
     return $log->error( "oops! You supplied patch names to apply without a URL!")
         if ! $patch_url;
@@ -1455,7 +1446,7 @@ sub install_from_source_get_files {
 
         $log->audit( "install_from_source: fetching patch from $url");
         my $url = "$patch_url/$patch";
-        $self->get_url( $url ) 
+        $self->get_url( $url )
             or return $log->error( "could not fetch $url" );
     };
 
@@ -1505,8 +1496,9 @@ sub install_module {
 ## no critic ( ProhibitStringyEval )
     eval "use $module";
 ## use critic
-    return $log->audit( "$module is already installed.",debug=>$debug ) 
-        if ! $EVAL_ERROR;
+    if ( ! $EVAL_ERROR ) {
+        $log->audit( "$module is already installed.",debug=>$debug );
+    };
 
     if ( lc($OSNAME) eq 'darwin' ) {
         $self->install_module_darwin( $module ) and return 1;
@@ -1536,7 +1528,7 @@ sub install_module_cpan {
 
     print " from CPAN...";
     require CPAN;
-    
+
     # some Linux distros break CPAN by auto/preconfiguring it with no URL mirrors.
     # this works around that annoying little habit
     no warnings;
@@ -1602,7 +1594,7 @@ sub install_module_from_src {
 
     my ( $module, $site, $url, $src, $targets )
         = ( $p{module}, $p{site}, $p{url}, $p{src}, $p{targets} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     $self->cwd_source_dir( $src, %args );
 
@@ -1712,7 +1704,7 @@ sub is_process_running {
         };
     };
 
-    my $ps   = $self->find_bin( 'ps', debug=>0 );
+    my $ps   = $self->find_bin( 'ps', debug => 0 );
 
     if    ( lc($OSNAME) =~ /solaris/i ) { $ps .= ' -ef';  }
     elsif ( lc($OSNAME) =~ /irix/i    ) { $ps .= ' -ef';  }
@@ -1744,7 +1736,7 @@ sub is_writable {
     my $file = shift or die "missing file or dir name\n";
 
     my %p = validate( @_, { %std_opts } );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     my $nl = "\n";
     $nl = "<br>" if ( $ENV{GATEWAY_INTERFACE} );
@@ -1777,11 +1769,11 @@ sub logfile_append {
     );
 
     my ( $file, $lines ) = ( $p{file}, $p{lines} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     my ( $dd, $mm, $yy, $lm, $hh, $mn, $ss ) = $self->get_the_date( %args );
 
-    open my $LOG_FILE, '>>', $file 
+    open my $LOG_FILE, '>>', $file
         or return $log->error( "couldn't open $file: $OS_ERROR", %args);
 
     print $LOG_FILE "$yy-$mm-$dd $hh:$mn:$ss $p{prog} ";
@@ -1813,7 +1805,7 @@ sub mkdir_system {
     );
 
     my ( $dir, $mode ) = ( $p{dir}, $p{mode} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->audit( "mkdir_system: $dir already exists.") if -d $dir;
 
@@ -1822,7 +1814,7 @@ sub mkdir_system {
     # if we are root, just do it (no sudo nonsense)
     if ( $< == 0 ) {
         $self->syscmd( "$mkdir -p $dir", %args) or return;
-        $self->chmod( dir => $dir, mode => $mode, %args) if $mode;
+        $self->chmod( dir => $dir, mode => $mode, %args ) if $mode;
 
         return 1 if -d $dir;
         return $log->error( "failed to create $dir", %args);
@@ -1838,7 +1830,8 @@ sub mkdir_system {
         my $chown = $self->find_bin( 'chown', %args);
         $self->syscmd( "$sudo $chown $< $dir", %args);
 
-        $self->chmod( dir => $dir, mode => $mode, sudo => $sudo, %args) if $mode;
+        $self->chmod( dir => $dir, mode => $mode, sudo => $sudo, %args)
+            if $mode;
         return -d $dir ? 1 : 0;
     }
 
@@ -1878,15 +1871,14 @@ sub check_pidfile {
     my $self = shift;
     my $file = shift;
     my %p = validate( @_, { %std_opts } );
-
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->error( "missing filename", %args) if ! $file;
-    return $log->error( "$file is not a regular file", %args) 
+    return $log->error( "$file is not a regular file", %args)
         if ( -e $file && !-f $file );
 
     # test if file & enclosing directory is writable, revert to /tmp if not
-    $self->is_writable( $file, %args) 
+    $self->is_writable( $file, %args)
         or do {
             my ( $base, $path, $suffix ) = fileparse($file);
             $log->audit( "NOTICE: using /tmp for file, $path is not writable!", %args);
@@ -1930,7 +1922,7 @@ sub regexp_test {
         {   'exp'    => { type => SCALAR },
             'string' => { type => SCALAR },
             'pbp'    => { type => BOOLEAN, optional => 1, default => 0 },
-            'debug'  => { type => BOOLEAN, optional => 1, default => $self->{debug} },
+            %std_opts,
         },
     );
 
@@ -1969,7 +1961,7 @@ sub sources_get {
     );
 
     my ( $package, $site, $path ) = ( $p{package}, $p{site}, $p{path} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     $log->audit( "sources_get: fetching $package from site $site\n\t path: $path");
 
@@ -1997,7 +1989,7 @@ sub sources_get {
 
         $log->audit( "sources_get: fetching $site$path/$tarball");
 
-        $self->get_url( "$site$path/$tarball", fatal => 0) 
+        $self->get_url( "$site$path/$tarball", fatal => 0)
             or return $log->error( "couldn't fetch $site$path/$tarball", %args);
 
         next if ! -e $tarball;
@@ -2033,7 +2025,7 @@ sub source_warning {
     );
 
     my ( $package, $src ) = ( $p{package}, $p{src} );
-    my %args = ( debug => $p{debug}, fatal => $p{fatal} );
+    my %args = $toaster->get_std_args( %p );
 
     return $log->audit( "$package sources not present.", %args ) if !-d $package;
 
@@ -2053,7 +2045,8 @@ sub source_warning {
     $log->audit( "  wd: " . cwd );
     $log->audit( "  deleting $src/$package");
 
-    return $log->error( "failed to delete $package: $OS_ERROR", %args ) if ! rmtree "$src/$package";
+    return $log->error( "failed to delete $package: $OS_ERROR", %args )
+        if ! rmtree "$src/$package";
     return 1;
 }
 
@@ -2155,7 +2148,7 @@ sub syscmd {
     my $before_path = $ENV{PATH};
 
     # instead of croaking, maybe try setting a
-    # very restrictive PATH?  I'll err on the side of safety 
+    # very restrictive PATH?  I'll err on the side of safety
     # $ENV{PATH} = '';
     return $log->error( "syscmd request has tainted data", %args)
         if ( $tainted && !$is_safe );
@@ -2220,8 +2213,8 @@ sub yes_or_no {
     my %p = validate(
         @_,
         {   'timeout'  => { type => SCALAR,  optional => 1 },
-            'debug'    => { type => BOOLEAN, optional => 1, default => 1 },
             'force'    => { type => BOOLEAN, optional => 1, default => 0 },
+            %std_opts
         },
     );
 
@@ -2286,10 +2279,6 @@ sub yes_or_no {
 __END__
 
 
-=head1 NAME
-
-Mail::Toaster::Utility - utility subroutines for sysadmin tasks
-
 
 =head1 SYNOPSIS
 
@@ -2304,12 +2293,12 @@ This is just one of the many handy little methods I have amassed here. Rather th
 
 =head1 DESCRIPTION
 
-This Mail::Toaster::Utility package is my most frequently used one. Each method has its own documentation but in general, all methods accept as input a hashref with at least one required argument and a number of optional arguments. 
+This Mail::Toaster::Utility package is my most frequently used one. Each method has its own documentation but in general, all methods accept as input a hashref with at least one required argument and a number of optional arguments.
 
 
 =head1 DIAGNOSTICS
 
-All methods set and return error codes (0 = fail, 1 = success) unless otherwise stated. 
+All methods set and return error codes (0 = fail, 1 = success) unless otherwise stated.
 
 Unless otherwise mentioned, all methods accept two additional parameters:
 
@@ -2350,7 +2339,7 @@ Get a response from the user. If the user responds, their response is returned. 
   ############################################
   # Usage      :  my $ask = $util->ask( "Would you like fries with that",
   #  		           default  => "SuperSized!",
-  #  		           timeout  => 30  
+  #  		           timeout  => 30
   #               );
   # Purpose    : prompt the user for information
   #
@@ -2382,7 +2371,7 @@ Decompresses a variety of archive formats using your systems built in tools.
 =item cwd_source_dir
 
 
-Changes the current working directory to the supplied one. Creates it if it does not exist. Tries to create the directory using perl's builtin mkdir, then the system mkdir, and finally the system mkdir with sudo. 
+Changes the current working directory to the supplied one. Creates it if it does not exist. Tries to create the directory using perl's builtin mkdir, then the system mkdir, and finally the system mkdir with sudo.
 
   ############ cwd_source_dir ###################
   # Usage      : $util->cwd_source_dir( "/usr/local/src" );
@@ -2391,7 +2380,7 @@ Changes the current working directory to the supplied one. Creates it if it does
   # Parameters : S - dir - a directory to build programs in
 
 
-=item check_homedir_ownership 
+=item check_homedir_ownership
 
 Checks the ownership on all home directories to see if they are owned by their respective users in /etc/password. Offers to repair the permissions on incorrectly owned directories. This is useful when someone that knows better does something like "chown -R user /home /user" and fouls things up.
 
@@ -2403,7 +2392,7 @@ Checks the ownership on all home directories to see if they are owned by their r
   #   Optional : I - auto - no prompts, just fix everything
   # See Also   : sysadmin
 
-Comments: Auto mode should be run with great caution. Run it first to see the results and then, if everything looks good, run in auto mode to do the actual repairs. 
+Comments: Auto mode should be run with great caution. Run it first to see the results and then, if everything looks good, run in auto mode to do the actual repairs.
 
 
 =item chown_system
@@ -2430,7 +2419,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
   # Usage      : $util->clean_tmp_dir( dir=>$dir );
   # Purpose    : clean up old build stuff before rebuilding
   # Returns    : 0 - failure,  1 - success
-  # Parameters : S - $dir - a directory or file. 
+  # Parameters : S - $dir - a directory or file.
   # Throws     : die on failure
   # Comments   : Running this will delete its contents. Be careful!
 
@@ -2512,10 +2501,10 @@ Set the ownership (user and group) of a file. Will use the native perl methods (
   # Usage      : $util->file_delete( file=>$file );
   # Purpose    : Deletes a file.
   # Returns    : 0 - failure, 1 - success
-  # Parameters 
+  # Parameters
   #   Required : file - a file path
   # Comments   : none
-  # See Also   : 
+  # See Also   :
 
  Uses unlink if we have appropriate permissions, otherwise uses a system rm call, using sudo if it is not being run as root. This sub will try very hard to delete the file!
 
@@ -2541,14 +2530,14 @@ Use the standard URL fetching utility (fetch, curl, wget) for your OS to downloa
 
 =item file_is_newer
 
-compares the mtime on two files to determine if one is newer than another. 
+compares the mtime on two files to determine if one is newer than another.
 
 
 =item file_mode
 
  usage:
    my @lines = "1", "2", "3";  # named array
-   $util->file_write ( "/tmp/foo", lines=>\@lines );   
+   $util->file_write ( "/tmp/foo", lines=>\@lines );
         or
    $util->file_write ( "/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
 
@@ -2588,7 +2577,7 @@ Reads in a file, and returns it in an array. All lines in the array are chomped.
 
  usage:
    my @lines = "1", "2", "3";  # named array
-   $util->file_write ( "/tmp/foo", lines=>\@lines );   
+   $util->file_write ( "/tmp/foo", lines=>\@lines );
         or
    $util->file_write ( "/tmp/foo", lines=>['1','2','3'] );  # anon arrayref
 
@@ -2637,7 +2626,7 @@ Check all the "normal" locations for a binary that should be on the system and r
 
    $util->find_bin( 'dos2unix', dir=>'/opt/local/bin' );
 
-Example: 
+Example:
 
    my $apachectl = $util->find_bin( "apachectl", dir=>"/usr/local/sbin" );
 
@@ -2657,7 +2646,7 @@ Example:
 
 =item get_my_ips
 
-returns an arrayref of IP addresses on local interfaces. 
+returns an arrayref of IP addresses on local interfaces.
 
 =item is_process_running
 
@@ -2689,7 +2678,7 @@ $process is the name as it would appear in the process table.
 
 =item is_writable
 
-If the file exists, it checks to see if it is writable. If the file does not exist, it checks to see if the enclosing directory is writable. 
+If the file exists, it checks to see if it is writable. If the file does not exist, it checks to see if the enclosing directory is writable.
 
   ############################################
   # Usage      : $util->is_writable( "/tmp/boogers");
@@ -2728,7 +2717,7 @@ If the file exists, it checks to see if it is writable. If the file does not exi
 
 =item get_the_date
 
-Returns the date split into a easy to work with set of strings. 
+Returns the date split into a easy to work with set of strings.
 
    $util->get_the_date( bump=>$bump, debug=>$debug )
 
@@ -2768,14 +2757,14 @@ Downloads and installs a program from sources.
 
  required arguments:
     conf    - hashref - mail-toaster.conf settings.
-    site    - 
-    url     - 
-    package - 
+    site    -
+    url     -
+    package -
 
  optional arguments:
     targets - arrayref - defaults to [./configure, make, make install].
     patches - arrayref - patch(es) to apply to the sources before compiling
-    patch_args - 
+    patch_args -
     source_sub_dir - a subdirectory within the sources build directory
     bintest - check the usual places for an executable binary. If found, it will assume the software is already installed and require confirmation before re-installing.
     debug
@@ -2843,7 +2832,7 @@ check_pidfile is a process management method. It will check to make sure an exis
 
    $pidfile = $util->check_pidfile( "/var/run/program.pid" );
 
-The above example is all you need to do to add process checking (avoiding multiple daemons running at the same time) to a program or script. This is used in toaster-watcher.pl. toaster-watcher normally completes a run in a few seconds and is run every 5 minutes. 
+The above example is all you need to do to add process checking (avoiding multiple daemons running at the same time) to a program or script. This is used in toaster-watcher.pl. toaster-watcher normally completes a run in a few seconds and is run every 5 minutes.
 
 However, toaster-watcher can be configured to do things like expire old messages from maildirs and feed spam through a processor like sa-learn. This can take a long time on a large mail system so we don't want multiple instances of toaster-watcher running.
 
@@ -2867,8 +2856,8 @@ Example:
 Prints out a string with the regexp match bracketed. Credit to Damien Conway from Perl Best Practices.
 
  Example:
-    $util->regexp_test( 
-		exp    => 'toast', 
+    $util->regexp_test(
+		exp    => 'toast',
 		string => 'mailtoaster rocks',
 	);
 
@@ -2888,8 +2877,8 @@ Checks to see if the old build sources are present. If they are, offer to remove
 
    $util->source_warning(
 		package => "Mail-Toaster-5.26",
-		clean   => 1, 
-		src     => "/usr/local/src" 
+		clean   => 1,
+		src     => "/usr/local/src"
    );
 
  arguments required:
@@ -2910,8 +2899,8 @@ Checks to see if the old build sources are present. If they are, offer to remove
 Tries to download a set of sources files from the site and url provided. It will try first fetching a gzipped tarball and if that files, a bzipped tarball. As new formats are introduced, I will expand the support for them here.
 
   usage:
-	$self->sources_get( 
-		package => 'simscan-1.07', 
+	$self->sources_get(
+		package => 'simscan-1.07',
 		site    => 'http://www.inter7.com',
 		path    => '/simscan/',
 	)
@@ -2950,7 +2939,7 @@ If sudo is not installed and you're running as root, it'll offer to install sudo
 
 =item syscmd
 
-   Just a little wrapper around system calls, that returns any failure codes and prints out the error(s) if present. A bit of sanity testing is also done to make sure the command to execute is safe. 
+   Just a little wrapper around system calls, that returns any failure codes and prints out the error(s) if present. A bit of sanity testing is also done to make sure the command to execute is safe.
 
       my $r = $util->syscmd( "gzip /tmp/example.txt" );
       $r ? print "ok!\n" : print "not ok.\n";
@@ -2973,7 +2962,7 @@ try creating a directory using perl's builtin mkdir.
 
 =item yes_or_no
 
-  my $r = $util->yes_or_no( 
+  my $r = $util->yes_or_no(
       "Would you like fries with that?",
       timeout  => 30
   );
@@ -2994,15 +2983,6 @@ try creating a directory using perl's builtin mkdir.
 
 =back
 
-=head1 AUTHOR
-
-Matt Simerson (matt@tnpi.net)
-
-
-=head1 BUGS
-
-None known. Report any to author.
-
 
 =head1 TODO
 
@@ -3013,23 +2993,9 @@ None known. Report any to author.
 
 =head1 SEE ALSO
 
-The following are all man/perldoc pages: 
+The following are all man/perldoc pages:
 
- Mail::Toaster 
+ Mail::Toaster
 
-
-=head1 COPYRIGHT
-
-Copyright (c) 2003-2009, The Network People, Inc. All Rights Reserved.
-
-Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-
-Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-
-Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-
-Neither the name of the The Network People, Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut

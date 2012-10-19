@@ -3,7 +3,7 @@ package Mail::Toaster::Setup;
 use strict;
 use warnings;
 
-our $VERSION = '5.26';
+our $VERSION = '5.33';
 
 use vars qw/ $conf $log $freebsd $darwin $err $qmail $toaster $util %std_opts /;
 
@@ -18,7 +18,7 @@ use Params::Validate qw( :all );
 use Sys::Hostname;
 
 use lib 'lib';
-use Mail::Toaster       5.25; 
+use Mail::Toaster       5.33;
 
 sub new {
     my $class = shift;
@@ -51,6 +51,7 @@ sub new {
         'test_ok' => { type => BOOLEAN, optional => 1 },
         'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
         'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+        'quiet'   => { type => BOOLEAN, optional => 1, default => 0 },
     );
 
     if ( $OSNAME eq "freebsd" ) {
@@ -67,15 +68,11 @@ sub new {
 
 sub apache {
     my $self  = shift;
-    my %p = validate( @_, {
-            ver   => { type => SCALAR, optional => 1, },
-            %std_opts,
-        },
-    );
+    my %p = validate( @_, { %std_opts, } );
 
     return $p{test_ok} if defined $p{test_ok};
 
-    my $ver   = $p{'ver'} || $conf->{install_apache} or do {
+    my $ver   = $conf->{install_apache} or do {
         $log->audit( "apache: installing, skipping (disabled)" );
         return;
     };
@@ -86,7 +83,7 @@ sub apache {
     require Cwd;
     my $old_directory = Cwd::cwd();
 
-    if ( lc($ver) eq "apache" or lc($ver) eq "apache1" or $ver == 1 ) {
+    if ( lc($ver) eq "apache1" or $ver == 1 ) {
         my $src = $conf->{'toaster_src_dir'} || "/usr/local/src";
         $apache->install_apache1( $src, $conf );
     }
@@ -285,10 +282,12 @@ sub clamav_perms {
     my $share   = "$prefix/share/clamav";
 
     foreach my $file ( $share, "$share/daily.cvd", "$share/main.cvd",
-        "$share/viruses.db", "$share/viruses.db2", "/var/log/freshclam.log", ) {
+        "$share/viruses.db", "$share/viruses.db2", "/var/log/clamav/freshclam.log", ) {
 
-        print "setting the ownership of $file to $clamuid.\n";
-        $util->chown( $file, uid => $clamuid, gid => 'clamav' ) if -e $file;
+        if ( -e $file ) {
+            print "setting the ownership of $file to $clamuid.\n";
+            $util->chown( $file, uid => $clamuid, gid => 'clamav' );
+        };
     }
 
     $util->syscmd( "pw user mod clamav -G qmail" )
@@ -365,14 +364,14 @@ sub clamav_update {
     my %p = validate( @_, { %std_opts } );
 
     # set up freshclam (keeps virus databases updated)
-    my $logfile = "/var/log/freshclam.log";
+    my $logfile = "/var/log/clamav/freshclam.log";
     unless ( -e $logfile ) {
         $util->syscmd( "touch $logfile", debug=>0 );
         $util->chmod( file => $logfile, mode => '0644', debug=>0 );
         $self->clamav_perms(  debug=>0 );
     }
 
-    my $freshclam = $util->find_bin( "freshclam", debug=>0 ) 
+    my $freshclam = $util->find_bin( "freshclam", debug=>0 )
         or return $log->error( "couldn't find freshclam!", fatal=>0);
 
     $util->syscmd( "$freshclam", debug => 0, fatal => 0 );
@@ -416,17 +415,17 @@ sub config_apply_tweaks {
         },
     );
 
-# changes is a list (array) of changes to apply to a text file 
+# changes is a list (array) of changes to apply to a text file
 # each change is a hash with two elements: search, replace. the contents of
 # file is searched for lines that matches search. Matches are replaced by the
-# replace string. If search2 is also supplied and search does not match, 
+# replace string. If search2 is also supplied and search does not match,
 # search2 will be replaced.
 # Ex:
 # $changes = (
 #    { search  => '#ssl_cert = /etc/ssl/certs/server.pem',
 #      replace => 'ssl_cert = /etc/ssl/certs/server.pem',
 #    },
-# ); 
+# );
 #
     # read in file
     my $debug = $p{debug};
@@ -473,7 +472,7 @@ sub config_apply_tweaks {
                 };
             }
         };
-        $log->error( "attempt to replace\n$search\n\twith\n$replace\n\tfailed", 
+        $log->error( "attempt to replace\n$search\n\twith\n$replace\n\tfailed",
             fatal => 0) if ( ! $found && ! $e->{nowarn} );
         $total_found += $found;
     };
@@ -574,7 +573,7 @@ sub config_postmaster {
             " (probably yours!)",
         default => "postmaster",
     ) || 'root';
- 
+
     $log->audit(
         "toaster admin emails sent to $conf->{'toaster_admin_email'}, ok" )
       if $self->{debug};
@@ -585,7 +584,7 @@ sub config_save_changes {
     my ($file_path) = @_;
 
     my @fields = qw/ toaster_hostname toaster_admin_email toaster_test_email
-        toaster_test_email_pass vpopmail_mysql_pass ssl_country ssl_state 
+        toaster_test_email_pass vpopmail_mysql_pass ssl_country ssl_state
         ssl_locality ssl_organization install_squirrelmail_sql_pass
         install_roundcube_db_pass install_spamassassin_dbpass
         phpMyAdmin_controlpassword
@@ -627,7 +626,7 @@ sub config_test_email {
         "an email account for running tests",
         default  => "postmaster\@" . $conf->{'toaster_hostname'}
     );
-    
+
     $log->audit( "toaster test account set to $conf->{'toaster_test_email'}" )
       if $self->{debug};
 };
@@ -654,7 +653,7 @@ sub config_tweaks {
     my $file = $toaster->find_config( file => 'toaster-watcher.conf' );
 
     # verify that find_config worked and $file is readable
-    return $log->error( "config_tweaks: read test on $file, FAILED", 
+    return $log->error( "config_tweaks: read test on $file, FAILED",
         fatal => $p{fatal} ) if ! -r $file;
 
     my %changes;
@@ -747,7 +746,6 @@ sub config_tweaks_freebsd {
     return (
         install_squirrelmail => 'port    # 0, ver, port',
         install_autorespond  => 'port    # 0, ver, port',
-#        install_isoqlog      => 'port    # 0, ver, port',
         install_ezmlm        => 'port    # 0, ver, port',
         install_courier_imap => '0       # 0, ver, port',
         install_dovecot      => 'port    # 0, ver, port',
@@ -756,6 +754,7 @@ sub config_tweaks_freebsd {
         install_cronolog     => 'port    # ver, port',
         install_daemontools  => 'port    # ver, port',
         install_qmailadmin   => 'port    # 0, ver, port',
+        install_djbdns       => 'port    # ver, port',
     )
 }
 
@@ -785,7 +784,7 @@ sub config_tweaks_mysql {
 
     $log->audit( "config_tweaks: applying MT testing tweaks" );
 
-    $changes{'install_mysql'}   = '51      # 0, 1, 2, 3, 40, 41, 5, 51';
+    $changes{'install_mysql'}   = '55      # 0, 1, 2, 3, 40, 41, 5, 55';
     $changes{'install_mysqld'}  = '1       # 0, 1';
     $changes{'vpopmail_mysql'}  = '1         # disables all mysql options';
     $changes{'smtpd_use_mysql_relay_table'} = 1;
@@ -814,12 +813,17 @@ sub config_tweaks_testing {
     $changes{'install_openldap_client'}   = '1';
     $changes{'install_ezmlm_cgi'}         = '1';
     $changes{'install_dspam'}             = '1';
-    $changes{'install_pyzor'}             = '1'; 
+    $changes{'install_pyzor'}             = '1';
     $changes{'install_bogofilter'}        = '1';
     $changes{'install_dcc'}               = '1';
+    $changes{'install_lighttpd'}          = '1';
+    $changes{'install_apache'}            = '22';
+    $changes{'install_courier_imap'}      = 'port';
+    $changes{'install_gnupg'}             = 'port';
     $changes{'vpopmail_default_domain'}   = 'jail.simerson.net';
     $changes{'pop3_ssl_daemon'}           = 'qpop3d';
     $changes{'install_spamassassin_flags'}= '-v -u spamd -q -A 10.0.1.67 -H /var/spool/spamd -x';
+    $changes{'install_isoqlog'}           = 'port    # 0, ver, port';
 
     return %changes;
 }
@@ -828,7 +832,7 @@ sub config_vpopmail_mysql_pass {
     my $self = shift;
 
     return if ! $conf->{'vpopmail_mysql'};
-    return if ( $conf->{'vpopmail_mysql_pass'} 
+    return if ( $conf->{'vpopmail_mysql_pass'}
         && $conf->{'vpopmail_mysql_pass'} ne "supersecretword" );
 
     $conf->{'vpopmail_mysql_pass'} =
@@ -842,23 +846,23 @@ sub config_vpopmail_mysql_pass {
 sub config_webmail_passwords {
     my $self = shift;
 
-    if ( $conf->{install_squirrelmail} && 
-         $conf->{install_squirrelmail_sql} && 
+    if ( $conf->{install_squirrelmail} &&
+         $conf->{install_squirrelmail_sql} &&
          $conf->{install_squirrelmail_sql_pass} eq 'chAnge7his' ) {
-         $conf->{install_squirrelmail_sql_pass} = 
+         $conf->{install_squirrelmail_sql_pass} =
             $util->ask("squirrelmail database password");
     };
-     
-    if ( $conf->{install_roundcube} && 
+
+    if ( $conf->{install_roundcube} &&
          $conf->{install_roundcube_db_pass} eq 'To4st3dR0ndc@be' ) {
-         $conf->{install_roundcube_db_pass} = 
+         $conf->{install_roundcube_db_pass} =
             $util->ask("roundcube database password");
     };
 
-    if ( $conf->{install_spamassassin} && 
+    if ( $conf->{install_spamassassin} &&
          $conf->{install_spamassassin_sql} &&
          $conf->{install_spamassassin_dbpass} eq 'assSPAMing' ) {
-         $conf->{install_spamassassin_dbpass} = 
+         $conf->{install_spamassassin_dbpass} =
             $util->ask("spamassassin database password");
     };
 
@@ -1206,10 +1210,11 @@ sub cpan {
     if ( $OSNAME eq "freebsd" ) {
 
         $freebsd->install_port( "p5-Params-Validate" );
-        $freebsd->install_port( "p5-Net-DNS",    
+        $freebsd->install_port( "p5-Net-DNS",
             options => "#\n# This file was generated by mail-toaster
 # Options for p5-Net-DNS-0.58\n_OPTIONS_READ=p5-Net-DNS-0.58\nWITHOUT_IPV6=true",
         );
+        $freebsd->install_port( "p5-Crypt-PasswdMD5" );
     }
     elsif ( $OSNAME eq "darwin" ) {
         if ( $util->find_bin( "port" ) ) {
@@ -1227,7 +1232,8 @@ sub cpan {
     }
 
     $util->install_module( "Params::Validate" );
-    $util->install_module( "Compress::Zlib"   );
+    $util->install_module( "IO::Compress"   );
+    $util->install_module( "Compress::Raw::Zlib"   );
     $util->install_module( "Crypt::PasswdMD5" );
     $util->install_module( "Net::DNS" );
     $util->install_module( "Quota", fatal => 0 ) if $conf->{'install_quota_tools'};
@@ -1291,7 +1297,7 @@ sub daemontools {
     my $self  = shift;
     my %p = validate( @_, { %std_opts } );
 
-    return $p{test_ok} if defined $p{test_ok}; 
+    return $p{test_ok} if defined $p{test_ok};
 
     my $ver = $conf->{'install_daemontools'} or do {
         $log->audit( "daemontools: installing, (disabled)" );
@@ -1378,7 +1384,7 @@ sub daemontools_src {
 
 sub daemontools_freebsd {
 
-    return $freebsd->install_port( "daemontools", 
+    return $freebsd->install_port( "daemontools",
         options => '# This file is generated by Mail Toaster
 # Options for daemontools-0.76_15
 _OPTIONS_READ=daemontools-0.76_15
@@ -1408,11 +1414,9 @@ sub dependencies {
     my $self  = shift;
     my %p = validate( @_, { %std_opts } );
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     my $qmaildir = $conf->{'qmail_dir'} || "/var/qmail";
-
-    $self->cpan(); # install the prereq perl modules
 
     if ( $OSNAME eq "freebsd" ) {
         $self->dependencies_freebsd();
@@ -1432,6 +1436,8 @@ sub dependencies {
     else {
         $self->dependencies_other();
     };
+
+    $self->cpan(); # install the prereq perl modules
 
     if ( ! -x "$qmaildir/bin/qmail-queue" ) {
         $conf->{'qmail_chk_usr_patch'} = 0;
@@ -1459,16 +1465,16 @@ sub dependencies_freebsd {
 
     push @to_install, { port => "setquota" }  if $conf->{'install_quota_tools'};
     push @to_install, { port => "portaudit" } if $conf->{'install_portaudit'};
-    push @to_install, { port => "ispell", category => 'textproc' } 
+    push @to_install, { port => "ispell", category => 'textproc' }
         if $conf->{'install_ispell'};
     push @to_install, { port => 'gdbm'  };
-    push @to_install, { port  => 'openldap23-client', 
+    push @to_install, { port  => 'openldap23-client',
         check    => "openldap-client",
         category => 'net',
         } if $conf->{'install_openldap_client'};
-    push @to_install, { port  => "qmail", 
+    push @to_install, { port  => "qmail",
         flags   => "BATCH=yes",
-        options => "#\n# Installed by Mail::Toaster 
+        options => "#\n# Installed by Mail::Toaster
 # Options for qmail-1.03_7\n_OPTIONS_READ=qmail-1.03_7",
     };
     push @to_install, { port => "qmailanalog", fatal => 0 };
@@ -1529,7 +1535,7 @@ sub djbdns {
     my $self  = shift;
     my %p = validate( @_, { %std_opts } );
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     if ( ! $conf->{'install_djbdns'} ) {
         $log->audit( "djbdns: installing, skipping (disabled)" );
@@ -1615,15 +1621,15 @@ EO_NOT_IN_DIST_ERR
 
     my $pod2html = $util->find_bin("pod2html", debug=>0);
 
-    $util->syscmd( "$pod2html --title='toaster.conf' lib/toaster.conf.pod > doc/toaster.conf.html", 
+    $util->syscmd( "$pod2html --title='toaster.conf' lib/toaster.conf.pod > doc/toaster.conf.html",
         debug=>0, );
-    $util->syscmd( "$pod2html --title='watcher.conf' lib/toaster-watcher.conf.pod  > doc/toaster-watcher.conf.html", 
+    $util->syscmd( "$pod2html --title='watcher.conf' lib/toaster-watcher.conf.pod  > doc/toaster-watcher.conf.html",
         debug=>0, );
-    $util->syscmd( "$pod2html --title='mailadmin' bin/mailadmin > doc/mailadmin.html", 
+    $util->syscmd( "$pod2html --title='mailadmin' bin/mailadmin > doc/mailadmin.html",
         debug=>0, );
 
-    my @modules = qw/ Toaster   Apache  CGI     Darwin   DNS 
-            Ezmlm     FreeBSD   Logs    Mysql   Perl 
+    my @modules = qw/ Toaster   Apache  CGI     Darwin   DNS
+            Ezmlm     FreeBSD   Logs    Mysql   Perl
             Qmail     Setup   Utility /;
 
     MODULE:
@@ -1705,7 +1711,7 @@ sub dovecot {
             return $self->dovecot_start();
         }
 
-    print "dovecot: installing...\n";
+        print "dovecot: installing...\n";
 
         if ( $OSNAME eq "freebsd" ) {
             $self->dovecot_install_freebsd() or return;
@@ -1748,15 +1754,18 @@ sub dovecot {
     $self->dovecot_start();
 }
 
-sub dovecot_conf {
+sub dovecot_1_conf {
     my $self = shift;
+
     my $dconf = '/usr/local/etc/dovecot.conf';
     if ( ! -f $dconf ) {
         foreach ( qw{ /opt/local/etc /etc } ) {
             $dconf = "$_/dovecot.conf";
             last if -e $dconf;
         };
-        return $log->error( "could not locate dovecot.conf. Toaster modifications not applied.");
+        if ( ! -f $dconf ) {
+            return $log->error( "could not locate dovecot.conf. Toaster modifications not applied.");
+        };
     };
 
     my $updated = `grep 'Mail Toaster' $dconf`;
@@ -1853,6 +1862,141 @@ auth_username_format = %Lu",
             },
         ],
     );
+    return 1;
+};
+
+sub dovecot_2_conf {
+    my $self = shift;
+
+    my $dconf = '/usr/local/etc/dovecot';
+    return if ! -d $dconf;
+
+    if ( ! -f "$dconf/dovecot.conf" ) {
+        my $ex = '/usr/local/share/doc/dovecot/example-config';
+
+        foreach ( qw/ dovecot.conf / ) {
+            if ( -f "$ex/$_" ) {
+                copy("$ex/$_", $dconf);
+            };
+        };
+        system "cp $ex/conf.d /usr/local/etc/dovecot";
+    };
+
+    my $updated = `grep 'Mail Toaster' $dconf/dovecot.conf`;
+    if ( $updated ) {
+        $log->audit( "Toaster modifications detected, skipping config" );
+        return 1;
+    };
+
+    $self->config_apply_tweaks(
+        file => "$dconf/dovecot.conf",
+        changes => [
+            {   search  => "#login_greeting = Dovecot ready.",
+                replace => "#login_greeting = Dovecot ready.
+login_greeting = Mail Toaster (Dovecot) ready.",
+            },
+            {   search  => "#listen = *, ::",
+                replace => "#listen = *, ::\nlisten = *",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/10-auth.conf",
+        changes => [
+            {   search  => "#auth_username_format =",
+                replace => "#auth_username_format =\nauth_username_format = %Lu",
+                nowarn  => 1,
+            },
+            {   search  => "auth_mechanisms = plain",
+                replace => "auth_mechanisms = plain login digest-md5 cram-md5",
+            },
+            {   search  => "!include auth-system.conf.ext",
+                replace => "#!include auth-system.conf.ext",
+                nowarn  => 1,
+            },
+            {   search  => "#!include auth-vpopmail.conf.ext",
+                replace => "!include auth-vpopmail.conf.ext",
+                nowarn  => 1,
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/10-ssl.conf",
+        changes => [
+            {   search  => "ssl_cert = </etc/ssl/certs/dovecot.pem",
+                replace => "#ssl_cert = </etc/ssl/certs/dovecot.pem
+ssl_cert = </var/qmail/control/servercert.pem",
+            },
+            {   search  => "ssl_key = </etc/ssl/private/dovecot.pem",
+                replace => "#ssl_key = </etc/ssl/private/dovecot.pem
+ssl_key = </var/qmail/control/servercert.pem",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/10-mail.conf",
+        changes => [
+            {
+                search  => "#mail_location = ",
+                replace => "#mail_location =
+mail_location = maildir:~/Maildir",
+            },
+            {   search  => "#first_valid_uid = 500",
+                replace => "#first_valid_uid = 500\nfirst_valid_uid = 89",
+            },
+            {   search  => "#last_valid_uid = 0",
+                replace => "#last_valid_uid = 0\nlast_valid_uid = 89",
+            },
+            {   search  => "first_valid_gid = 1",
+                replace => "#first_valid_gid = 1\nfirst_valid_gid = 89",
+            },
+            {   search  => "#last_valid_gid = 0",
+                replace => "#last_valid_gid = 0\nlast_valid_gid = 89",
+            },
+            {   search  => "#mail_plugins =",
+                replace => "#mail_plugins =\nmail_plugins = quota",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/20-pop3.conf",
+        changes => [
+            {   search => "  #pop3_client_workarounds = ",
+                replace => "  #pop3_client_workarounds = \n  pop3_client_workarounds = outlook-no-nuls oe-ns-eo",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/15-lda.conf",
+        changes => [
+            {   search  => "#sendmail_path = /usr/sbin/sendmail",
+                replace => "#sendmail_path = /usr/sbin/sendmail\nsendmail_path = /var/qmail/bin/sendmail",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/90-quota.conf",
+        changes => [
+            {   search  => "  #quota = maildir:User quota",
+                replace => "  quota = maildir:User quota",
+            },
+        ],
+    );
+
+    $self->config_apply_tweaks(
+        file => "$dconf/conf.d/20-imap.conf",
+        changes => [
+            {   search  => "  #mail_plugins = ",
+                replace => "  #mail_plugins = \n  mail_plugins = \$mail_plugins imap_quota",
+            },
+        ],
+    );
 };
 
 sub dovecot_install_freebsd {
@@ -1897,12 +2041,6 @@ WITHOUT_SQLITE=true
         };
     };
 
-    # append dovecot_enable to /etc/rc.conf
-    $freebsd->conf_check(
-        check => "dovecot_enable",
-        line  => 'dovecot_enable="YES"',
-    );
-
     return 1;
 }
 
@@ -1912,11 +2050,18 @@ sub dovecot_start {
     my $debug = $self->{'debug'};
 
     unless ( $OSNAME eq "freebsd" ) {
-        $log->error( "sorry, no dovecot startup support yet on $OSNAME", fatal => 0);
+        $log->error( "sorry, no dovecot startup support on $OSNAME", fatal => 0);
         return;
     };
 
-    $self->dovecot_conf() or return;
+    $self->dovecot_1_conf();
+    $self->dovecot_2_conf();
+
+    # append dovecot_enable to /etc/rc.conf
+    $freebsd->conf_check(
+        check => "dovecot_enable",
+        line  => 'dovecot_enable="YES"',
+    );
 
     # start dovecot
     if ( -x "/usr/local/etc/rc.d/dovecot" ) {
@@ -1930,7 +2075,7 @@ sub enable_all_spam {
     my $debug = $self->{'debug'};
 
     my $qmail_dir = $conf->{'qmail_dir'} || "/var/qmail";
-    my $spam_cmd  = $conf->{'qmailadmin_spam_command'} || 
+    my $spam_cmd  = $conf->{'qmailadmin_spam_command'} ||
         '| /usr/local/bin/maildrop /usr/local/etc/mail/mailfilter';
 
     require Mail::Toaster::Qmail;
@@ -2024,7 +2169,7 @@ sub ezmlm {
     my $self  = shift;
     my %p = validate( @_, { %std_opts } );
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     my $ver     = $conf->{'install_ezmlm'};
     my $confdir = $conf->{'system_config_dir'} || "/usr/local/etc";
@@ -2034,7 +2179,7 @@ sub ezmlm {
         return;
     }
 
-    my $ezmlm = $util->find_bin( 'ezmlm-sub', 
+    my $ezmlm = $util->find_bin( 'ezmlm-sub',
         dir   => '/usr/local/bin/ezmlm',
         fatal => 0,
     );
@@ -2045,19 +2190,20 @@ sub ezmlm {
     }
 
     $self->ezmlm_freebsd_port() and return 1;
+    $self->ezmlm_src();
+};
 
+sub ezmlm_src {
+    my $self = shift;
     print "ezmlm: attemping to install ezmlm from sources.\n";
 
     my $ezmlm_dist = "ezmlm-0.53";
+    my $ver     = $conf->{'install_ezmlm'};
     my $idx     = "ezmlm-idx-$ver";
-    my $site    = "http://www.ezmlm.org";
+    my $site    = "http://untroubled.org/ezmlm";
     my $src     = $conf->{'toaster_src_dir'} || "/usr/local/src/mail";
     my $httpdir = $conf->{'toaster_http_base'} || "/usr/local/www";
-    my $cgi     = $conf->{'qmailadmin_cgi-bin_dir'};
-
-    $cgi = -d $cgi ? $cgi : $toaster->get_toaster_cgibin();
-
-    # figure out where to install the CGI
+    my $cgi     = $toaster->get_toaster_cgibin() or die "unable to determine cgi-bin dir\n";
 
     $util->cwd_source_dir( "$src/mail" );
 
@@ -2092,6 +2238,21 @@ sub ezmlm {
     chdir($ezmlm_dist);
 
     $util->syscmd( "patch < idx.patch", );
+    $self->ezmlm_conf_fixups();
+
+    $util->syscmd( "make" );
+    $util->syscmd( "chmod 775 makelang" );
+
+#$util->syscmd( "make mysql" );  # haven't figured this out yet (compile problems)
+    $util->syscmd( "make man" );
+    $util->syscmd( "make setup");
+
+    $self->ezmlm_cgi();
+    return 1;
+}
+
+sub ezmlm_conf_fixups {
+    my $self = shift;
 
     if ( $OSNAME eq "darwin" ) {
         my $local_include = "/usr/local/mysql/include";
@@ -2123,17 +2284,7 @@ sub ezmlm {
     $util->file_write( "conf-bin", lines => ["/usr/local/bin"] );
     $util->file_write( "conf-man", lines => ["/usr/local/man"] );
     $util->file_write( "conf-etc", lines => ["/usr/local/etc"] );
-
-    $util->syscmd( "make" );
-    $util->syscmd( "chmod 775 makelang" );
-
-#$util->syscmd( "make mysql" );  # haven't figured this out yet (compile problems)
-    $util->syscmd( "make man" );
-    $util->syscmd( "make setup");
-
-    $self->ezmlm_cgi();
-    return 1;
-}
+};
 
 sub ezmlm_cgi {
     my $self  = shift;
@@ -2144,13 +2295,13 @@ sub ezmlm_cgi {
     return 1 if ! $conf->{'install_ezmlm_cgi'};
 
     if ( $OSNAME eq "freebsd" ) {
-        $freebsd->install_port( "p5-Archive-Tar", 
+        $freebsd->install_port( "p5-Archive-Tar",
             options=>"#
 # This file was generated by Mail::Toaster
 # No user-servicable parts inside!
 # Options for p5-Archive-Tar-1.30
 _OPTIONS_READ=p5-Archive-Tar-1.30
-WITHOUT_TEXT_DIFF=true", 
+WITHOUT_TEXT_DIFF=true",
         );
     }
 
@@ -2167,8 +2318,6 @@ sub ezmlm_freebsd_port {
     return if $conf->{'install_ezmlm'} ne "port";
     return 1 if $freebsd->is_port_installed( "ezmlm", fatal=>0 );
 
-    $self->ezmlm_makefile_fixup( );
-
     my $defs = '';
     my $opts = "WITHOUT_MYSQL=true";
     if ( $conf->{'install_ezmlm_mysql'} ) {
@@ -2179,12 +2328,13 @@ sub ezmlm_freebsd_port {
     $freebsd->install_port( "ezmlm-idx",
         options => "# This file was generated by mail-toaster
 # No user-servicable parts inside!
-# Options for ezmlm-idx-0.444
-_OPTIONS_READ=ezmlm-idx-0.444
+# Options for ezmlm-idx-7.1.1_1
+_OPTIONS_READ=ezmlm-idx-7.1.1_1
 $opts
+WITHOUT_SQLITE=true
 WITHOUT_PGSQL=true",
         flags   => $defs,
-    ) 
+    )
     or return $log->error( "ezmlm-idx install failed" );
 
     my $confdir = $conf->{'system_config_dir'} || "/usr/local/etc";
@@ -2201,49 +2351,17 @@ WITHOUT_PGSQL=true",
     return $self->ezmlm_cgi();
 };
 
-sub ezmlm_makefile_fixup {
-
-    my $self  = shift;
-    my $debug = $self->{'debug'};
-
-    my %p = validate( @_, {
-            'fatal' => { type => BOOLEAN, optional => 1, default => 1 },
-            'debug' => { type => BOOLEAN, optional => 1, default => $debug },
-            'test_ok' => { type => BOOLEAN, optional => 1, },
-        },
-    );
-
-    my $fatal = $p{'fatal'};
-       $debug = $p{'debug'};
-
-    my $file = "/usr/ports/mail/ezmlm-idx/Makefile";
-
-    # fix a problem in the ports Makefile (no longer necessary as of 7/21/06)
-    my $mysql = $conf->{'install_ezmlm_mysql'};
-
-    return 1 if ( $mysql == 323 || $mysql == 3 );
-    return 1 if ( ! `grep mysql323 $file`);
-
-    my @lines = $util->file_read( $file, debug=>0 );
-    foreach (@lines) {
-        if ( $_ =~ /^LIB_DEPENDS\+\=\s+mysqlclient.10/ ) {
-            $_ = "LIB_DEPENDS+=  mysqlclient.12:\${PORTSDIR}/databases/mysql40-client";
-        }
-    }
-    $util->file_write( $file, lines => \@lines, debug=>0 );
-}
-
 sub filtering {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     if ( $OSNAME eq "freebsd" ) {
 
         $self->maildrop();
 
-        $freebsd->install_port( "p5-Archive-Tar", 
+        $freebsd->install_port( "p5-Archive-Tar",
 			options=> "# This file was generated by mail-toaster
 # No user-servicable parts inside!
 # Options for p5-Archive-Tar-1.30
@@ -2258,8 +2376,8 @@ WITHOUT_TEXT_DIFF=true",
 
         $freebsd->install_port( "pyzor" ) if $conf->{'install_pyzor'};
         $freebsd->install_port( "bogofilter" ) if $conf->{'install_bogofilter'};
-        $freebsd->install_port( "dcc-dccd", 
-            flags => "WITHOUT_SENDMAIL=yes", 
+        $freebsd->install_port( "dcc-dccd",
+            flags => "WITHOUT_SENDMAIL=yes",
             options => "# This file generated by mail-toaster
 # Options for dcc-dccd-1.3.116
 _OPTIONS_READ=dcc-dccd-1.3.116
@@ -2290,7 +2408,7 @@ sub filtering_test {
 
     $self->simscan_test( );
 
-    print "\n\nFor more ways to test your Virus scanner, go here: 
+    print "\n\nFor more ways to test your Virus scanner, go here:
 \n\t http://www.testvirus.org/\n\n";
 }
 
@@ -2325,7 +2443,7 @@ sub gnupg_install {
         return 1 if $freebsd->is_port_installed('gnupg');
     };
 
-    $freebsd->install_port( "gnupg", 
+    $freebsd->install_port( "gnupg",
         debug   => 0,
         options => "# This file was generated by mail-toaster
 # No user-servicable parts inside!
@@ -2347,7 +2465,7 @@ sub group_add {
     my $cmd;
     if ( $OSNAME eq 'linux' ) {
         $cmd = $util->find_bin('groupadd');
-        $cmd .= " -g $gid" if $gid;    
+        $cmd .= " -g $gid" if $gid;
         $cmd .= " $group";
     }
     elsif ( $OSNAME eq 'freebsd' ) {
@@ -2379,11 +2497,11 @@ sub group_add {
 };
 
 sub group_exists {
-    my $self = shift; 
+    my $self = shift;
     my $group = lc(shift) or die "missing group";
     my $gid = getgrnam($group);
     return ( $gid && $gid > 0 ) ? $gid : undef;
-};  
+};
 
 sub imap_test_auth {
     my $self  = shift;
@@ -2416,7 +2534,7 @@ sub imap_test_auth_nossl {
         return;
     };
 
-    $log->test( "authenticate IMAP user with plain passwords", 
+    $log->test( "authenticate IMAP user with plain passwords",
         $imap->IsAuthenticated() );
 
     my @features = $imap->capability
@@ -2461,7 +2579,7 @@ sub imap_test_auth_ssl {
     );
     $log->test( "  imap SSL connection", $socket);
     return if ! $socket;
-    
+
     print "  connected with " . $socket->get_cipher() . "\n";
     print $socket ". login $user $pass\n";
     ($r) = $socket->peek =~ /OK/i;
@@ -2517,7 +2635,8 @@ sub isoqlog {
 
     if ( $ver eq "port" ) {
         if ( $OSNAME eq "freebsd" ) {
-            $freebsd->install_port( "isoqlog" ) and return 1;
+            $freebsd->install_port( "isoqlog" );
+            $self->isoqlog_conf();
             return 1 if $freebsd->is_port_installed( "isoqlog", %p );
         }
         else {
@@ -2527,14 +2646,15 @@ sub isoqlog {
     }
     else {
         if ( $util->find_bin( "isoqlog", fatal => 0 ) ) {
+            $self->isoqlog_conf();
             $log->audit( "isoqlog: install, ok (exists)" );
-            $return = 2;
+            return 2;
         }
     }
 
     return $return if $util->find_bin( "isoqlog", fatal => 0 );
 
-    $log->audit( "isoqlog not found. Trying to install v$ver from sources for $OSNAME!");
+    $log->audit( "isoqlog not found. Attempting source install ($ver) on $OSNAME!");
 
     $ver = 2.2 if ( $ver eq "port" || $ver == 1 );
 
@@ -2618,18 +2738,13 @@ EO_ISOQLOG
 
     $util->syscmd( "isoqlog", fatal => 0 );
 
-    unless ( -e "$htdocs/isoqlog" ) {
+    # if missing, create the isoqlog web directory
+    if ( ! -e "$htdocs/isoqlog" ) {
         mkdir oct('0755'), "$htdocs/isoqlog";
-    }
+    };
 
-    # what follows is one way to fix the missing images problem. The better
-    # way is with an apache alias directive such as:
+    # to fix the missing images problem, add a web server alias like:
     # Alias /isoqlog/images/ "/usr/local/share/isoqlog/htmltemp/images/"
-    # that is now included in the Apache 2.0 patch
-
-    my $isoimg = "$htdocs/isoqlog/images";
-    $util->syscmd( "cp -r /usr/local/share/isoqlog/htmltemp/images $isoimg" )
-        if ! -e $isoimg;
 }
 
 sub lighttpd {
@@ -2646,11 +2761,12 @@ sub lighttpd {
         $self->lighttpd_freebsd();
     }
     else {
-        $util->find_bin( 'lighttpd', fatal=>0) 
+        $util->find_bin( 'lighttpd', fatal=>0)
             or return $log->error("no support for install lighttpd on $OSNAME. Report this error to support\@tnpi.net");
     };
 
     $self->lighttpd_config();
+    $self->lighttpd_vhost();
     $self->php();
     $self->lighttpd_start();
     return 1;
@@ -2687,7 +2803,7 @@ WITHOUT_WEBDAV=true\n",
 
     my @logs = qw/ lighttpd.error.log lighttpd.access.log /;
     foreach ( @logs ) {
-        $util->file_write( "/var/log/$_", lines => [' '] ) 
+        $util->file_write( "/var/log/$_", lines => [' '] )
             if ! -e "/var/log/$_";
         $util->chown("/var/log/$_", uid => 'www', gid => 'www');
     };
@@ -2696,16 +2812,19 @@ WITHOUT_WEBDAV=true\n",
 sub lighttpd_config {
     my $self = shift;
 
-    my $lconf = '/usr/local/etc/lighttpd.conf';
+    my $letc = '/usr/local/etc';
+    $letc = "$letc/lighttpd" if -d "$letc/lighttpd";
 
-    `grep toaster $lconf` 
+    my $lconf = "$letc/lighttpd.conf";
+
+    `grep toaster $letc/lighttpd.conf`
         and return $log->audit("lighttpd configuration already done");
 
     my $cgi_bin = $conf->{toaster_cgi_bin} || '/usr/local/www/cgi-bin.toaster/';
     my $htdocs = $conf->{toaster_http_docs} || '/usr/local/www/toaster';
 
     $self->config_apply_tweaks(
-        file    => $lconf,
+        file    => "$letc/lighttpd.conf",
         changes => [
             {   search  => q{#                               "mod_redirect",},
                 replace => q{                                "mod_redirect",},
@@ -2731,39 +2850,99 @@ sub lighttpd_config {
             {   search  => q{server.document-root        = "/usr/local/www/data/"},
                 replace => qq{server.document-root        = "$htdocs/"},
             },
-            {   search  => q{#include /etc/lighttpd/lighttpd-inc.conf},
-                replace => q{include "/usr/local/etc/lighttpd-inc.conf"},
+            {   search  => q{server.document-root = "/usr/local/www/data/"},
+                replace => qq{server.document-root = "$htdocs/"},
+            },
+            {   search  => q{var.server_root = "/usr/local/www/data"},
+                replace => qq{var.server_root = "$htdocs"},
+            },
+            {   search  => q{#include_shell "cat /usr/local/etc/lighttpd/vhosts.d/*.conf"},
+                replace => q{include_shell "cat /usr/local/etc/lighttpd/vhosts.d/*.conf"},
+            },
+            {   search  => q'$SERVER["socket"] == "0.0.0.0:80" { }',
+                replace => q'#$SERVER["socket"] == "0.0.0.0:80" { }',
             },
         ],
     );
 
-    my $include = '
-# avoid upload hang: http://redmine.lighttpd.net/boards/2/topics/show/141
-server.network-backend = "writev",
+    $self->config_apply_tweaks(
+        file    => "$letc/modules.conf",
+        changes => [
+            {   search  => q{#  "mod_alias",},
+                replace => q{  "mod_alias",},
+            },
+            {   search  => q{#  "mod_auth",},
+                replace => q{  "mod_auth",},
+            },
+            {   search  => q{#  "mod_redirect",},
+                replace => q{  "mod_redirect",},
+            },
+            {   search  => q{#  "mod_setenv",},
+                replace => q{  "mod_setenv",},
+            },
+            {   search  => q{#include "conf.d/cgi.conf"},
+                replace => q{include "conf.d/cgi.conf"},
+            },
+            {   search  => q{#include "conf.d/fastcgi.conf"},
+                replace => q{include "conf.d/fastcgi.conf"},
+            },
+        ],
+    );
 
+    return 1;
+};
+
+sub lighttpd_start {
+    my $self = shift;
+
+    if ( $OSNAME eq 'freebsd' ) {
+        system "/usr/local/etc/rc.d/lighttpd restart";
+        return 1;
+    }
+    elsif ( $OSNAME eq 'linux' ) {
+        system "service lighttpd start";
+        return 1;
+    };
+    print "not sure how to start lighttpd on $OSNAME\n";
+    return;
+};
+
+sub lighttpd_vhost {
+    my $self = shift;
+
+    my $letc = '/usr/local/etc';
+    $letc = "$letc/lighttpd" if -d "$letc/lighttpd";
+
+    my $www   = '/usr/local/www';
+    my $cgi_bin = $conf->{toaster_cgi_bin} || "$www/cgi-bin.toaster/";
+    my $htdocs = $conf->{toaster_http_docs} || "$www/toaster";
+
+    my $vhost = '
 alias.url = (  "/cgi-bin/"       => "' . $cgi_bin . '/",
-               "/squirrelmail/"  => "/usr/local/www/squirrelmail/",
                "/sqwebmail/"     => "' . $htdocs . '/sqwebmail/",
-               "/roundcube/"     => "/usr/local/www/roundcube/",
-               "/v-webmail/"     => "/usr/local/www/v-webmail/htdocs/",
-               "/isoqlog/images/"=> "/usr/local/share/isoqlog/htmltemp/images/",
-               "/phpMyAdmin/"    => "/usr/local/www/phpMyAdmin/",
+               "/qmailadmin/"    => "' . $htdocs . '/qmailadmin/",
+               "/squirrelmail/"  => "' . $www . '/squirrelmail/",
+               "/roundcube/"     => "' . $www . '/roundcube/",
+               "/v-webmail/"     => "' . $www . '/v-webmail/htdocs/",
+               "/horde/"         => "' . $www . '/horde/",
+               "/awstatsclasses" => "' . $www . '/awstats/classes/",
+               "/awstatscss"     => "' . $www . '/awstats/css/",
+               "/awstatsicons"   => "' . $www . '/awstats/icons/",
+               "/awstats/"       => "' . $www . '/awstats/cgi-bin/",
+               "/munin/"         => "' . $www . '/munin/",
                "/rrdutil/"       => "/usr/local/rrdutil/html/",
-               "/munin/"         => "/usr/local/www/munin/",
-               "/awstatsclasses" => "/usr/local/www/awstats/classes/",
-               "/awstatscss"     => "/usr/local/www/awstats/css/",
-               "/awstatsicons"   => "/usr/local/www/awstats/icons/",
-               "/awstats/"       => "/usr/local/www/awstats/cgi-bin/",
+               "/isoqlog/images/"=> "/usr/local/share/isoqlog/htmltemp/images/",
+               "/phpMyAdmin/"    => "' . $www . '/phpMyAdmin/",
             )
 
 $HTTP["url"] =~ "^/awstats/" {
     cgi.assign = ( "" => "/usr/bin/perl" )
 }
 $HTTP["url"] =~ "^/cgi-bin" {
-     cgi.assign = ( "" => "" )
+    cgi.assign = ( "" => "" )
 }
 $HTTP["url"] =~ "^/ezmlm.cgi" {
-         cgi.assign = ( "" => "/usr/bin/perl" )
+    cgi.assign = ( "" => "/usr/bin/perl" )
 }
 
 # redirect users to a secure connection
@@ -2779,8 +2958,8 @@ $SERVER["socket"] == ":443" {
 # sqwebmail needs this
    setenv.add-environment = ( "HTTPS" => "on" )
 }
-    
-fastcgi.server = ( 
+
+fastcgi.server = (
                     ".php" =>
                        ( "localhost" =>
                          (
@@ -2798,42 +2977,37 @@ fastcgi.server = (
                   )
 
 auth.backend               = "htdigest"
-auth.backend.htdigest.userfile = "/usr/local/etc/lighttpd.passwd"
+auth.backend.htdigest.userfile = "/usr/local/etc/WebUsers"
 
 auth.require   = (   "/isoqlog" =>
                      (
                          "method"  => "digest",
-                         "realm"   => "isoqlog",
-                         "require" => "user=matt"
+                         "realm"   => "Admins Only",
+                         "require" => "valid-user"
                       ),
                      "/cgi-bin/vqadmin" =>
                      (
                          "method"  => "digest",
-                         "realm"   => "vqadmin",
-                         "require" => "user=matt"
+                         "realm"   => "Admins Only",
+                         "require" => "valid-user"
+                      ),
+                     "/ezmlm.cgi" =>
+                     (
+                         "method"  => "digest",
+                         "realm"   => "Admins Only",
+                         "require" => "valid-user"
                       )
+#                     "/munin" =>
+#                     (
+#                         "method"  => "digest",
+#                         "realm"   => "Admins Only",
+#                         "require" => "valid-user"
+#                      )
                   )
 ';
 
-    $util->file_write('/usr/local/etc/lighttpd-inc.conf',
-        lines => [ $include ],
-    );
-    return 1; 
-};
-
-sub lighttpd_start {
-    my $self = shift;
-
-    if ( $OSNAME eq 'freebsd' ) {
-        system "/usr/local/etc/rc.d/lighttpd restart";
-        return 1;
-    }
-    elsif ( $OSNAME eq 'linux' ) {
-        system "service lighttpd start";
-        return 1;
-    };
-    print "not sure how to start lighttpd on $OSNAME\n";
-    return;
+    $util->file_write("$letc/vhosts.d/mail-toaster.conf", lines => [ $vhost ],);
+    return 1;
 };
 
 sub logmonster {
@@ -2886,7 +3060,7 @@ sub maildrop {
         $ver = "2.5.0";
     }
 
-    $util->find_bin( "maildrop", fatal => 0 ) 
+    $util->find_bin( "maildrop", fatal => 0 )
         or $util->install_from_source(
                 package => 'maildrop-' . $ver,
                 site    => 'http://' . $conf->{'toaster_sf_mirror'},
@@ -2929,7 +3103,7 @@ sub maildrop_filter {
 
     $util->mkdir_system( dir => $path )  if ! -d $path;
 
-    return $log->error( "$path doesn't exist and I couldn't create it.") 
+    return $log->error( "$path doesn't exist and I couldn't create it.")
         if ! -d $path;
 
     my @lines = $self->maildrop_filter_file( logbase => $logbase );
@@ -2983,21 +3157,20 @@ import EXT
 import HOST
 VHOME=`pwd`
 TIMESTAMP=`date "+\%b \%d \%H:\%M:\%S"`
-MAILDROP_OLD_REGEXP="1"
 
 ##
 #  title:  mailfilter-site
 #  author: Matt Simerson
-#  version 2.12
+#  version 2.17
 #
-#  This file is automatically generated by toaster_setup.pl, 
+#  This file is automatically generated by toaster_setup.pl,
 #  DO NOT HAND EDIT, your changes may get overwritten!
 #
-#  Make changes to toaster-watcher.conf, and run 
+#  Make changes to toaster-watcher.conf, and run
 #  toaster_setup.pl -s maildrop to rebuild this file. Old versions
 #  are preserved as $filterfile.timestamp
 #
-#  Usage: Install this file in your local etc/mail/mailfilter. On 
+#  Usage: Install this file in your local etc/mail/mailfilter. On
 #  your system, this is $prefix/etc/mail/mailfilter
 #
 #  Create a .qmail file in each users Maildir as follows:
@@ -3021,7 +3194,7 @@ MAILDROP_OLD_REGEXP="1"
 #  HOST3 is the portion of HOST preceding the second-to-last dot
 #  HOST4 is the portion of HOST preceding the third-to-last dot
 #  EXT2 is the portion of EXT following the first dash
-#  EXT3 is the portion following the second dash; 
+#  EXT3 is the portion following the second dash;
 #  EXT4 is the portion following the third dash.
 #  DEFAULT  is  the  portion corresponding to the default part of the .qmail-... file name
 #  DEFAULT is not set if the file name does not end with default
@@ -3041,7 +3214,7 @@ EOMAILDROP
     push @lines, <<'EOMAILDROP2';
 log "$TIMESTAMP - BEGIN maildrop processing for $EXT@$HOST ==="
 
-# I have seen cases where EXT or HOST is unset. This can be caused by 
+# I have seen cases where EXT or HOST is unset. This can be caused by
 # various blunders committed by the sysadmin so we should test and make
 # sure things are not too messed up.
 #
@@ -3049,16 +3222,16 @@ log "$TIMESTAMP - BEGIN maildrop processing for $EXT@$HOST ==="
 # the chance to notice and fix the problem before the message bounces.
 
 if ( $EXT eq "" )
-{ 
-        log "  FAILURE: EXT is not a valid value ($EXT)"
+{
+        log "  FAILURE: EXT is not a valid value"
         log "=== END ===  $EXT@$HOST failure (EXT variable not imported)"
         EXITCODE=111
         exit
 }
 
 if ( $HOST eq "" )
-{ 
-        log "  FAILURE: HOST is not a valid value ($HOST)"
+{
+        log "  FAILURE: HOST is not a valid value"
         log "=== END ===  $EXT@$HOST failure (HOST variable not imported)"
         EXITCODE=111
         exit
@@ -3081,7 +3254,7 @@ exception {
 	if ( /^X-Spam-Status: /:h )
 	{
 		# do not pass through spamassassin if the message already
-		# has an X-Spam-Status header. 
+		# has an X-Spam-Status header.
 
 		log "Message already has X-Spam-Status header, skipping spamc"
 	}
@@ -3093,7 +3266,6 @@ exception {
 			if ( \$RETURNCODE == 0 )
 			{
 				log `date "+\%b \%d \%H:\%M:\%S"`" \$PID - running message through spamc"
-#				log "   running message through spamc"
 				exception {
 					xfilter '$prefix/bin/spamc -u "\$EXT\@\$HOST"'
 				}
@@ -3111,7 +3283,7 @@ EOMAILDROP3
 
     push @lines, <<"EOMAILDROP4";
 ##
-# Include any rules set up for the user - this gives the 
+# Include any rules set up for the user - this gives the
 # administrator a way to override the sitewide mailfilter file
 #
 # this is also the "suggested" way to set individual values
@@ -3127,7 +3299,7 @@ if( \$RETURNCODE == 0 )
 	}
 }
 
-## 
+##
 # create the maildirsize file if it does not already exist
 # (could also be done via "deliverquota user\@dom.com 10MS,1000C)
 ##
@@ -3157,20 +3329,44 @@ if( \$RETURNCODE == 1)
 
 EOMAILDROP4
 
-    push @lines, <<'EOMAILDROP5';
+    my $head = $util->find_bin( 'head' );
+
+    push @lines, <<"EOMAILDROP5";
 ##
 # Set MAILDIRQUOTA. If this is not set, maildrop and deliverquota
 # will not enforce quotas for message delivery.
-#
-# I find this much easier than creating yet another config file
-# to store this in. This way, any time the quota is changed in
-# vpopmail, it will get noticed by maildrop immediately.
 ##
 
-`test -e $VHOME/Maildir/maildirsize`
-if( $RETURNCODE == 0)
+`test -e \$VHOME/Maildir/maildirsize`
+if( \$RETURNCODE == 0)
 {
-	MAILDIRQUOTA=`/usr/bin/head -n1 $VHOME/Maildir/maildirsize`
+	MAILDIRQUOTA=`$head -n1 \$VHOME/Maildir/maildirsize`
+}
+
+# if the user does not have a Spam folder, create it.
+
+`test -d \$VHOME/Maildir/.Spam`
+if( \$RETURNCODE == 1 )
+{
+
+    MAILDIRMAKE="$prefix/bin/maildirmake"
+    `test -x \$MAILDIRMAKE`
+    if ( \$RETURNCODE == 1 )
+    {
+        MAILDIRMAKE="$prefix/bin/maildrop-maildirmake"
+        `test -x \$MAILDIRMAKE`
+    }
+
+    if ( \$RETURNCODE == 1 )
+    {
+        log "   WARNING: no maildirmake!"
+    }
+    else
+    {
+        log "   creating \$VHOME/Maildir/.Spam "
+        `\$MAILDIRMAKE -f Spam \$VHOME/Maildir`
+        `$prefix/sbin/subscribeIMAP.sh Spam \$VHOME`
+    }
 }
 
 ##
@@ -3183,44 +3379,46 @@ if( $RETURNCODE == 0)
 #
 # if ( /^X-Spam-Status: *Yes/)  # test if spam status is yes
 # The following regexp matches any spam message and sets the
-# variable $MATCH2 to the spam score.
+# variable \$MATCH2 to the spam score.
 
-if ( /X-Spam-Status: Yes, (hits|score)=![0-9]+\.[0-9]+! /:h)
+if ( /X-Spam-Status: Yes/:h)
 {
+    if ( /X-Spam-Status: Yes, (hits|score)=([\\d\\.\\-]+)\\s/:h)
+    {
 EOMAILDROP5
 
-    my $score     = $conf->{'filtering_spama_discard_score'};
+    my $discard   = $conf->{'filtering_spama_discard_score'};
     my $pyzor     = $conf->{'filtering_report_spam_pyzor'};
     my $sa_report = $conf->{'filtering_report_spam_spamassassin'};
 
-    if ($score) {
+    if ($discard) {
 
         push @lines, <<"EOMAILDROP6";
-	# if the message scored a $score or higher, then there is no point in
+	# if the message scored a $discard or higher, then there is no point in
 	# keeping it around. SpamAssassin already knows it as spam, and
 	# has already "autolearned" from it if you have that enabled. The
 	# end user likely does not want it. If you wanted to cc it, or
 	# deliver it elsewhere for inclusion in a spam corpus, you could
 	# easily do so with a cc or xfilter command
 
-	if ( \$MATCH2 >= $score )   # from Adam Senuik post to mail-toasters
-	{
+        if ( \$MATCH2 >= $discard )   # from Adam Senuik post to mail-toasters
+        {
 EOMAILDROP6
 
         if ( $pyzor && !$sa_report ) {
 
             push @lines, <<"EOMAILDROP7";
-		`test -x $prefix/bin/pyzor`
-		if( \$RETURNCODE == 0 )
-		{
-			# if the pyzor binary is installed, report all messages with
-			# high spam scores to the pyzor servers
-		
-			log "   SPAM: score \$MATCH2: reporting to Pyzor"
-			exception {
-				xfilter "$prefix/bin/pyzor report"
-			}
-		}
+            `test -x $prefix/bin/pyzor`
+            if( \$RETURNCODE == 0 )
+            {
+                # if the pyzor binary is installed, report all messages with
+                # high spam scores to the pyzor servers
+
+                log "   SPAM: score \$MATCH2: reporting to Pyzor"
+                exception {
+                    xfilter "$prefix/bin/pyzor report"
+                }
+            }
 EOMAILDROP7
         }
 
@@ -3228,91 +3426,129 @@ EOMAILDROP7
 
             push @lines, <<"EOMAILDROP8";
 
-		# new in version 2.5 of Mail::Toaster mailfiter
-		`test -x $prefix/bin/spamassassin`
-		if( \$RETURNCODE == 0 )
-		{
-			# if the spamassassin binary is installed, report messages with
-			# high spam scores to spamassassin (and consequently pyzor, dcc,
-			# razor, and SpamCop)
-		
-			log "   SPAM: score \$MATCH2: reporting spam via spamassassin -r"
-			exception {
-				xfilter "$prefix/bin/spamassassin -r"
-			}
-		}
+            # new in version 2.5 of Mail::Toaster mailfiter
+            `test -x $prefix/bin/spamassassin`
+            if( \$RETURNCODE == 0 )
+            {
+                # if the spamassassin binary is installed, report messages with
+                # high spam scores to spamassassin (and consequently pyzor, dcc,
+                # razor, and SpamCop)
+
+                log "   SPAM: score \$MATCH2: reporting spam via spamassassin -r"
+                exception {
+                    xfilter "$prefix/bin/spamassassin -r"
+                }
+            }
 EOMAILDROP8
         }
 
         push @lines, <<"EOMAILDROP9";
-		log "   SPAM: score \$MATCH2 exceeds $score: nuking message!"
-		log "=== END === \$EXT\@\$HOST success (discarded)"
-		EXITCODE=0
-		exit
-	}
+                log "   SPAM: score \$MATCH2 exceeds $discard: nuking message!"
+                log "=== END === \$EXT\@\$HOST success (discarded)"
+                EXITCODE=0
+                exit
+            }
 EOMAILDROP9
     }
 
     push @lines, <<"EOMAILDROP10";
-	# if the user does not have a Spam folder, we create it.
-
-	`test -d \$VHOME/Maildir/.Spam`
-	if( \$RETURNCODE == 1 )
-	{
-		log "   creating \$VHOME/Maildir/.Spam "
-		`maildirmake -f Spam \$VHOME/Maildir`
-		`$prefix/sbin/subscribeIMAP.sh Spam \$VHOME`
-	}
-
-	log "   SPAM: score \$MATCH2: delivering to \$VHOME/Maildir/.Spam"
-
-	# make sure the deliverquota binary exists and is executable
-	# if not, then we cannot enforce quotas. If you do not check
-	# for this, and the binary is missing, maildrop silently
-	# discards mail. Do not ask how I know this.
-
-	`test -x $prefix/bin/deliverquota`
-	if ( \$RETURNCODE == 1 )
-	{
-		log "   WARNING: no deliverquota!"
-		log "=== END ===  \$EXT\@\$HOST success"
-		exception {
-			to "\$VHOME/Maildir/.Spam"
-		}
-	}
-	else
-	{
-		exception {
-			xfilter "$prefix/bin/deliverquota -w 90 \$VHOME/Maildir/.Spam"
-		}
-
-		if ( \$RETURNCODE == 0 )
-		{
-			log "=== END ===  \$EXT\@\$HOST  success (quota)"
-			EXITCODE=0
-			exit
-		}
-		else
-		{
-			if( \$RETURNCODE == 77)
-			{
-				log "=== END ===  \$EXT\@\$HOST  bounced (quota)"
-				to "|/var/qmail/bin/bouncesaying '\$EXT\@\$HOST is over quota'"
-			}
-			else
-			{
-				log "=== END ===  \$EXT\@\$HOST failure (unknown deliverquota error)"
-				to "\$VHOME/Maildir/.Spam"
-			}
-		}
-	}
+        log "   SPAM: score \$MATCH2: delivering to \$VHOME/Maildir/.Spam"
+        log "=== END ===  \$EXT\@\$HOST success"
+        exception {
+            to "\$VHOME/Maildir/.Spam"
+        }
+    }
+    else
+    {
+        log "   SpamAssassin regexp match error!"
+    }
 }
 
-if ( /^X-Spam-Status: No, hits=![\\-]*[0-9]+\\.[0-9]+! /:h)
+if ( /^X-Spam-Status: No, (score|hits)=([\\d\\.\\-]+)\\s/:h)
 {
-	log "   message is clean (\$MATCH2)"
+    log "   message is SA clean (\$MATCH2)"
 }
 
+EOMAILDROP10
+
+if ( $conf->{install_dspam} ) {
+
+    push @lines, <<"EOMAILDROP_DSPAM";
+if ( /^X-DSPAM-Result: /:h )
+{
+    log "   has X-DSPAM-Result header"
+}
+else
+{
+    if ( \$SIZE < 4194304 ) # Filter if message is less than 4MB
+    {
+        `test -x $prefix/bin/dspam`
+        if ( \$RETURNCODE == 0 )
+        {
+            log `date "+\%b \%d \%H:\%M:\%S"`" \$PID - running message through dspam"
+            exception {
+                xfilter '$prefix/bin/dspam --user \$EXT\@\$HOST --process --deliver=innocent,spam --stdout'
+            }
+        }
+        else
+        {
+            log "   WARNING: no $prefix/bin/dspam binary!"
+        }
+    }
+}
+
+##
+# Check for DSPAM tag
+##
+# HAM:  X-DSPAM-Result: Innocent, probability=0.0000, confidence=0.94
+# SPAM: X-DSPAM-Result: Spam, probability=1.0000, confidence=0.99
+#
+
+if ( /X-DSPAM-Result: /:h)
+{
+    if ( /X-DSPAM-Result: Spam/:h)
+    {
+        if ( /X-DSPAM-Result: Spam, probability=([\\d\\.]+), confidence=([\\d\\.]+)/:h)
+        {
+            if ( \$MATCH1 == 1 && \$MATCH2 >= .50 )
+            {
+                if ( /^X-Spam-Status: /:h )
+                {
+                    if ( /X-Spam-Status: Yes/:h)
+                    {
+                        log "   DSPAM: delivering spam (\$MATCH2) to \$VHOME/Maildir/.Spam"
+                        log "=== END ===  \$EXT\@\$HOST success"
+                        exception {
+                            to "\$VHOME/Maildir/.Spam"
+                        }
+                    }
+                    else
+                    {
+                        log "   DSPAM says spam (\$MATCH2) SA says no"
+                    }
+                }
+            }
+            else
+            {
+                log "   DSPAM suspects spam (\$MATCH2)"
+            }
+        }
+        else
+        {
+            log "   DSPAM regexp match error!"
+        }
+    }
+    else
+    {
+        log "   dspam says innocent"
+    }
+}
+
+EOMAILDROP_DSPAM
+;
+};
+
+    push @lines, <<"EOMAILDROP11";
 ##
 # Include any other rules that the user might have from
 # sqwebmail or other compatible program
@@ -3327,21 +3563,41 @@ if( \$RETURNCODE == 0 )
 	}
 }
 
+`test -r \$VHOME/Maildir/mailfilter`
+if( \$RETURNCODE == 0 )
+{
+	log "   including \$VHOME/Maildir/mailfilter"
+	exception {
+		include \$VHOME/Maildir/mailfilter
+	}
+}
+
 log "   delivering to \$VHOME/Maildir"
 
-`test -x $prefix/bin/deliverquota`
+# make sure the deliverquota binary exists and is executable
+# if not, then we cannot enforce quotas. If we do not check
+# and the binary is missing, maildrop silently discards mail.
+
+DELIVERQUOTA="$prefix/bin/deliverquota"
+`test -x \$DELIVERQUOTA`
 if ( \$RETURNCODE == 1 )
 {
-	log "   WARNING: no deliverquota!"
-	log "=== END ===  \$EXT\@\$HOST success"
-	exception {
-		to "\$VHOME/Maildir"
-	}
+	DELIVERQUOTA="$prefix/bin/maildrop-deliverquota"
+    `test -x \$DELIVERQUOTA`
+}
+
+if ( \$RETURNCODE == 1 )
+{
+    log "   WARNING: no deliverquota!"
+    log "=== END ===  \$EXT\@\$HOST success"
+    exception {
+        to "\$VHOME/Maildir"
+    }
 }
 else
 {
 	exception {
-		xfilter "$prefix/bin/deliverquota -w 90 \$VHOME/Maildir"
+		xfilter "\$DELIVERQUOTA -w 90 \$VHOME/Maildir"
 	}
 
 	##
@@ -3363,7 +3619,7 @@ else
 }
 
 log "WARNING: This message should never be printed!"
-EOMAILDROP10
+EOMAILDROP11
 
     return @lines;
 }
@@ -3447,7 +3703,7 @@ sub maillogs {
     my %p = validate( @_, { %std_opts } );
     my %args = $log->get_std_args( %p );
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     my $user  = $conf->{'qmail_log_user'}  || "qmaill";
     my $group = $conf->{'qmail_log_group'} || "qnofiles";
@@ -3462,7 +3718,7 @@ sub maillogs {
     $toaster->supervise_dirs_create( debug=>1 );
     $self->maillogs_create_dirs();
 
-    my $maillogs = $util->find_bin( "/usr/local/bin/maillogs", debug => 0);
+    my $maillogs = $util->find_bin( 'maillogs', debug => 0);
 
     my @multilogs = ( "$logdir/send/sendlog", "$logdir/smtp/smtplog",
                       "$logdir/pop3/pop3log" );
@@ -3500,7 +3756,7 @@ sub maillogs_create_dirs {
     # if it exists, make sure it's owned by qmail:qnofiles
     my $logdir = $conf->{'qmail_log_base'} || "/var/log/mail";
     if ( -w $logdir ) {
-        chown( $uid, $gid, $logdir ) 
+        chown( $uid, $gid, $logdir )
             or $log->error( "Couldn't chown $logdir to $uid: $!");
         $log->audit( "maillogs: set ownership of $logdir to $user",debug=>1 );
     }
@@ -3508,7 +3764,7 @@ sub maillogs_create_dirs {
     if ( ! -d $logdir ) {
         mkdir( $logdir, oct('0755') )
             or $log->error( "maillogs: couldn't create $logdir: $!" );
-        chown( $uid, $gid, $logdir ) 
+        chown( $uid, $gid, $logdir )
             or $log->error( "maillogs: couldn't chown $logdir: $!");
         $log->audit( "maillogs: created $logdir", debug=>1 );
     }
@@ -3568,19 +3824,11 @@ sub munin {
         return;
     };
 
-    return $log->audit("no munin install support for $OSNAME") 
+    $self->rrdtool();
+
+    return $log->audit("no munin install support for $OSNAME")
         if $OSNAME ne 'freebsd';
 
-# the newer (default) version of rrdtool requires an obscene amount 
-# of x11 software be installed. Install the older one instead.
-    $freebsd->install_port('rrdtool',
-        dir     => 'rrdtool12',
-        options => "#\n# Options for rrdtool-1.2.30_1
-_OPTIONS_READ=rrdtool-1.2.30_1
-WITHOUT_PYTHON_MODULE=true
-WITHOUT_RUBY_MODULE=true
-WITH_PERL_MODULE=true\n",
-    ); 
     $freebsd->install_port('p5-Date-Manip');
     $self->munin_node();
     $freebsd->install_port('munin-master');
@@ -3608,8 +3856,7 @@ sub munin_node {
         file => "$munin_etc/munin-node.conf",
         changes => [
             {   search => q{allow ^127\.0\.0\.1$},
-                replace => q{allow ^127\.0\.0\.1$} .
-qq{\n$locals\n},
+                replace => q{allow ^127\.0\.0\.1$} . qq{\n$locals\n},
             }
         ],
     );
@@ -3630,10 +3877,12 @@ qq{\n$locals\n},
     my $dist = "/usr/local/src/Mail-Toaster-$t_ver";
     if ( -d $dist ) {
         my @plugins = qw/ qmail_rbl spamassassin /;
-        foreach ( @plugins ) { 
+        foreach ( @plugins ) {
             copy("$dist/contrib/munin/$_", "$munin_etc/plugins" );
             chmod oct('0755'), "$munin_etc/plugins/$_";
         };
+        copy ("$dist/contrib/logtail", "/usr/local/bin/logtail");
+        chmod oct('0755'), "/usr/local/bin/logtail";
     };
 
     system "/usr/local/etc/rc.d/munin-node", "restart";
@@ -3659,7 +3908,7 @@ sub nictool {
     my $self  = shift;
     my %p = validate( @_, { %std_opts, },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     $conf->{'install_expat'} = 1;    # this must be set for expat to install
 
@@ -3760,7 +4009,7 @@ sub openssl_conf {
         return;
     }
 
-    return if ( defined $conf->{'install_openssl_conf'} 
+    return if ( defined $conf->{'install_openssl_conf'}
                     && !$conf->{'install_openssl_conf'} );
 
     # make sure openssl libraries are available
@@ -3789,9 +4038,9 @@ sub openssl_conf {
         next unless $inside;
         $discard++ if ( $line =~ /emailAddress_default/ && $line !~ /example\.com/ );
 
-        $line = "countryName_default\t\t= $country" 
+        $line = "countryName_default\t\t= $country"
             if $line =~ /^countryName_default/;
-        $line = "stateOrProvinceName_default\t= $state" 
+        $line = "stateOrProvinceName_default\t= $state"
             if $line =~ /^stateOrProvinceName_default/;
         $line = "localityName\t\t\t= Locality Name (eg, city)\nlocalityName_default\t\t= $locality" if $line =~ /^localityName\s+/;
 
@@ -3825,17 +4074,17 @@ sub openssl_conf_find_config {
     # figure out where openssl.cnf is
     my $sslconf = "/etc/ssl/openssl.cnf";
 
-    if ( $OSNAME eq "freebsd" ) { 
+    if ( $OSNAME eq "freebsd" ) {
         $sslconf = "/etc/ssl/openssl.cnf";   # built-in
         $self->openssl_conf_freebsd( $sslconf );
     }
     elsif ( $OSNAME eq "darwin" ) {
         $sslconf = "/System/Library/OpenSSL/openssl.cnf";
     }
-    elsif ( $OSNAME eq "linux" ) { 
+    elsif ( $OSNAME eq "linux" ) {
         if ( ! -e $sslconf ) {
 # centos (and probably RedHat/Fedora)
-            $sslconf = "/etc/share/ssl/openssl.cnf"; 
+            $sslconf = "/etc/share/ssl/openssl.cnf";
         };
     }
 
@@ -3878,7 +4127,7 @@ sub openssl_get_ciphers {
 };
 
 sub openssl_install {
-    my $self = shift; 
+    my $self = shift;
 
     return if ! $conf->{'install_openssl'};
 
@@ -4008,11 +4257,6 @@ sub pop3_auth {
 sub php {
     my $self = shift;
 
-    if ( ! $conf->{install_php} ) {
-        $log->audit("install php skipped, not selected", debug=>1);
-        return;
-    };
-
     if ( $OSNAME eq 'freebsd' ) {
         return $self->php_freebsd();
     };
@@ -4048,6 +4292,15 @@ WITHOUT_LINKTHR=true\n",
     if ( ! -e $config ) {
         copy("$config-production", $config) if -e "$config-production";
         chmod oct('0644'), $config;
+
+        $self->config_apply_tweaks(
+            file => "/usr/local/etc/php.ini",
+            changes => [
+                {   search  => q{;include_path = ".:/php/includes"},
+                    replace => q{include_path = ".:/usr/local/share/pear"},
+                },
+            ],
+        );
     };
 
     return 1 if -f $config;
@@ -4061,38 +4314,33 @@ sub phpmyadmin {
     return $p{test_ok} if defined $p{test_ok}; # for testing only
 
     unless ( $conf->{'install_phpmyadmin'} ) {
-        print "phpMyAdmin install disabled. Set install_phpmyadmin in " 
+        print "phpMyAdmin install disabled. Set install_phpmyadmin in "
             . "toaster-watcher.conf if you want to install it.\n";
         return 0;
     }
 
     # prevent t1lib from installing X11
     if ( $OSNAME eq "freebsd" ) {
+        $self->php();
         $freebsd->install_port( "t1lib", flags => "WITHOUT_X11=yes" );
-
-        if (    !$freebsd->is_port_installed( "xorg-libraries" )
-            and !$freebsd->is_port_installed( "XFree86-Libraries" ) )
-        {
-            if (
-                $util->yes_or_no(
-"php-gd requires x11 libraries. Shall I try installing the xorg-libraries package?"
-                )
-              )
-            {
-                $freebsd->install_package( "XFree86-Libraries" );
-            }
-        }
-        if ( $conf->{'install_php'} eq "4" ) {
-            $freebsd->install_port( "php4-gd" );
-        } elsif ( $conf->{'install_php'} eq "5" ) {
-            $freebsd->install_port( "php5-gd" );
-        };
+        $freebsd->install_port( "php5-gd" );
     }
 
     require Mail::Toaster::Mysql;
     my $mysql = Mail::Toaster::Mysql->new( 'log' => $toaster );
     $mysql->phpmyadmin_install($conf);
 }
+
+sub portmaster {
+    my $self = shift;
+
+    if ( ! $conf->{install_portmaster} ) {
+        $log->audit("install portmaster skipped, not selected", debug=>1);
+        return;
+    };
+
+    $freebsd->install_port( "portmaster" );
+};
 
 sub ports {
     my $self  = shift;
@@ -4118,20 +4366,21 @@ sub qmailadmin {
 
     my $package = "qmailadmin-$ver";
     my $site    = "http://" . $conf->{'toaster_sf_mirror'};
-    my $url     = "/qmailadmin";
+    my $url     = "/qmailadmin/qmailadmin-stable/$ver";
 
     my $toaster = "$conf->{'toaster_dl_site'}$conf->{'toaster_dl_url'}";
     $toaster ||= "http://mail-toaster.org";
 
-    my $httpdir = $conf->{'toaster_http_base'} || "/usr/local/www";
+    my $cgi     = $conf->{'qmailadmin_cgi-bin_dir'};
 
-    my $cgi = $conf->{'qmailadmin_cgi-bin_dir'};
     unless ( $cgi && -e $cgi ) {
         $cgi = $conf->{'toaster_cgi_bin'};
+        mkpath $cgi if ! -e $cgi;
+
         unless ( $cgi && -e $cgi ) {
-            -d "/usr/local/www/cgi-bin.mail"
-              ? $cgi = "/usr/local/www/cgi-bin.mail"
-              : $cgi = "/usr/local/www/cgi-bin";
+            my $httpdir = $conf->{'toaster_http_base'} || "/usr/local/www";
+            $cgi = "$httpdir/cgi-bin";
+            $cgi = "$httpdir/cgi-bin.mail" if -d "$httpdir/cgi-bin.mail";
         }
     }
 
@@ -4203,6 +4452,10 @@ toaster-watcher.conf and select a version of qmailadmin to install.\n";
     $conf_args .= " --enable-cgibindir=" . $cgi;
     $conf_args .= " --enable-autoresponder-path=".$conf->{'toaster_prefix'}."/bin";
 
+    if ( defined $conf->{'qmailadmin_catchall'} ) {
+        $conf_args .= " --disable-catchall" if ! $conf->{'qmailadmin_catchall'};
+    };
+
     if ( $conf->{'qmailadmin_help_links'} ) {
         $conf_args .= " --enable-help=y";
         $help = 1;
@@ -4246,7 +4499,7 @@ sub qmailadmin_help {
 
     my $src  = $conf->{'toaster_src_dir'} || "/usr/local/src";
        $src .= "/mail";
- 
+
     print "qmailadmin: Installing help files in $helpdir\n";
     $util->cwd_source_dir( $src );
 
@@ -4281,10 +4534,13 @@ sub qmailadmin_port_install {
     push @args, "WITH_DOMAIN_AUTOFILL=yes" if $conf->{'qmailadmin_domain_autofill'};
     push @args, "WITH_MODIFY_QUOTA=yes"    if $conf->{'qmailadmin_modify_quotas'};
     push @args, "WITH_HELP=yes" if $conf->{'qmailadmin_help_links'};
+    if ( defined $conf->{'qmailadmin_catchall'} ) {
+        push @args, "WITHOUT_CATCHALL=yes" if ! $conf->{'qmailadmin_catchall'};
+    };
     push @args, 'CGIBINSUBDIR=""';
 
-    if ( $cgi && $cgi =~ /\/usr\/local\/(.*)$/ ) { 
-        $cgi_sub = $1; 
+    if ( $cgi && $cgi =~ /\/usr\/local\/(.*)$/ ) {
+        $cgi_sub = $1;
         chop $cgi_sub if $cgi_sub =~ /\/$/; # remove trailing /
         push @args, "CGIBINDIR=\"$cgi_sub\"";
     }
@@ -4313,6 +4569,70 @@ sub qmailadmin_port_install {
     }
 }
 
+sub qpsmtpd {
+    my $self = shift;
+
+# install Qmail::Deliverable
+# install vpopmaild service
+
+# install qpsmtpd
+print '
+- git clone https://github.com/qpsmtpd-dev/qpsmtpd-dev
+- cp -r config.sample config
+- chown smtpd:smtpd qpsmtpd
+- chmod +s qpsmtpd
+';
+
+# install qpsmtpd service
+print '
+- services stop
+- rm /var/service/smtp
+- stop toaster-watcher and do previous step again
+- ln -s /usr/local/src/qpsmtpd-dev/  /var/serivces/qpsmtpd
+- cp /var/qmail/supervise/smtp/log/run log/run
+';
+
+# install qpsmtpd SSL certs
+print '
+- add clamav user to smtpd user group
+- echo 0770 > config/spool_perms   # Hmmmm... quite open.. how did we do
+this with current toaster? clamav needs to read vpopmail files
+- echo /var/spool/clamd > spool_dir
+- edits in config/plugins
+  - disable: ident/geoip
+  - disable: quit_fortune
+  - enable: auth/auth_checkpassword
+checkpw /usr/local/vpopmail/bin/vchkpw true /usr/bin/true
+  - disable: auth/auth_flat_file
+  - disable: dspam learn_from_sa 7 reject 1
+  - enable: virus/clamdscan deny_viruses yes
+clamd_socket /var/run/clamav/clamd.sock max_size 3072
+  - enable: queue/qmail-queue
+  - enable: sender_permitted_from
+  - install Qmail::Deliverable
+  - enable: qmail_deliverable
+  - install clamav::client
+- edit run file QPUSER=vpopmail
+- services start
+- clamdscan plugin modification:
+
+# cat qmail-deliverable/run
+#!/bin/sh
+MAXRAM=50000000
+BIN=/usr/local/bin
+PATH=/usr/local/vpopmail/bin
+exec $BIN/softlimit -m $MAXRAM $BIN/qmail-deliverabled -f 2>&1
+
+# cat vpopmaild/run
+#!/bin/sh
+BIN=/usr/local/bin
+VPOPDIR=/usr/local/vpopmail
+exec 2>&1
+exec $BIN/tcpserver -vHRD 127.0.0.1 89 $VPOPDIR/bin/vpopmaild
+';
+
+};
+
 sub razor {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
@@ -4333,7 +4653,7 @@ sub razor {
         }
         elsif ( $OSNAME eq "darwin" ) {
             # old ports tree, deprecated
-            $darwin->install_port( "razor" );    
+            $darwin->install_port( "razor" );
             # this one should work
             $darwin->install_port( "p5-razor-agents" );
         }
@@ -4440,7 +4760,7 @@ sub ripmime {
 
     return $p{test_ok} if defined $p{test_ok}; # for testing
 
-    my $ver = $conf->{'install_ripmime'}; 
+    my $ver = $conf->{'install_ripmime'};
     if ( !$ver ) {
         print "ripmime install not selected.\n";
         return 0;
@@ -4497,11 +4817,51 @@ sub ripmime {
     );
 }
 
+sub rrdtool {
+    my $self  = shift;
+    my %p = validate( @_, { %std_opts },);
+    return $p{test_ok} if defined $p{test_ok}; # for testing
+
+    unless ( $conf->{'install_rrdutil'} ) {
+        print "install_rrdutil is not set in toaster-watcher.conf! Skipping.\n";
+        return;
+    }
+
+    if ( $OSNAME eq "freebsd" ) {
+
+# the newer (default) version of rrdtool requires an obscene amount
+# of x11 software be installed. Install the older one instead.
+        $freebsd->install_port('rrdtool',
+            dir     => 'rrdtool12',
+            options => "#\n# Options for rrdtool-1.2.30_1
+    _OPTIONS_READ=rrdtool-1.2.30_1
+    WITHOUT_PYTHON_MODULE=true
+    WITHOUT_RUBY_MODULE=true
+    WITH_PERL_MODULE=true\n",
+        );
+    }
+    elsif ( $OSNAME eq "darwin" ) {
+        $darwin->port_install( port_name => "rrdtool" );
+    }
+
+    return 1 if -x $util->find_bin( 'rrdtool', fatal => 0 );
+
+    $util->install_from_source(
+        package => "rrdtool-1.2.23",
+        site    => 'http://people.ee.ethz.ch',
+        url     => '/~oetiker/webtools/rrdtool/pub',
+        targets => [ './configure', 'make', 'make install' ],
+        patches => [ ],
+        bintest => 'rrdtool',
+        debug   => 1,
+    );
+}
+
 sub roundcube {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     if ( ! $conf->{'install_roundcube'} ) {
         $log->audit( "not installing roundcube, not selected!" );
@@ -4527,7 +4887,7 @@ sub roundcube_freebsd {
     my $mysql = $conf->{install_mysql} ? 'WITH_MYSQL' : 'WITHOUT_MYSQL';
     my $sqlite = $conf->{install_mysql} ? 'WITHOUT_SQLITE' : 'WITH_SQLITE';
 
-    $freebsd->install_port( "roundcube", 
+    $freebsd->install_port( "roundcube",
         category=> 'mail',
         options => "# This file generated by Mail::Toaster
 # Options for roundcube-0.3_1,1
@@ -4549,16 +4909,19 @@ WITHOUT_AUTOCOMP=true
 sub roundcube_config {
     my $self = shift;
     my $rcdir = "/usr/local/www/roundcube";
-    my $config = "$rcdir/config/db.inc.php";
-    my $pass = $conf->{install_roundcube_db_pass};
+    my $config = "$rcdir/config";
 
-    if ( ! -f $config ) {
+    foreach my $c ( qw/ db.inc.php main.inc.php / ) {
+        copy( "$config/$c.dist", "$config/$c" ) if ! -e "$config/$c";
+    };
+
+    if ( ! -f "$config/db.inc.php" ) {
         warn "unable to find roundcube/config/db.inc.php. Edit it with appropriate DSN settings\n";
         return;
     };
 
     $self->config_apply_tweaks(
-        file => "$rcdir/config/main.inc.php",
+        file => "$config/main.inc.php",
         changes => [
             {   search  => q{$rcmail_config['default_host'] = '';},
                 replace => q{$rcmail_config['default_host'] = 'localhost';},
@@ -4566,24 +4929,18 @@ sub roundcube_config {
             {   search  => q{$rcmail_config['session_lifetime'] = 10;},
                 replace => q{$rcmail_config['session_lifetime'] = 30;},
             },
-        ],
-    );
-
-    return $self->roundcube_config_mysql() if $conf->{install_mysql};
-
-    my $spool = '/var/spool/roundcubemail';
-    mkpath $spool;
-    my (undef,undef,$uid,$gid) = getpwnam('www');
-    chown $uid, $gid, $spool;
-
-    $self->config_apply_tweaks(
-        file => $config,
-        changes => [
-            {   search  => q{$rcmail_config['db_dsnw'] = 'mysql://roundcube:pass@localhost/roundcubemail';},
-                replace => q{$rcmail_config['db_dsnw'] = 'sqlite:////var/spool/roundcubemail/sqlite.db?mode=0646';},
+            {   search  => q{$rcmail_config['imap_auth_type'] = null;},
+                replace => q{$rcmail_config['imap_auth_type'] = plain;},
             },
         ],
     );
+
+    if ( $conf->{install_mysql} ) {
+        return $self->roundcube_config_mysql();
+    }
+    else {
+        return $self->roundcube_config_sqlite();
+    };
 };
 
 sub roundcube_config_mysql {
@@ -4636,7 +4993,7 @@ sub roundcube_config_mysql {
 
         my $mysql = $util->find_bin('mysql');
         my $initial = "$rcdir/SQL/mysql.initial.sql";
-        system "mysql roundcubemail < $initial" and 
+        system "mysql roundcubemail < $initial" and
             return $log->error("failed to import mysql databases, try manually running this command\n\t: mysql roundcubemail < $initial\n",debug=>1);
         $log->audit( "roundcube database initialized",debug=>1 );
     };
@@ -4645,11 +5002,33 @@ sub roundcube_config_mysql {
     return 1;
 };
 
+sub roundcube_config_sqlite {
+    my $self = shift;
+
+    my $rcdir = "/usr/local/www/roundcube";
+    my $config = "$rcdir/config/db.inc.php";
+
+    my $spool = '/var/spool/roundcubemail';
+    mkpath $spool;
+    my (undef,undef,$uid,$gid) = getpwnam('www');
+    chown $uid, $gid, $spool;
+
+    # configure roundcube to use sqlite for DB
+    $self->config_apply_tweaks(
+        file => $config,
+        changes => [
+            {   search  => q{$rcmail_config['db_dsnw'] = 'mysql://roundcube:pass@localhost/roundcubemail';},
+                replace => q{$rcmail_config['db_dsnw'] = 'sqlite:////var/spool/roundcubemail/sqlite.db?mode=0646';},
+            },
+        ],
+    );
+};
+
 sub rsync {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     if ( $OSNAME eq "freebsd" ) {
         $freebsd->install_port( "rsync",
@@ -4667,7 +5046,7 @@ WITHOUT_ICONV=true
 WITHOUT_TIMELIMIT=true\n",
         );
     }
-    elsif ( $OSNAME eq "darwin" ) { 
+    elsif ( $OSNAME eq "darwin" ) {
         $darwin->install_port( "rsync" );
     }
     else {
@@ -4691,10 +5070,10 @@ sub simscan {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
     my $ver = $conf->{'install_simscan'} or do {
-        $log->audit( "vqadmin: installing, skipping (disabled)" );
+        $log->audit( "simscan: installing, skipping (disabled)" );
         return;
     };
 
@@ -4841,6 +5220,7 @@ sub simscan_conf {
 
     $util->syscmd( "pw user mod simscan -G qmail,clamav" );
     $util->chown( '/var/qmail/simscan', uid => $user, gid => $group );
+    $util->chown( '/var/qmail/bin/simscan', uid => $user, gid=>$group );
     $util->chmod( dir => '/var/qmail/simscan', mode => '0770' );
 
     if ( -x "/var/qmail/bin/simscanmk" ) {
@@ -4856,17 +5236,8 @@ sub simscan_freebsd_port {
     push @args, "SPAMC_ARGS=" . $conf->{simscan_spamc_args} if $conf->{simscan_spamc_args};
     push @args, 'SPAM_HITS=' . $conf->{simscan_spam_hits_reject} if $conf->{simscan_spam_hits_reject};
     push @args, 'SIMSCAN_USER=' . $conf->{simscan_user} if $conf->{simscan_user};
-
-    # this can be removed when the simscan port Makefile is fixed. 4/11/2009
-    my $file = '/usr/ports/mail/simscan/Makefile';
-    my @lines = $util->file_read( $file );
-    my $error = 'CONFIGURE_ARGS+=--enable-spamc-args=${SPAMC_ARGS}';
-    foreach my $line (@lines) {
-        if ( $line =~ /\Q$error/ ) {
-            $line = 'CONFIGURE_ARGS+=--enable-spamc-args="${SPAMC_ARGS}"' . "\n";
-        }
-    }
-    $util->file_write( $file, lines => \@lines, debug=>0 );
+    push @args, 'QUARANTINE_DIR=' . $conf->{simscan_quarantine} if $conf->{'simscan_quarantine'};
+    push @args, 'QMAIL_PREFIX=' . $conf->{qmail_dir} || '/var/qmail';
 
     $freebsd->install_port( "simscan",
         category => 'mail',
@@ -4894,13 +5265,16 @@ sub simscan_regex {
     my ($self, $conf ) = @_;
     return '' if ! $conf->{'simscan_regex_scanner'};
 
+    my $config = "--enable-regex=y ";
+
     if ( $OSNAME eq "freebsd" ) {
         $freebsd->install_port( "pcre" );
+        $config .= "--with-pcre-include=/usr/local/include ";
     }
     else {
         print "\n\nWARNING: is pcre installed?\n\n";
     }
-    return "--enable-regex=y ";
+    return $config;
 };
 
 sub simscan_ripmime {
@@ -4970,15 +5344,23 @@ sub smtp_test_auth {
     my $self  = shift;
     my %p = validate( @_, { %std_opts } );
 
-    my $r = $util->install_module( "Net::SMTP_auth", debug=>0);
-    $log->test( "checking Net::SMTP_auth", $r );
-    if ( ! $r ) {
-        print "skipping SMTP auth tests\n";
-        return;
+    my @modules = ('IO::Socket::INET', 'IO::Socket::SSL', 'Net::SSLeay', 'Socket qw(:DEFAULT :crlf)');
+    foreach ( @modules ) {
+        eval "use $_";
+        die $@ if $@;
+        $log->test( "loading $_", 'ok' );
     };
 
+    Net::SSLeay::load_error_strings();
+    Net::SSLeay::SSLeay_add_ssl_algorithms();
+    Net::SSLeay::randomize();
+
     my $host = $conf->{'smtpd_listen_on_address'} || 'localhost';
-       $host = "localhost" if ( $host =~ /system|qmail|all/i );
+       $host = 'localhost' if ( $host =~ /system|qmail|all/i );
+
+
+
+
 
     my $smtp = Net::SMTP_auth->new($host);
     $log->test( "connect to smtp port on $host", $smtp );
@@ -5130,7 +5512,7 @@ sub spamassassin {
         $self->spamassassin_freebsd();
     }
     elsif ( $OSNAME eq "darwin" ) {
-        $darwin->install_port( "procmail" ) 
+        $darwin->install_port( "procmail" )
             if $conf->{'install_procmail'};
         $darwin->install_port( "unzip" );
         $darwin->install_port( "p5-mail-audit" );
@@ -5140,10 +5522,14 @@ sub spamassassin {
 
     $util->install_module( "Time::HiRes" );
     $util->install_module( "Mail::Audit" );
+    $util->install_module( "HTML::Parser" );
+    $util->install_module( "Archive::Tar" );
+    $util->install_module( "NetAddr::IP" );
+    $util->install_module( "LWP::UserAgent" );  # used by sa-update
     $util->install_module( "Mail::SpamAssassin" );
     $self->maildrop( );
 
-    $self->spamassassin_sql() if ( $conf->{'install_spamassassin_sql'} );
+    $self->spamassassin_sql();
 }
 
 sub spamassassin_freebsd {
@@ -5166,8 +5552,8 @@ WITH_SPAMC=true
 WITHOUT_SACOMPILE=true
 WITH_DKIM=true
 WITHOUT_SSL=true
-WITHOUT_GNUPG=true 
-$mysql  
+WITH_GNUPG=true
+$mysql
 WITHOUT_PGSQL=true
 WITH_RAZOR=true
 WITH_SPF_QUERY=true
@@ -5194,7 +5580,8 @@ WITH_RELAY_COUNTRY=true",
         line  => qq{spamd_flags="$flags"},
         debug => 0,
     );
-    
+
+    $self->gnupg_install();
     $self->spamassassin_update();
 
     unless ( $util->is_process_running("spamd") ) {
@@ -5215,92 +5602,25 @@ sub spamassassin_sql {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
 
-    return $p{test_ok} if defined $p{test_ok}; # for testing 
+    return $p{test_ok} if defined $p{test_ok}; # for testing
 
-    if ( ! $conf->{'install_spamassassin_sql'} ) {
+    if ( ! $conf->{'install_mysql'} || ! $conf->{'install_spamassassin_sql'} ) {
         print "SpamAssasin MySQL integration not selected. skipping.\n";
         return 0;
     }
 
     if ( $OSNAME eq "freebsd" ) {
-
-        # is SpamAssassin installed?
-        if ( ! $freebsd->is_port_installed( "p5-Mail-SpamAssassin" ) ) {
-            print "SpamAssassin is not installed, skipping database setup.\n";
-            return;
-        }
-
-        # have we been here already?
-        if ( -f "/usr/local/etc/mail/spamassassin/sql.cf" ) {
-            print "SpamAssassing database setup already done...skipping.\n";
-            return 1;
-        };
-
-        print "SpamAssassin is installed, setting up MySQL databases\n";
-
-        my $user = $conf->{'install_spamassassin_dbuser'};
-        my $pass = $conf->{'install_spamassassin_dbpass'};
-
-        require Mail::Toaster::Mysql;
-        my $mysql = Mail::Toaster::Mysql->new( 'log' => $toaster );
-
-        my $dot = $mysql->parse_dot_file( ".my.cnf", "[mysql]", 0 );
-        my ( $dbh, $dsn, $drh ) = $mysql->connect( $dot, 1 );
-
-        if ($dbh) {
-            my $query = "use spamassassin";
-            my $sth = $mysql->query( $dbh, $query, 1 );
-            if ( $sth->errstr ) {
-                print "vpopmail: oops, no spamassassin database.\n";
-                print "vpopmail: creating MySQL spamassassin database.\n";
-                $query = "CREATE DATABASE spamassassin";
-                $sth   = $mysql->query( $dbh, $query );
-                $query =
-"GRANT ALL PRIVILEGES ON spamassassin.* TO $user\@'localhost' IDENTIFIED BY '$pass'";
-                $sth = $mysql->query( $dbh, $query );
-                $sth = $mysql->query( $dbh, "flush privileges" );
-                $sth->finish;
-            }
-            else {
-                print "spamassassin: spamassassin database exists!\n";
-                $sth->finish;
-            }
-        }
-
-        my $mysqlbin = $util->find_bin( "mysql", fatal => 0 );
-        my $sqldir = "/usr/local/share/doc/p5-Mail-SpamAssassin/sql";
-        foreach (qw/bayes_mysql.sql awl_mysql.sql userpref_mysql.sql/) {
-            $util->syscmd( "$mysqlbin spamassassin < $sqldir/$_" )
-              if ( -f "$sqldir/$_" );
-        }
-
-        my $file = "/usr/local/etc/mail/spamassassin/sql.cf";
-        unless ( -f $file ) {
-            my @lines = <<EO_SQL_CF;
-loadplugin Mail::SpamAssassin::Plugin::AWL
-
-user_scores_dsn                 DBI:mysql:spamassassin:localhost
-user_scores_sql_username        $conf->{'install_spamassassin_dbuser'}
-user_scores_sql_password        $conf->{'install_spamassassin_dbpass'}
-#user_scores_sql_table           userpref
-
-bayes_store_module              Mail::SpamAssassin::BayesStore::SQL
-bayes_sql_dsn                   DBI:mysql:spamassassin:localhost
-bayes_sql_username              $conf->{'install_spamassassin_dbuser'}
-bayes_sql_password              $conf->{'install_spamassassin_dbpass'}
-#bayes_sql_override_username    someusername
-
-auto_whitelist_factory          Mail::SpamAssassin::SQLBasedAddrList
-user_awl_dsn                    DBI:mysql:spamassassin:localhost
-user_awl_sql_username           $conf->{'install_spamassassin_dbuser'}
-user_awl_sql_password           $conf->{'install_spamassassin_dbpass'}
-user_awl_sql_table              awl
-EO_SQL_CF
-            $util->file_write( $file, lines => \@lines );
-        }
+        $self->spamassassin_sql_freebsd();
     }
     else {
-        print
+        $self->spamassassin_sql_manual();
+    };
+};
+
+sub spamassassin_sql_manual {
+    my $self = shift;
+
+    print
 "Sorry, automatic MySQL SpamAssassin setup is not available on $OSNAME yet. You must
 do this process manually by locating the *_mysql.sql files that arrived with SpamAssassin. Run
 each one like this:
@@ -5336,6 +5656,99 @@ the following contents:
 	user_awl_sql_password        $conf->{'install_spamassassin_dbpass'}
 	user_awl_sql_table           awl
 ";
+};
+
+sub spamassassin_sql_freebsd {
+    my $self = shift;
+
+    # is SpamAssassin installed?
+    if ( ! $freebsd->is_port_installed( "p5-Mail-SpamAssassin" ) ) {
+        print "SpamAssassin is not installed, skipping database setup.\n";
+        return;
+    }
+
+    # have we been here already?
+    if ( -f "/usr/local/etc/mail/spamassassin/sql.cf" ) {
+        print "SpamAssassing database setup already done...skipping.\n";
+        return 1;
+    };
+
+    print "SpamAssassin is installed, setting up MySQL databases\n";
+
+    my $user = $conf->{'install_spamassassin_dbuser'};
+    my $pass = $conf->{'install_spamassassin_dbpass'};
+
+    require Mail::Toaster::Mysql;
+    my $mysql = Mail::Toaster::Mysql->new( 'log' => $toaster );
+
+    my $dot = $mysql->parse_dot_file( ".my.cnf", "[mysql]", 0 );
+    my ( $dbh, $dsn, $drh ) = $mysql->connect( $dot, 1 );
+
+    if ($dbh) {
+        my $query = "use spamassassin";
+        my $sth = $mysql->query( $dbh, $query, 1 );
+        if ( $sth->errstr ) {
+            print "oops, no spamassassin database.\n";
+            print "creating MySQL spamassassin database.\n";
+            $query = "CREATE DATABASE spamassassin";
+            $sth   = $mysql->query( $dbh, $query );
+            $query =
+"GRANT ALL PRIVILEGES ON spamassassin.* TO $user\@'localhost' IDENTIFIED BY '$pass'";
+            $sth = $mysql->query( $dbh, $query );
+            $sth = $mysql->query( $dbh, "flush privileges" );
+            $sth->finish;
+        }
+        else {
+            print "spamassassin: spamassassin database exists!\n";
+            $sth->finish;
+        }
+    }
+
+    my $mysqlbin = $util->find_bin( 'mysql', fatal => 0 );
+    if ( ! -x $mysqlbin ) {
+        $mysqlbin = $util->find_bin( 'mysql5' );
+    };
+    my $sqldir = "/usr/local/share/doc/p5-Mail-SpamAssassin/sql";
+    foreach my $f (qw/bayes_mysql.sql awl_mysql.sql userpref_mysql.sql/) {
+        if ( ! -f "$sqldir/$f" ) {
+            warn "missing .sql file: $f\n";
+            next;
+        };
+        if ( `grep MyISAM "$sqldir/$f"` ) {
+            my @lines = $util->file_read( "$sqldir/$f" );
+            foreach my $line (@lines) {
+                if ( $line eq ') TYPE=MyISAM;' ) {
+                    $line = ');';
+                };
+            };
+            $util->file_write( "$sqldir/$f", lines=>\@lines );
+        };
+        $util->syscmd( "$mysqlbin spamassassin < $sqldir/$f" );
+    }
+
+    my $file = "/usr/local/etc/mail/spamassassin/sql.cf";
+    unless ( -f $file ) {
+        my @lines = <<EO_SQL_CF;
+loadplugin Mail::SpamAssassin::Plugin::AWL
+
+user_scores_dsn                 DBI:mysql:spamassassin:localhost
+user_scores_sql_username        $conf->{'install_spamassassin_dbuser'}
+user_scores_sql_password        $conf->{'install_spamassassin_dbpass'}
+#user_scores_sql_table           userpref
+
+bayes_store_module              Mail::SpamAssassin::BayesStore::SQL
+bayes_sql_dsn                   DBI:mysql:spamassassin:localhost
+bayes_sql_username              $conf->{'install_spamassassin_dbuser'}
+bayes_sql_password              $conf->{'install_spamassassin_dbpass'}
+#bayes_sql_override_username    someusername
+
+auto_whitelist_factory          Mail::SpamAssassin::SQLBasedAddrList
+user_awl_dsn                    DBI:mysql:spamassassin:localhost
+user_awl_sql_username           $conf->{'install_spamassassin_dbuser'}
+user_awl_sql_password           $conf->{'install_spamassassin_dbpass'}
+user_awl_sql_table              awl
+EO_SQL_CF
+        $util->file_write( $file, lines => \@lines );
     }
 }
 
@@ -5348,7 +5761,7 @@ sub spamassassin_update {
     };
     $log->audit( "trying again without GPG" );
 
-    system "$update --nogpg" and 
+    system "$update --nogpg" and
         return $log->error( "error updating spamassassin rules", fatal => 0);
 
     return 1;
@@ -5408,8 +5821,8 @@ sub squirrelmail_freebsd {
     push @squirrel_flags, 'WITH_APACHE2=1' if ( $conf->{'install_apache'} == 2 );
     push @squirrel_flags, 'WITH_DATABASE=1' if $conf->{'install_squirrelmail_sql'};
 
-    $freebsd->install_port( "squirrelmail", 
-        flags => join(',', @squirrel_flags), 
+    $freebsd->install_port( "squirrelmail",
+        flags => join(',', @squirrel_flags),
     );
     $freebsd->install_port( "squirrelmail-quota_usage-plugin" );
 
@@ -5418,7 +5831,7 @@ sub squirrelmail_freebsd {
     return if ! -d $sqdir;
 
     $self->squirrelmail_config();
-    $self->squirrelmail_mysql() if $conf->{'install_squirrelmail_sql'};
+    $self->squirrelmail_mysql();
 
     return 1;
 }
@@ -5426,6 +5839,7 @@ sub squirrelmail_freebsd {
 sub squirrelmail_mysql {
     my $self  = shift;
 
+    return if ! $conf->{'install_mysql'};
     return if ! $conf->{'install_squirrelmail_sql'};
 
     if ( $OSNAME eq "freebsd" ) {
@@ -5434,6 +5848,7 @@ sub squirrelmail_mysql {
         print
 '\nHEY!  You need to add include_path = ".:/usr/local/share/pear" to php.ini.\n\n';
 
+        $freebsd->install_port( "php5-mysql" );
         $freebsd->install_port( "squirrelmail-sasql-plugin" );
     }
 
@@ -5491,7 +5906,7 @@ label varchar(255), PRIMARY KEY (owner,nickname), KEY firstname (firstname,lastn
 
     print "
 
-WARNING: I could not connect to your database server!  If this is a new install, 
+WARNING: I could not connect to your database server!  If this is a new install,
 you will need to connect to your database server and run this command manually:
 
 mysql -u root -h $host -p
@@ -5556,7 +5971,7 @@ sub squirrelmail_config {
 \$provider_uri     = 'http://www.tnpi.net/wiki/Mail_Toaster';
 \$domain                 = '$mailhost';
 \$useSendmail            = true;
-\$imap_server_type       = 'courier';
+\$imap_server_type       = 'dovecot';
 \$addrbook_dsn = '$dsn';
 \$prefs_dsn = '$dsn';
 ?>
@@ -5564,6 +5979,23 @@ EOCONFIG
       ;
 
     $util->file_write( "config_local.php", lines => [ $string ] );
+
+    if ( -d "$sqdir/plugins/sasql" ) {
+        if ( ! -e "$sqdir/plugins/sasql/sasql_conf.php" ) {
+            copy('sasql_conf.php.dist', 'sasql_conf.php');
+        };
+
+        my $user = $conf->{install_spamassassin_dbuser};
+        my $pass = $conf->{install_spamassassin_dbpass};
+        $self->config_apply_tweaks(
+            file => "$sqdir/plugins/sasql/sasql_conf.php",
+            changes => [
+                {   search  => q{$SqlDSN = 'mysql://<user>:<pass>@<host>/<db>';},
+                    replace => "\$SqlDSN = 'mysql://$user:$pass\@localhost/spamassassin'",
+                },
+            ],
+        );
+    };
 }
 
 sub sqwebmail {
@@ -5775,7 +6207,7 @@ sub stunnel {
 
 sub stunnel_freebsd {
 
-    return $freebsd->install_port( "stunnel", 
+    return $freebsd->install_port( "stunnel",
         options => "#
 # This file was generated by mail-toaster\n
 # Options for stunnel-4.33
@@ -5791,37 +6223,47 @@ WITH_LIBWRAP=true\n",
 
 sub supervise {
     my $self  = shift;
-    my %p = validate( @_, { %std_opts },);
+    my %p = validate( @_, { %std_opts } );
 
     return $p{test_ok} if defined $p{test_ok};
 
     my $supervise = $conf->{'qmail_supervise'} || "/var/qmail/supervise";
     my $prefix    = $conf->{'toaster_prefix'}  || "/usr/local";
 
-    $toaster->supervise_dirs_create();
-    $toaster->service_dir_create();
+    $toaster->supervise_dirs_create(%p);
+    $toaster->service_dir_create(%p);
 
     require Mail::Toaster::Qmail;
     $qmail ||= Mail::Toaster::Qmail->new( 'log' => $log );
 
-    $qmail->control_create();
-    $qmail->install_qmail_control_files();
-    $qmail->install_qmail_control_log_files();
+    $qmail->control_create(%p);
+    $qmail->install_qmail_control_files(%p);
+    $qmail->install_qmail_control_log_files(%p);
 
     $self->startup_script();
     $toaster->service_symlinks();
     $qmail->config();
+    $self->supervise_startup(%p);
+};
 
-    my $start = "$prefix/sbin/services";
-    $start = "$prefix/bin/services" if ! -x $start;
-    print "\a";
+sub supervise_startup {
+    my $self  = shift;
+    my %p = validate( @_, { %std_opts } );
 
-    print "\n\nStarting up services (Ctrl-C to cancel). 
+    my $svok = $util->find_bin( 'svok', debug => 0);
+    my $svc_dir = $conf->{qmail_service} || '/var/service';
+    if ( (system "$svok $svc_dir/send") == 0 ) {
+        $log->audit("supervised processes are already started");
+        return;
+    };
 
-If there's any problems, you can stop all supervised services by running:\n
+    my $start  = $util->find_bin( 'services', debug => 0);
+    print "\n\nStarting up qmail services (Ctrl-C to cancel).
+
+If there's problems, you can stop all supervised services by running:\n
           $start stop\n
 \n\nStarting in 5 seconds: ";
-    foreach ( 1 .. 5 ) { print "."; sleep 1; };
+    foreach ( 1 .. 5 ) { print '.'; sleep 1; };
     print "\n";
 
     system "$start start";
@@ -5839,8 +6281,8 @@ sub startup_script {
 
     return $p{test_ok} if defined $p{test_ok};
 
-    return $self->startup_script_freebsd() if $OSNAME eq "freebsd";
-    return $self->startup_script_darwin()  if $OSNAME eq "darwin";
+    return $self->startup_script_freebsd() if $OSNAME eq 'freebsd';
+    return $self->startup_script_darwin()  if $OSNAME eq 'darwin';
 
     $log->error( "There is no startup script support written for $OSNAME. If you know the proper method of doing so, please have a look at $dl_url/start/services.txt, adapt it to $OSNAME, and send it to matt\@tnpi.net." );
 };
@@ -5883,7 +6325,7 @@ sub startup_script_darwin {
     }
 };
 
-sub startup_script_freebsd { 
+sub startup_script_freebsd {
     my $self = shift;
 
     # The FreeBSD port for daemontools includes rc.d/svscan so we use it
@@ -5968,7 +6410,7 @@ sub test {
         $self->filtering_test();
     };
     sleep 1;
-    
+
     if ( ! $util->yes_or_no( "skip the authentication tests?", timeout  => 10) ) {
         $self->test_auth();
     };
@@ -6040,7 +6482,7 @@ sub test_auth_setup {
 
 sub test_crons {
     my $self  = shift;
-    my %p = validate( @_, { %std_opts },); 
+    my %p = validate( @_, { %std_opts },);
 
     my $tw = $util->find_bin( 'toaster-watcher.pl', debug => 0);
     my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
@@ -6267,21 +6709,21 @@ sub test_qmail {
 
     print "do the qmail users exist?\n";
     foreach (
-        $conf->{'qmail_user_alias'}  || 'alias',  
+        $conf->{'qmail_user_alias'}  || 'alias',
         $conf->{'qmail_user_daemon'} || 'qmaild',
         $conf->{'qmail_user_passwd'} || 'qmailp',
         $conf->{'qmail_user_queue'}  || 'qmailq',
         $conf->{'qmail_user_remote'} || 'qmailr',
         $conf->{'qmail_user_send'}   || 'qmails',
-        $conf->{'qmail_log_user'}    || 'qmaill', 
+        $conf->{'qmail_log_user'}    || 'qmaill',
       )
     {
         $log->test("  $_", $self->user_exists($_) );
     }
 
     print "do the qmail groups exist?\n";
-    foreach ( $conf->{'qmail_group'}     || 'qmail', 
-              $conf->{'qmail_log_group'} || 'qnofiles', 
+    foreach ( $conf->{'qmail_group'}     || 'qmail',
+              $conf->{'qmail_log_group'} || 'qnofiles',
         ) {
         $log->test("  $_", scalar getgrnam($_) );
     }
@@ -6349,7 +6791,7 @@ sub ucspi_tcp {
     }
 
     if ( $OSNAME eq "freebsd" ) {
-        # install it from ports so it is registered in the ports db 
+        # install it from ports so it is registered in the ports db
         $self->ucspi_tcp_freebsd();
     }
     elsif ( $OSNAME eq "darwin" ) {
@@ -6375,7 +6817,7 @@ sub ucspi_tcp {
             return 2; # we don't need mysql
         }
         my $strings = $util->find_bin( "strings", debug=>0 );
-        if ( grep( /sql/, `$strings $tcpserver` ) ) {    
+        if ( grep( /sql/, `$strings $tcpserver` ) ) {
             $log->audit( "ucspi-tcp: mysql support check, ok (exists)" );
             return 1;
         }
@@ -6448,7 +6890,7 @@ sub ucspi_test {
         $log->test("  $_", $util->find_bin( $_, fatal => 0, debug=>0 ) );
     }
 
-    if ( $conf->{'vpopmail_mysql'} ) {
+    if ( $conf->{install_mysql} && $conf->{'vpopmail_mysql'} ) {
         my $tcpserver = $util->find_bin( "tcpserver", fatal => 0, debug=>0 );
         $log->test( "  tcpserver mysql support",
             scalar `strings $tcpserver | grep sql`
@@ -6463,7 +6905,7 @@ sub user_add {
 
     return if ! $user;
     return if $self->user_exists($user);
-        
+
     my $homedir = $opts{homedir};
     my $shell = $opts{shell} || '/sbin/nologin';
 
@@ -6494,7 +6936,7 @@ sub user_add {
             $util->syscmd( "$cmd . -createprop $path shell $shell" );
             $util->syscmd( "$cmd . -createprop $path home $homedir" ) if $homedir;
             $util->syscmd( "$cmd . -createprop $path passwd '*'" );
-        }   
+        }
         else {
             $cmd = $util->find_bin( 'niutil' );
             $util->syscmd( "$cmd -createprop . $path uid $uid");
@@ -6551,7 +6993,7 @@ sub vpopmail {
 
     my $installed = $self->vpopmail_installed_version();
 
-    if ( $installed eq $version ) {
+    if ( $installed && $installed eq $version ) {
         if ( ! $util->yes_or_no(
                 "Do you want to reinstall vpopmail with the same version?",
             timeout => 60,
@@ -6640,12 +7082,11 @@ sub vpopmail {
     $conf_args .= $self->vpopmail_etc_passwd();
 
     # in case someone updates their toaster and not their config file
-    if ( defined $conf->{'vpopmail_qmail_ext'} ) {
-        if ( $conf->{'vpopmail_qmail_ext'} ) {
-            $conf_args .= " --enable-qmail-ext=y";
-            print "qmail extensions: yes\n";
-        }
+    if ( defined $conf->{'vpopmail_qmail_ext'} && $conf->{'vpopmail_qmail_ext'} ) {
+        $conf_args .= " --enable-qmail-ext=y";
+        print "qmail extensions: yes\n";
     }
+    if ( defined $conf->{'vpopmail_maildrop'} ) { $conf_args .= " --enable-maildrop=y"; };
 
     chdir($package);
     print "running configure with $conf_args\n\n";
@@ -6669,10 +7110,10 @@ sub vpopmail_default_domain {
 
     my $default_domain;
 
-    if ( defined $conf->{'vpopmail_default_domain'} ) 
+    if ( defined $conf->{'vpopmail_default_domain'} )
     {
         $default_domain = $conf->{'vpopmail_default_domain'};
-    } 
+    }
     else {
         if ( ! $util->yes_or_no( "Do you want to use a default domain? ", ) ) {
             print "default domain: NONE SELECTED.\n";
@@ -6682,7 +7123,7 @@ sub vpopmail_default_domain {
         $default_domain = $util->ask("your default domain");
     };
 
-    if ( ! $default_domain ) 
+    if ( ! $default_domain )
     {
         print "default domain: NONE SELECTED.\n";
         return q{};
@@ -6775,6 +7216,7 @@ sub vpopmail_install_freebsd_port {
     push @defs, "WITH_IP_ALIAS=yes" if $conf->{vpopmail_ip_alias_domains};
     push @defs, "WITH_QMAIL_EXT=yes" if $conf->{vpopmail_qmail_ext};
     push @defs, "WITH_SINGLE_DOMAIN=yes" if $conf->{vpopmail_disable_many_domains};
+    push @defs, "WITH_MAILDROP=yes" if $conf->{vpopmail_maildrop};
     push @defs, 'LOGLEVEL="p"';
 
     if ( $conf->{'vpopmail_mysql'} ) {
@@ -6787,7 +7229,7 @@ sub vpopmail_install_freebsd_port {
 
     return if ! $freebsd->install_port( "vpopmail", flags => join( ",", @defs ),);
 
-    # add a symlink so docs are web browsable 
+    # add a symlink so docs are web browsable
     my $vpopdir = $conf->{'vpopmail_home_dir'};
     my $docroot = $conf->{'toaster_http_docs'};
 
@@ -6797,7 +7239,7 @@ sub vpopmail_install_freebsd_port {
         }
     }
 
-    $freebsd->install_port( "p5-vpopmail", fatal => 0 ); 
+    $freebsd->install_port( "p5-vpopmail", fatal => 0 );
     $self->vpopmail_post_install() if $version eq "port";
 }
 
@@ -6828,7 +7270,7 @@ sub vpopmail_install_default_tcp_smtp {
 #    common QMAILQUEUE settings:
 # QMAILQUEUE="$qdir/bin/qmail-queue"
 # QMAILQUEUE="$qdir/bin/simscan"
-# 
+#
 #      handy test settings
 # 127.:allow,RELAYCLIENT="",RBLSMTPD="",QMAILQUEUE="$qdir/bin/simscan"
 # 127.:allow,RELAYCLIENT="",RBLSMTPD="",QMAILQUEUE="$qdir/bin/qscanq/bin/qscanq"
@@ -6844,7 +7286,7 @@ EO_TCP_SMTP
                   "Do you need to enable relay access for any netblocks? :
 
 NOTE: If you are an ISP and have dialup pools, this is where you want
-to enter those netblocks. If you have systems that should be able to 
+to enter those netblocks. If you have systems that should be able to
 relay through this host, enter their IP/netblocks here as well.\n\n"
             )
           )
@@ -6889,11 +7331,11 @@ sub vpopmail_logging {
 
     my $self = shift;
 
-    if ( defined $conf->{'vpopmail_logging'} ) 
+    if ( defined $conf->{'vpopmail_logging'} )
     {
-        if ( $conf->{'vpopmail_logging'} ) 
+        if ( $conf->{'vpopmail_logging'} )
         {
-            if ( $conf->{'vpopmail_logging_verbose'} ) 
+            if ( $conf->{'vpopmail_logging_verbose'} )
             {
                 print "logging: verbose with failed passwords\n";
                 return " --enable-logging=v";
@@ -7080,7 +7522,7 @@ sub vpopmail_mysql_privs {
     }
 
     $util->file_write( "$vpopdir/etc/vpopmail.mysql",
-        lines => \@lines, 
+        lines => \@lines,
         debug => 1,
     );
 
@@ -7099,7 +7541,7 @@ sub vpopmail_mysql_privs {
     if ( !$dbh ) {
         print <<"EOMYSQLGRANT";
 
-        WARNING: I couldn't connect to your database server!  If this is a new install, 
+        WARNING: I couldn't connect to your database server!  If this is a new install,
         you will need to connect to your database server and run this command manually:
 
         mysql -u root -h $my_write -p
@@ -7108,10 +7550,10 @@ sub vpopmail_mysql_privs {
         use $db;
         CREATE TABLE relay ( ip_addr char(18) NOT NULL default '',
           timestamp char(12) default NULL, name char(64) default NULL,
-          PRIMARY KEY (ip_addr)) TYPE=ISAM PACK_KEYS=1;
+          PRIMARY KEY (ip_addr)) PACK_KEYS=1;
         quit;
 
-        If this is an upgrade and you already use MySQL authentication, 
+        If this is an upgrade and you already use MySQL authentication,
         then you can safely ignore this warning.
 
 EOMYSQLGRANT
@@ -7137,7 +7579,7 @@ EOMYSQLGRANT
 
     print "vpopmail: creating the relay table.\n";
     $query =
-"CREATE TABLE $db.relay ( ip_addr char(18) NOT NULL default '', timestamp char(12) default NULL, name char(64) default NULL, PRIMARY KEY (ip_addr)) TYPE=ISAM PACK_KEYS=1";
+"CREATE TABLE $db.relay ( ip_addr char(18) NOT NULL default '', timestamp char(12) default NULL, name char(64) default NULL, PRIMARY KEY (ip_addr)) PACK_KEYS=1";
     $sth = $mysql->query( $dbh, $query );
 
     $log->audit( "vpopmail: databases created, ok" );
@@ -7149,7 +7591,7 @@ EOMYSQLGRANT
 sub vqadmin {
     my $self  = shift;
     my %p = validate( @_, { %std_opts },);
- 
+
     return $p{test_ok} if defined $p{test_ok}; # for testing
 
     if ( ! $conf->{'install_vqadmin'} ) {
@@ -7160,8 +7602,8 @@ sub vqadmin {
     my $cgi  = $conf->{'toaster_cgi_bin'}   || "/usr/local/www/cgi-bin";
     my $data = $conf->{'toaster_http_docs'} || "/usr/local/www/data";
 
-    if ( $cgi && $cgi =~ /\/usr\/local\/(.*)$/ ) { 
-        $cgi = $1; 
+    if ( $cgi && $cgi =~ /\/usr\/local\/(.*)$/ ) {
+        $cgi = $1;
         chop $cgi if $cgi =~ /\/$/; # remove trailing /
     }
 
@@ -7207,7 +7649,7 @@ sub webmail {
         }
     };
 
-    return $log->error( "You need to run this target while in the Mail::Toaster directory!\n" 
+    return $log->error( "You need to run this target while in the Mail::Toaster directory!\n"
         . "Try this instead:
 
    cd /usr/local/src/Mail-Toaster-$tver
@@ -7233,7 +7675,7 @@ You are currently in " . Cwd::cwd ) if ! -d $dir;
     print "about to run cmd: $cmd\n";
 
     print "\a";
-    return if ! $util->yes_or_no( 
+    return if ! $util->yes_or_no(
             "\n\n\t CAUTION! DANGER! CAUTION!
 
     This action will install the Mail::Toaster webmail interface. Doing
@@ -7241,14 +7683,7 @@ You are currently in " . Cwd::cwd ) if ! -d $dir;
             timeout  => 60,
           );
 
-    $util->syscmd($cmd );
-
-    if ( $conf->{install_apache} ) {
-        require Mail::Toaster::Apache;
-        my $apache = Mail::Toaster::Apache->new( 'log' => $log );
-        $apache->restart();
-    };
-
+    $util->syscmd( $cmd );
     return 1;
 };
 
@@ -7262,7 +7697,7 @@ Mail::Toaster::Setup -  methods to configure and build all the components of a m
 
 =head1 DESCRIPTION
 
-The meat and potatoes of toaster_setup.pl. This is where the majority of the work gets done. Big chunks of the code and logic for getting all the various applications and scripts installed and configured resides in here. 
+The meat and potatoes of toaster_setup.pl. This is where the majority of the work gets done. Big chunks of the code and logic for getting all the various applications and scripts installed and configured resides in here.
 
 
 =head1 METHODS
@@ -7271,7 +7706,7 @@ All documented methods in this package (shown below) accept two optional argumen
 
  arguments required:
    varies (most require conf)
- 
+
  arguments optional:
    debug - print status messages
    fatal - die on errors (default)
@@ -7283,10 +7718,10 @@ All documented methods in this package (shown below) accept two optional argumen
  Examples:
 
    1. $setup->apache( debug=>0, fatal=>0 );
-   Try to build apache, do not print status messages and do not die on error(s). 
+   Try to build apache, do not print status messages and do not die on error(s).
 
    2. $setup->apache( debug=>1 );
-   Try to build apache, print status messages, die on error(s). 
+   Try to build apache, print status messages, die on error(s).
 
    3. if ( $setup->apache( ) { print "yay!\n" };
    Test to see if apache installed correctly.
@@ -7295,14 +7730,14 @@ All documented methods in this package (shown below) accept two optional argumen
 
 =item new
 
-To use any methods in Mail::Toaster::Setup, you must create a setup object: 
+To use any methods in Mail::Toaster::Setup, you must create a setup object:
 
   use Mail::Toaster::Setup;
   my $setup = Mail::Toaster::Setup->new;
 
 From there you can run any of the following methods via $setup->method as documented below.
 
-Many of the methods require $conf, which is a hashref containing the contents of toaster-watcher.conf. 
+Many of the methods require $conf, which is a hashref containing the contents of toaster-watcher.conf.
 
 
 =item apache
@@ -7324,7 +7759,7 @@ There are many popular Apache compile time options supported. To see what option
 
 =item autorespond
 
-Install autorespond. Fetches sources from Inter7 web site and installs. Automatically patches the sources to compile correctly on Darwin. 
+Install autorespond. Fetches sources from Inter7 web site and installs. Automatically patches the sources to compile correctly on Darwin.
 
   $setup->autorespond( );
 
@@ -7409,7 +7844,7 @@ Installs only the perl modules that are required for 'make test' to succeed. Use
 
 =item cronolog
 
-Installs cronolog. If running on FreeBSD or Darwin, it will install from ports. If the port install fails for any reason, or you are on another platform, it will install from sources. 
+Installs cronolog. If running on FreeBSD or Darwin, it will install from ports. If the port install fails for any reason, or you are on another platform, it will install from sources.
 
 required arguments:
   conf
@@ -7570,7 +8005,7 @@ Installs PhpMyAdmin for you, based on your settings in toaster-watcher.conf. The
 
 =item ports
 
-Install the ports tree on FreeBSD or Darwin and update it with cvsup. 
+Install the ports tree on FreeBSD or Darwin and update it with cvsup.
 
 On FreeBSD, it optionally uses cvsup_fastest to choose the fastest cvsup server to mirror from. Configure toaster-watch.conf to adjust it's behaviour. It can also install the portupgrade port to use for updating your legacy installed ports. Portupgrade is very useful, but be very careful about using portupgrade -a. I always use portupgrade -ai and skip the toaster related ports such as qmail since we have customized version(s) of them installed.
 
@@ -7670,7 +8105,7 @@ Sets up the supervised mail services for Mail::Toaster
 
 If they don't already exist, this sub will create:
 
-	daemontools service directory (default /var/service) 
+	daemontools service directory (default /var/service)
 	symlink to the services script
 
 The services script allows you to run "services stop" or "services start" on your system to control the supervised daemons (qmail-smtpd, qmail-pop3, qmail-send, qmail-submit). It affects the following files:
@@ -7710,7 +8145,7 @@ Builds the ~vpopmail/etc/tcp.smtp file with a mess of sample entries and user sp
 
 =item vpopmail_mysql_privs
 
-Connects to MySQL server, creates the vpopmail table if it doesn't exist, and sets up a vpopmail user and password as set in $conf. 
+Connects to MySQL server, creates the vpopmail table if it doesn't exist, and sets up a vpopmail user and password as set in $conf.
 
     $setup->vpopmail_mysql_privs($conf);
 
@@ -7746,9 +8181,9 @@ Better documentation. It is almost reasonable now.
 
 =head1 SEE ALSO
 
-The following are all man/perldoc pages: 
+The following are all man/perldoc pages:
 
- Mail::Toaster 
+ Mail::Toaster
  Mail::Toaster::Conf
  toaster.conf
  toaster-watcher.conf
