@@ -3,7 +3,7 @@ package Mail::Toaster::Qmail;
 use strict;
 use warnings;
 
-our $VERSION = '5.33';
+our $VERSION = '5.35';
 
 use English qw( -no_match_vars );
 use File::Copy;
@@ -21,18 +21,18 @@ use Mail::Toaster::Setup;
 sub new {
     my $class = shift;
     my %p     = validate( @_,
-        {   'log' => { type => OBJECT   },
+        {  toaster=> { type => OBJECT   },
             fatal => { type => BOOLEAN, optional => 1, default => 1 },
             debug => { type => BOOLEAN, optional => 1 },
         }
     );
 
-    $toaster = $log = $p{'log'};
-       $util = $toaster->get_util();
-       $conf = $toaster->get_config();
+    $toaster = $p{toaster};
+    $conf = $toaster->get_config();
+    $log = $util = $toaster->get_util();
 
-    my $debug = $log->get_debug;  # inherit from our parent
-    my $fatal = $log->get_fatal;
+    my $debug = $toaster->get_debug;  # inherit from our parent
+    my $fatal = $toaster->get_fatal;
     $debug = $p{debug} if defined $p{debug};  # explicity overridden
     $fatal = $p{fatal} if defined $p{fatal};
 
@@ -326,7 +326,7 @@ sub config {
     if ( $ciphers =~ /^[a-z]+$/ ) {
         if ( ! $setup ) {
             require Mail::Toaster::Setup;
-            $setup = Mail::Toaster::Setup->new(conf=>$conf, 'log' => $toaster);
+            $setup = Mail::Toaster::Setup->new(conf=>$conf, toaster => $toaster);
         };
         $ciphers = $setup->openssl_get_ciphers( $ciphers );
     };
@@ -397,7 +397,7 @@ sub config_freebsd {
 
     # disable sendmail
     require Mail::Toaster::FreeBSD;
-    my $freebsd  = Mail::Toaster::FreeBSD->new( 'log' => $toaster );
+    my $freebsd  = Mail::Toaster::FreeBSD->new( toaster => $toaster );
 
     $freebsd->conf_check(
         check => "sendmail_enable",
@@ -866,7 +866,7 @@ sub get_qmailscanner_virus_sender_ips {
         return;
     }
 
-    my @files = $util->get_dir_files( dir => "$quarantine/new" );
+    my @files = $util->get_dir_files( "$quarantine/new" );
 
     foreach my $file (@files) {
         if ($block) {
@@ -1098,7 +1098,7 @@ sub install_qmail_groups_users {
 
     if ( ! $setup ) {
         require Mail::Toaster::Setup;
-        $setup = Mail::Toaster::Setup->new(conf=>$conf, 'log' => $toaster);
+        $setup = Mail::Toaster::Setup->new(conf=>$conf, toaster => $toaster);
     };
     $setup->group_add( 'qnofiles', $gid );
     $setup->group_add( $qmailg, $gid + 1 );
@@ -1381,7 +1381,7 @@ sub netqmail_conf_cc {
         if ( ! -e "/usr/local/include/domainkeys.h" ) {
             if ( ! $setup ) {
                 require Mail::Toaster::Setup;
-                $setup = Mail::Toaster::Setup->new(conf=>$conf, 'log' => $toaster);
+                $setup = Mail::Toaster::Setup->new(conf=>$conf, toaster => $toaster);
             };
             $setup->domainkeys();
         };
@@ -2045,7 +2045,7 @@ sub test_each_rbl {
 
     my $rbls = $p{'rbls'};
 
-    $t_dns ||= Mail::Toaster::DNS->new( 'log' => $toaster );
+    $t_dns ||= Mail::Toaster::DNS->new( toaster => $toaster );
 
     my @valid_dnsbls;
     foreach my $rbl (@$rbls) {
@@ -2230,7 +2230,7 @@ sub _test_smtpd_config_values {
 
     my ( $fatal, $debug ) = ( $p{'fatal'}, $p{'debug'} );
 
-    my $file = $toaster->find_config( file => "toaster.conf" );
+    my $file = $util->find_config( "toaster.conf" );
 
     return $log->error( "qmail_dir does not exist as configured in $file" )
         if !-d $conf->{'qmail_dir'};

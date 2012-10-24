@@ -16,94 +16,18 @@ require_ok('Mail::Toaster');
 my $toaster = Mail::Toaster->new(debug=>0);
 ok( defined $toaster, 'get Mail::Toaster object' );
 ok( $toaster->isa('Mail::Toaster'), 'check object class' );
-ok( ref $toaster->get_config(), 'get_config');
+my $conf = $toaster->get_config();
+ok( ref $conf, 'get_config');
 
-my $util = $toaster->get_util;
+my $util = my $log = $toaster->get_util;
 
 # audit
-$toaster->dump_audit( quiet => 1);
-$toaster->audit("line one");
+$log->dump_audit( quiet => 1);
+$log->audit("line one");
 #$toaster->dump_audit();
-$toaster->audit("line two");
-$toaster->audit("line three");
-$toaster->dump_audit( quiet=>1);
-
-# find_config
-ok( $toaster->find_config( file => 'services', fatal => 0 ), 
-    'find_config valid' ); 
-
-# same as above but with etcdir defined
-ok( $toaster->find_config( file => 'services',
-        etcdir => '/etc',
-        fatal  => 0,
-    ),
-    'find_config valid'
-);
-
-# this one fails because etcdir is set incorrect
-ok( !$toaster->find_config( file   => 'services',
-        etcdir => '/ect',
-        fatal  => 0
-    ),
-    'find_config invalid dir'
-);
-
-$toaster->dump_audit( quiet => 1 );
-
-# this one fails because the file does not exist
-ok( !$toaster->find_config( file  => 'country-bumpkins.conf', fatal => 0),
-    'find_config non-existent file'
-);
-
-# parse_line 
-my ( $foo, $bar ) = $toaster->parse_line( ' localhost1 = localhost, disk, da0, disk_da0 ' ); 
-ok( $foo eq "localhost1", 'parse_line lead & trailing whitespace' ); 
-ok( $bar eq "localhost, disk, da0, disk_da0", 'parse_line lead & trailing whitespace' ); 
- 
-( $foo, $bar ) = $toaster->parse_line( 'localhost1=localhost, disk, da0, disk_da0' ); 
-ok( $foo eq "localhost1", 'parse_line no whitespace' ); 
-ok( $bar eq "localhost, disk, da0, disk_da0", 'parse_line no whitespace' ); 
-
-( $foo, $bar ) = $toaster->parse_line( ' htmldir = /usr/local/www/toaster ' );
-ok( $foo && $bar, 'parse_line' );
-
-( $foo, $bar )
-    = $toaster->parse_line( ' hosts   = localhost lab.simerson.net seattle.simerson.net ' );
-ok( $foo eq "hosts", 'parse_line' );
-ok( $bar eq "localhost lab.simerson.net seattle.simerson.net", 'parse_line' );
-
-
-# parse_config
-# this fails because the filename is wrong
-ok( !$toaster->parse_config( 
-        file  => 'toaster-wacher.conf', 
-        debug => 0, 
-        fatal => 0 
-    ), 
-    'parse_config invalid filename' 
-); 
- 
-# this fails because etcdir is set (incorrectly) 
-ok( !$toaster->parse_config( 
-        file   => 'toaster-watcher.conf', 
-        etcdir => "/ect", 
-        debug  => 0, 
-        fatal  => 0 
-    ), 
-    'parse_config invalid filename' 
-); 
- 
-# this works because find_config will check for -dist in the local dir
-my $conf;
-ok( $conf = $toaster->parse_config(
-        file  => 'toaster-watcher.conf',
-        debug => 0,
-        fatal => 0
-    ),
-    'parse_config correct'
-);
-
-$toaster->dump_audit( quiet => 1 );
+$log->audit("line two");
+$log->audit("line three");
+$log->dump_audit( quiet=>1);
 
 # check
 ok( $toaster->check( debug => 0, test_ok=> 1 ), 'check' );
@@ -186,7 +110,7 @@ ok ( $toaster->supervise_dir_get( prot=>"send" ), 'supervise_dir_get');
 # supervise_dirs_create
 ok( $toaster->supervise_dirs_create( test_ok => 1 ), 'supervise_dirs_create' );
 
-$toaster->dump_audit(quiet => 1);
+$log->dump_audit(quiet => 1);
 
 # supervised_dir_test
 ok(
@@ -229,7 +153,7 @@ ok( $toaster->get_toaster_cgibin(), 'get_toaster_cgibin' );
 ok( $toaster->supervised_do_not_edit_notice(),
     'supervised_do_not_edit_notice' );
 
-$toaster->dump_audit(quiet=>1);
+$log->dump_audit(quiet=>1);
 my $setuidgid = $util->find_bin( "setuidgid", fatal=>0, debug=>0 );
 foreach ( qw/ smtpd pop3 submit / ) {
 

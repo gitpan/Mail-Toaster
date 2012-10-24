@@ -3,7 +3,7 @@ package Mail::Toaster;
 use strict;
 use warnings;
 
-our $VERSION = '5.33';
+our $VERSION = '5.35';
 
 use Cwd;
 #use Data::Dumper;
@@ -39,8 +39,8 @@ sub new {
     };
     bless( $self, $class );
 
-    $log  = $self;
     $self->{util} = $util = $self->get_util();
+    $log  = $util;
 
     %std_opts = (
         test_ok => { type => BOOLEAN, optional => 1 },
@@ -54,99 +54,6 @@ sub new {
         if $caller[0] ne 'main';
     return $self;
 }
-
-sub audit {
-    my $self = shift;
-    my $mess = shift;
-
-    my %p = validate( @_, { %std_opts } );
-
-    if ($mess) {
-        push @{ $self->{audit} }, $mess;
-        print "$mess\n" if $self->{debug} || $p{debug};
-    }
-
-    return \$self->{audit};
-}
-
-sub error {
-    my $self = shift;
-    my $message = shift;
-    my %p = validate( @_,
-        {   location => { type => SCALAR,  optional => 1, },
-            %std_opts,
-        },
-    );
-
-    my $location = $p{location};
-    my $debug = $p{debug};
-    my $fatal = $p{fatal};
-
-    if ( $message ) {
-        my @caller = caller;
-
-        # append message and location to the error stack
-        push @{ $self->{errors} },
-            {
-            errmsg => $message,
-            errloc => $location || join( ", ", $caller[0], $caller[2] ),
-            };
-    }
-    else {
-        $message = @{ $self->{errors} }[-1];
-    }
-
-    if ( $debug || $fatal ) {
-        $self->dump_audit();
-        $self->dump_errors();
-    }
-
-    exit 1 if $fatal;
-    return;
-}
-
-sub dump_audit {
-    my $self = shift;
-    my %p = validate( @_, { %std_opts } );
-
-    my $audit = $self->{audit};
-    return if $self->{last_audit} == scalar @$audit; # nothing new
-
-    if ( $p{quiet} ) {   # hide/mask unreported messages
-        $self->{last_audit} = scalar @$audit;
-        $self->{last_error} = scalar @{ $self->{errors}};
-        return 1;
-    };
-
-    print "\n\t\t\tAudit History Report \n\n";
-    for( my $i = $self->{last_audit}; $i < scalar @$audit; $i++ ) {
-        print "   $audit->[$i]\n";
-        $self->{last_audit}++;
-    };
-    return 1;
-};
-
-sub dump_errors {
-    my $self = shift;
-    my $last_line = $self->{last_error};
-
-    return if $last_line == scalar @{ $self->{errors} }; # everything dumped
-
-    print "\n\t\t\t Error History Report \n\n";
-    my $i = 0;
-    foreach ( @{ $self->{errors} } ) {
-        $i++;
-        next if $i < $last_line;
-        my $msg = $_->{errmsg};
-        my $loc = " at $_->{errloc}";
-        print $msg;
-        for (my $j=length($msg); $j < 90-length($loc); $j++) { print '.'; };
-        print " $loc\n";
-    };
-    print "\n";
-    $self->{last_error} = $i;
-    return;
-};
 
 sub log {
     my $self = shift;
@@ -179,161 +86,10 @@ sub test {
     print $result ? 'ok' : 'FAILED', "\n";
 };
 
-sub find_config {
-    my $self = shift;
-    my %p = validate(
-        @_,
-        {   file   => { type => SCALAR, },
-            etcdir => { type => SCALAR | UNDEF, optional => 1, },
-            %std_opts,
-        }
-    );
-
-#my @caller = caller;
-#warn sprintf( "Toaster->find_config loaded by %s, %s, %s\n", @caller );
-
-    my $file   = $p{file};
-    my $etcdir = $p{etcdir};
-
-    $log->audit("find_config: searching for $file");
-
-    return $self->find_readable( $file, $etcdir ) if $etcdir;
-
-    my @etc_dirs;
-    push @etc_dirs, $etcdir if $etcdir;
-    push @etc_dirs, qw{ /opt/local/etc /usr/local/etc /etc etc };
-    push @etc_dirs, cwd;
-
-    my $r = $self->find_readable( $file, @etc_dirs );
-    if ( $r  ) {
-        $log->audit( "  found $r" );
-        return $r;
-    };
-
-    # try $file-dist in the working dir
-    if ( -r "./$file-dist" ) {
-        $log->audit("  found in ./");
-        return cwd . "/$file-dist";
-    }
-
-    return $self->error( "could not find $file", fatal => $p{fatal} );
-}
-
-sub find_readable {
-    my $self = shift;
-    my $file = shift;
-    my $dir  = shift or return;   # break recursion at end of @_
-
-    #$log->audit("looking for $file in $dir") if $self->{debug};
-    if ( -r "$dir/$file" ) {
-        no warnings;
-        return "$dir/$file";       # success
-    }
-
-    if ( -d $dir ) {
-
-        # warn about directories we don't have read access to
-        if ( !-r $dir ) {
-            $self->error( "$dir is not readable", fatal => 0 );
-        }
-        else {
-
-            # warn about files that exist but aren't readable
-            $self->error( "$dir/$file is not readable", fatal => 0)
-                if -e "$dir/$file";
-        }
-    }
-
-    return $self->find_readable( $file, @_ );
-}
-
-sub has_module {
-    my $self = shift;
-    my ($name, $ver) = @_;
-
-## no critic ( ProhibitStringyEval )
-    eval "use $name" . ($ver ? " $ver;" : ";");
-## use critic
-
-    !$EVAL_ERROR;
-};
-
-sub parse_config {
-    my $self = shift;
-    my %p = validate( @_, {
-            file   => { type=>SCALAR, },
-            etcdir => { type=>SCALAR,  optional=>1, },
-            %std_opts,
-        },
-    );
-
-    my %args = $self->get_std_args( %p );
-    my $file = $p{file};
-
-    if ( ! -f $file ) { $file = $self->find_config( %p ); };
-
-    if ( ! $file || ! -r $file ) {
-        return $self->error( "could not find config file!", %args);
-    };
-
-    my %hash;
-    $log->audit( "  read config from $file");
-
-    my @config = $util->file_read( $file );
-    foreach ( @config ) {
-        next if ! $_;
-        chomp;
-        next if $_ =~ /^#/;          # skip lines beginning with #
-        next if $_ =~ /^[\s+]?$/;    # skip empty lines
-
-        my ( $key, $val ) = $self->parse_line( $_ );
-
-        next if ! $key;
-        $hash{$key} = $val;
-    }
-
-    return \%hash;
-}
-
-sub parse_line {
-    my $self = shift;
-    my $line = shift;
-    my %p = validate( @_, {
-            strip => { type => BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my $strip = $p{strip};
-
-    # this regexp must match and return these patterns
-    # localhost1  = localhost, disk, da0, disk_da0
-    # hosts   = localhost lab.simerson.net seattle.simerson.net
-
-    my ( $key, $val ) = $line =~ /\A
-        \s*      # any amount of leading white space, greedy
-        (.*?)    # all characters, non greedy
-        \s*      # any amount of white space, greedy
-        =
-        \s*      # same, except on the other side of the =
-        (.*?)
-        \s*
-        \z/xms;
-
-    # remove any comments
-    if ( $strip && $val && $val =~ /#/ ) {
-
-        # removes everything from a # to the right, including
-        # any spaces to the left of the # symbol.
-        ($val) = $val =~ /(.*?\S)\s*#/;
-    }
-
-    return ( $key, $val );
-}
-
 sub check {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     $conf ||= $self->get_config();
 
@@ -386,7 +142,7 @@ sub check_permissions {
 sub check_processes {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     $conf ||= $self->get_config();
 
@@ -425,7 +181,7 @@ sub check_processes {
 sub check_cron {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     $conf ||= $self->get_config();
 
@@ -476,7 +232,7 @@ sub check_watcher_log_size {
 sub learn_mailboxes {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     return $p{test_ok} if defined $p{test_ok};
 
@@ -526,7 +282,7 @@ sub learn_mailboxes {
 sub learn_mailboxes_setup {
     my $self = shift;
     my %p    = validate( @_, { %std_opts } );
-    #my %args = $self->get_std_args( %p );
+    #my %args = $util->get_std_args( %p );
 
     my $log_base = $conf->{'qmail_log_base'} || '/var/log/mail';
     my $learn_log = "$log_base/learn.log";
@@ -588,7 +344,7 @@ sub train_dspam {
 sub clean_mailboxes {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     return $p{test_ok} if defined $p{test_ok};
 
@@ -956,7 +712,7 @@ sub get_config {
 
     return $self->{conf} if (defined $self->{conf} && ref $self->{conf});
 
-    $self->{conf} = $conf = $self->parse_config( file => "toaster-watcher.conf" );
+    $self->{conf} = $conf = $util->parse_config( "toaster-watcher.conf" );
     return $conf;
 };
 
@@ -994,13 +750,13 @@ sub get_fatal {
 sub get_maildir_paths {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     my $vpdir = $conf->{'vpopmail_home_dir'};
 
     # this method requires a SQL query for each domain
     require Mail::Toaster::Qmail;
-    my $qmail = Mail::Toaster::Qmail->new( 'log' => $self );
+    my $qmail = Mail::Toaster::Qmail->new( toaster => $self );
 
     my $qdir  = $conf->{'qmail_dir'} || "/var/qmail";
 
@@ -1065,13 +821,7 @@ sub get_maildir_messages {
 
 sub get_std_args {
     my $self = shift;
-    my %p = @_;
-    my %args;
-    foreach ( qw/ debug fatal test_ok quiet / ) {
-        next if ! defined $p{$_};
-        $args{$_} = $p{$_};
-    };
-    return %args;
+    return $util->get_std_args(@_);
 };
 
 sub get_toaster_htdocs {
@@ -1171,7 +921,7 @@ sub get_util {
     return $util if ref $util;
     use lib 'lib';
     require Mail::Toaster::Utility;
-    $self->{util} = $util = Mail::Toaster::Utility->new( 'log' => $self, debug => $self->{debug} );
+    $self->{util} = $util = Mail::Toaster::Utility->new( debug => $self->{debug} );
     return $util;
 };
 
@@ -1187,7 +937,7 @@ sub process_logfiles {
     $self->supervised_log_rotate( prot => 'pop3'   ) if $pop3_logs eq 'qpop3d';
 
     require Mail::Toaster::Logs;
-    my $logs = Mail::Toaster::Logs->new( 'log' => $self, conf => $conf ) or return;
+    my $logs = Mail::Toaster::Logs->new( toaster => $self, conf => $conf ) or return;
 
     $logs->compress_yesterdays_logs( file=>"sendlog" );
     $logs->compress_yesterdays_logs( file=>"smtplog" ) if $smtpd eq 'qmail';
@@ -1253,7 +1003,7 @@ sub service_dir_get {
 sub service_symlinks {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     my @active_services = 'send';
 
@@ -1395,7 +1145,7 @@ sub supervise_dir_get {
 sub supervise_dirs_create {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     my $supervise = $conf->{'qmail_supervise'} || "/var/qmail/supervise";
 
@@ -1448,7 +1198,7 @@ sub supervised_dir_test {
     );
 
     my ($prot, $dir ) = ( $p{'prot'}, $p{'dir'} );
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
 
     return $p{test_ok} if defined $p{test_ok};
 
@@ -1553,7 +1303,7 @@ sub supervised_hostname {
 sub supervised_multilog {
     my $self = shift;
     my %p = validate( @_, { 'prot' => SCALAR, %std_opts, },);
-    my %args = $self->get_std_args( %p );
+    my %args = $util->get_std_args( %p );
     my $prot = $p{prot};
 
     my $setuidgid = $util->find_bin( 'setuidgid', fatal=>0 );
@@ -1631,12 +1381,12 @@ sub supervise_restart {
     my $self = shift;
     my $dir  = shift or die "missing dir\n";
 
-    return $self->error( "supervise_restart: is not a dir: $dir" ) if !-d $dir;
+    return $log->error( "supervise_restart: is not a dir: $dir" ) if !-d $dir;
 
     my $svc  = $util->find_bin( 'svc',  debug=>0, fatal=>0 );
     my $svok = $util->find_bin( 'svok', debug=>0, fatal=>0 );
 
-    return $self->error( "unable to find svc! Is daemontools installed?")
+    return $log->error( "unable to find svc! Is daemontools installed?")
         if ! -x $svc;
 
     if ( $svok ) {
@@ -1679,7 +1429,7 @@ sub supervised_tcpserver {
             require POSIX;
             $maxcon = POSIX::floor( $maxmem / ( $mem / 1024000 ) );
             require Mail::Toaster::Qmail;
-            my $qmail = Mail::Toaster::Qmail->new( 'log'  => $self );
+            my $qmail = Mail::Toaster::Qmail->new( toaster  => $self );
             $qmail->_memory_explanation( $prot, $maxcon );
         }
     }
@@ -1845,10 +1595,10 @@ context to help them understand the methods that are subsequently described.
 
 Performs the following tests:
 
-   • check for processes that should be running.
-   • make sure watcher.log is less than 1MB
-   • make sure ~alias/.qmail-* exist and are not empty
-   • verify multilog log directories are working
+   * check for processes that should be running.
+   * make sure watcher.log is less than 1MB
+   * make sure ~alias/.qmail-* exist and are not empty
+   * verify multilog log directories are working
 
 When this is run by toaster-watcher.pl via cron, the mail server admin will get notified via email any time one of the tests fails. Otherwise, there is no output generated.
 
@@ -1931,39 +1681,6 @@ Sends an email message with the Eicar virus inline. It should trigger the AV eng
 =item email_send_spam
 
 Sends a sample spam message that SpamAssassin should block.
-
-
-=item find_config
-
-This sub is called by several others to determine which configuration file to use. The general logic is as follows:
-
-  If the etc dir and file name are provided and the file exists, use it.
-
-If that fails, then go prowling around the drive and look in all the usual places, in order of preference:
-
-  /opt/local/etc/
-  /usr/local/etc/
-  /etc
-
-Finally, if none of those work, then check the working directory for the named .conf file, or a .conf-dist.
-
-Example:
-  my $twconf = $util->find_config (
-      file   => 'toaster-watcher.conf',
-      etcdir => '/usr/local/etc',
-    )
-
- arguments required:
-   file - the .conf file to read in
-
- arguments optional:
-   etcdir - the etc directory to prefer
-   debug
-   fatal
-
- result:
-   0 - failure
-   the path to $file
 
 
 =item get_toaster_cgibin
@@ -2152,12 +1869,12 @@ unless otherwise specified in $conf
 
 Checks a supervised directory to see if it is set up properly for supervise to start it. It performs a bunch of tests including:
 
- • directory exists
- • dir/run file exists and is executable
- • dir/down file is not present
- • dir/log exists
- • dir/log/run exists and is executable
- • dir/log/down does not exist
+ * directory exists
+ * dir/run file exists and is executable
+ * dir/down file is not present
+ * dir/log exists
+ * dir/log/run exists and is executable
+ * dir/log/down does not exist
 
  arguments required:
     prot - a protocol to check (smtp, pop3, send, submit)

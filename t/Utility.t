@@ -21,8 +21,8 @@ require_ok('Mail::Toaster');
 require_ok('Mail::Toaster::Utility');
 
 # let the testing begin
-my $log = Mail::Toaster->new( debug => 0 );
-my $util = Mail::Toaster::Utility->new( 'log' => $log );
+my $toaster = Mail::Toaster->new();
+my $log = my $util = $toaster->get_util();
 ok( defined $util, 'get Mail::Toaster::Utility object' );
 isa_ok( $util, 'Mail::Toaster::Utility' );
 
@@ -94,7 +94,7 @@ SKIP: {
     ok( !$util->extract_archive( "$archive.fizzlefuzz", fatal => 0 ), 'extract_archive -');
 
     # clean up behind the tests
-    ok( $util->file_delete( file => $archive, fatal => 0 ), 'file_delete' );
+    ok( $util->file_delete( $archive, fatal => 0 ), 'file_delete' );
 }
 
 $log->dump_audit(quiet=>1);
@@ -112,7 +112,7 @@ ok( $util->cwd_source_dir( $tmp ), 'cwd_source_dir' );
 
 # clean up after previous runs
 if ( -f "$tmp/foo" ) {
-    ok( $util->file_delete( file => "$tmp/foo", fatal => 0 ), 'file_delete' );
+    ok( $util->file_delete( "$tmp/foo", fatal => 0 ), 'file_delete' );
 }
 
 # a dir to create
@@ -135,7 +135,7 @@ if ( $UID == 0 && $sudo_bin && -x $sudo_bin ) {
 TODO: {
     my $why = " - no test written yet";
 }
-ok( $util->clean_tmp_dir( dir => $tmp ), 'clean_tmp_dir' );
+ok( $util->clean_tmp_dir( $tmp ), 'clean_tmp_dir' );
 
 print "\t\t wd: " . cwd . "\n" if $debug;
 
@@ -174,7 +174,7 @@ ok( $util->file_write( $rwtest, lines  => ["more junk"], append => 1 ), 'file_ap
 # a typical invocation
 my $backup = $util->archive_file( $rwtest, fatal => 0 );
 ok( -e $backup, 'archive_file' );
-ok( $util->file_delete( file => $backup, fatal => 0 ), 'file_delete' );
+ok( $util->file_delete( $backup, fatal => 0 ), 'file_delete' );
 
 ok( !$util->archive_file( $backup, fatal => 0 ), 'archive_file' );
 
@@ -363,8 +363,21 @@ ok( $rm && -x $rm, 'find_bin' );
 ok( !$util->find_bin( "globRe", fatal => 0 ), 'find_bin' );
 
 # a shortcut that should work
-$rm = $util->find_bin( "rm" );
+$rm = $util->find_bin( 'rm' );
 ok( -x $rm, 'find_bin' );
+
+
+
+# find_config
+ok( $util->find_config( 'services', fatal => 0 ), 'find_config valid' );
+
+# same as above but with etcdir defined
+ok( $util->find_config( 'services', etcdir => '/etc', fatal  => 0,), 'find_config valid');
+
+# this one fails because the file does not exist
+ok( !$util->find_config( 'country-bumpkins.conf', fatal => 0),
+    'find_config non-existent file'
+);
 
 # fstab_list
 my $fs = $util->fstab_list();
@@ -375,7 +388,7 @@ if ($fs) {
 }
 
 # get_dir_files
-my (@list) = $util->get_dir_files( dir => "/etc" );
+my (@list) = $util->get_dir_files( "/etc" );
 ok( -e $list[0], 'get_dir_files' );
 
 # get_my_ips
@@ -553,6 +566,45 @@ ok( $util->regexp_test(
     'regexp_test'
 );
 
+
+
+# parse_line 
+my ( $foo, $bar ) = $util->parse_line( ' localhost1 = localhost, disk, da0, disk_da0 ' );
+ok( $foo eq "localhost1", 'parse_line lead & trailing whitespace' );
+ok( $bar eq "localhost, disk, da0, disk_da0", 'parse_line lead & trailing whitespace' );
+
+( $foo, $bar ) = $util->parse_line( 'localhost1=localhost, disk, da0, disk_da0' );
+ok( $foo eq "localhost1", 'parse_line no whitespace' );
+ok( $bar eq "localhost, disk, da0, disk_da0", 'parse_line no whitespace' );
+
+( $foo, $bar ) = $util->parse_line( ' htmldir = /usr/local/www/toaster ' );
+ok( $foo && $bar, 'parse_line' );
+
+( $foo, $bar )
+    = $util->parse_line( ' hosts   = localhost lab.simerson.net seattle.simerson.net ' );
+    ok( $foo eq "hosts", 'parse_line' );
+    ok( $bar eq "localhost lab.simerson.net seattle.simerson.net", 'parse_line' );
+
+
+# parse_config
+# this fails because the filename is wrong
+    ok( !$util->parse_config( 'toaster-wacher.conf',
+                debug => 0,
+                fatal => 0
+                ),
+            'parse_config invalid filename'
+      );
+
+# this works because find_config will check for -dist in the local dir
+    my $conf;
+    ok( $conf = $util->parse_config( 'toaster-watcher.conf',
+                debug => 0,
+                fatal => 0
+                ),
+            'parse_config correct'
+      );
+
+
 # sources_get
 # do I really want a test script downloading stuff? probably not.
 
@@ -581,15 +633,17 @@ ok( $util->syscmd( "rm $tmpfile", fatal => 0, ), 'syscmd +');
 ) if ( $network && -f "$tmp/maildrop-qmail-domain" );
 
 # file_delete
-ok( $util->file_delete( file => $backup ), 'file_delete' );
-ok( !$util->file_delete( file => $backup, fatal => 0 ),
-    'file_delete' );
+ok( $util->file_delete( $backup ), 'file_delete' );
+ok( !$util->file_delete( $backup, fatal => 0 ), 'file_delete' );
 
-ok( $util->file_delete( file => $rwtest       ), 'file_delete' );
-ok( $util->file_delete( file => "$rwtest.md5" ), 'file_delete' );
+ok( $util->file_delete( $rwtest       ), 'file_delete' );
+ok( $util->file_delete( "$rwtest.md5" ), 'file_delete' );
 
-ok( $util->clean_tmp_dir( dir => $tmp ), 'clean_tmp_dir' );
+ok( $util->clean_tmp_dir( $tmp ), 'clean_tmp_dir' );
+
 
 # yes_or_no
 ok( $util->yes_or_no( "test", timeout => 5 ), 'yes_or_no' );
+
+
 

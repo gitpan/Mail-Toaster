@@ -4,7 +4,7 @@ package Mail::Toaster::Utility;
 use strict;
 use warnings;
 
-our $VERSION = '5.33';
+our $VERSION = '5.35';
 
 use Cwd;
 use Carp;
@@ -19,46 +19,33 @@ use Scalar::Util qw( openhandle );
 use URI;
 
 use lib 'lib';
-use vars qw/ $log $toaster %std_opts /;
+use vars qw/ $log %std_opts /;
 
 sub new {
     my $class = shift;
-    my %p     = validate( @_,
-        {   'log' => { type => OBJECT,  optional => 1 },
-            fatal => { type => BOOLEAN, optional => 1, default => 1 },
-            debug => { type => BOOLEAN, optional => 1, default => 1 },
-        }
-    );
-
-    $log = $toaster = $p{'log'};
-    if ( ! $log ) {
-        my @bits = split /::/, $class; pop @bits;
-        my $parent_class = join '::', grep { defined $_ } @bits;
-## no critic ( ProhibitStringyEval )
-        eval "require $parent_class";
-## use critic
-        $log = $parent_class->new();
-    };
-
-    my $debug = $log->get_debug;  # inherit from our parent
-    my $fatal = $log->get_fatal;
-    $debug = $p{debug} if defined $p{debug};  # explicity overridden
-    $fatal = $p{fatal} if defined $p{fatal};
-
-    my $self = {
-        'log' => $log,
-        debug => $debug,
-        fatal => $fatal,
-    };
-    bless $self, $class;
 
 # globally scoped hash, populated with defaults as requested by the caller
     %std_opts = (
-        'test_ok' => { type => BOOLEAN, optional => 1 },
-        'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
-        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
+        'fatal'   => { type => BOOLEAN, optional => 1, default => 1 },
+        'debug'   => { type => BOOLEAN, optional => 1, default => 1 },
         'quiet'   => { type => BOOLEAN, optional => 1, default => 0 },
+        'test_ok' => { type => BOOLEAN, optional => 1 },
     );
+
+    my %p = validate( @_,
+        {  toaster=> { type => OBJECT,  optional => 1 },
+            %std_opts,
+        }
+    );
+
+    my $toaster = $p{toaster};
+    my $self = {
+        debug => $p{debug},
+        fatal => $p{fatal},
+    };
+    bless $self, $class;
+
+    $log = $self->{log} = $self;
 
     $log->audit( $class . sprintf( " loaded by %s, %s, %s", caller ) );
     return $self;
@@ -131,6 +118,20 @@ PROMPT:
     return '';                     # return empty handed
 }
 
+sub audit {
+    my $self = shift;
+    my $mess = shift;
+
+    my %p = validate( @_, { %std_opts } );
+
+    if ($mess) {
+        push @{ $log->{audit} }, $mess;
+        print "$mess\n" if $self->{debug} || $p{debug};
+    }
+
+    return \$log->{audit};
+}
+
 sub archive_file {
     my $self = shift;
     my $file = shift or return $log->error("missing filename in request");
@@ -142,7 +143,7 @@ sub archive_file {
         }
     );
 
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "file ($file) is missing!", %args )
         if !-e $file;
@@ -207,7 +208,7 @@ sub chmod {
     );
 
     my $mode = $p{mode};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $file = $p{file} || $p{file_or_dir} || $p{dir}
         or return $log->error( "invalid params to chmod in ". ref $self  );
@@ -237,7 +238,7 @@ sub chown {
         }
     );
 
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
     my ( $uid, $gid, $sudo ) = ( $p{uid}, $p{gid}, $p{sudo} );
 
     $file or return $log->error( "missing file or dir", %args );
@@ -292,7 +293,7 @@ sub chown_system {
     );
 
     my ( $user, $group, $recurse ) = ( $p{user}, $p{group}, $p{recurse} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     $dir or return $log->error( "missing file or dir", %args );
     my $cmd = $self->find_bin( 'chown', %args );
@@ -317,20 +318,16 @@ sub chown_system {
 
 sub clean_tmp_dir {
     my $self = shift;
-    my %p = validate( @_,
-        {   'dir'   => { type => SCALAR,  optional => 0, },
-            %std_opts
-        }
-    );
+    my $dir = shift or die "missing dir name";
+    my %p = validate( @_, { %std_opts } );
 
-    my $dir = $p{dir};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $before = cwd;   # remember where we started
 
     return $log->error( "couldn't chdir to $dir: $!", %args) if !chdir $dir;
 
-    foreach ( $self->get_dir_files( dir => $dir ) ) {
+    foreach ( $self->get_dir_files( $dir ) ) {
         next unless $_;
 
         my ($file) = $_ =~ /^(.*)$/;
@@ -339,11 +336,10 @@ sub clean_tmp_dir {
 
         if ( -f $file ) {
             unlink $file or
-                $self->file_delete( file => $file, %args );
+                $self->file_delete( $file, %args );
         }
         elsif ( -d $file ) {
-            use File::Path;
-            rmtree $file or return $log->error( "couldn't delete $file");
+            rmtree $file or return $log->error( "couldn't delete $file", %args);
         }
         else {
             $log->audit( "Cannot delete unknown entity: $file" );
@@ -365,7 +361,7 @@ sub cwd_source_dir {
     );
 
     my ( $src, $sudo, ) = ( $p{src}, $p{sudo}, );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "Something (other than a directory) is at $dir and " .
         "that's my build directory. Please remove it and try again!", %args )
@@ -391,6 +387,50 @@ sub cwd_source_dir {
     return 1;
 }
 
+sub dump_audit {
+    my $self = shift;
+    my %p = validate( @_, { %std_opts } );
+
+    my $audit = $log->{audit} or return;
+    return if ! $log->{last_audit};
+    return if $log->{last_audit} == scalar @$audit; # nothing new
+
+    if ( $p{quiet} ) {   # hide/mask unreported messages
+        $log->{last_audit} = scalar @$audit;
+        $log->{last_error} = scalar @{ $log->{errors}};
+        return 1;
+    };
+
+    print "\n\t\t\tAudit History Report \n\n";
+    for( my $i = $log->{last_audit}; $i < scalar @$audit; $i++ ) {
+        print "   $audit->[$i]\n";
+        $log->{last_audit}++;
+    };
+    return 1;
+};
+
+sub dump_errors {
+    my $self = shift;
+    my $last_line = $log->{last_error} or return;
+
+    return if $last_line == scalar @{ $log->{errors} }; # everything dumped
+
+    print "\n\t\t\t Error History Report \n\n";
+    my $i = 0;
+    foreach ( @{ $log->{errors} } ) {
+        $i++;
+        next if $i < $last_line;
+        my $msg = $_->{errmsg};
+        my $loc = " at $_->{errloc}";
+        print $msg;
+        for (my $j=length($msg); $j < 90-length($loc); $j++) { print '.'; };
+        print " $loc\n";
+    };
+    print "\n";
+    $log->{last_error} = $i;
+    return;
+};
+
 sub _try_mkdir {
     my ( $dir ) = @_;
     mkpath( $dir, 0, oct('0755') )
@@ -399,11 +439,46 @@ sub _try_mkdir {
     return 1;
 }
 
+sub error {
+    my $self = shift;
+    my $message = shift;
+    my %p = validate( @_,
+        {   location => { type => SCALAR,  optional => 1, },
+            %std_opts,
+        },
+    );
+
+    my $location = $p{location};
+    my $debug = $p{debug};
+    my $fatal = $p{fatal};
+
+    if ( $message ) {
+        my @caller = $p{caller} || caller;
+
+        # append message and location to the error stack
+        push @{ $log->{errors} }, {
+            errmsg => $message,
+            errloc => $location || join( ", ", $caller[0], $caller[2] ),
+            };
+    }
+    else {
+        $message = @{ $log->{errors} }[-1];
+    }
+
+    if ( $debug || $fatal ) {
+        $self->dump_audit();
+        $self->dump_errors();
+    }
+
+    exit 1 if $fatal;
+    return;
+}
+
 sub extract_archive {
     my $self = shift;
     my $archive = shift or die "missing archive name";
     my %p = validate( @_, { %std_opts } );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $r;
 
@@ -452,15 +527,14 @@ sub extract_archive {
 
 sub file_delete {
     my $self = shift;
+    my $file = shift or die "missing file argument";
     my %p = validate( @_,
-        {   'file'  => { type => SCALAR },
-            'sudo'  => { type => BOOLEAN, optional => 1, default => 0 },
+        {   'sudo'  => { type => BOOLEAN, optional => 1, default => 0 },
             %std_opts,
         }
     );
 
-    my $file = $p{file};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "$file does not exist", %args ) if !-e $file;
 
@@ -537,7 +611,7 @@ sub file_read {
     );
 
     my ( $max_lines, $max_length ) = ( $p{max_lines}, $p{max_length} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "$file does not exist!", %args) if !-e $file;
     return $log->error( "$file is not readable", %args ) if !-r $file;
@@ -578,7 +652,7 @@ sub file_mode {
     );
 
     my $file = $p{file};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "file '$file' does not exist!", %args)
         if !-e $file;
@@ -610,7 +684,7 @@ sub file_write {
 
     my $append = $p{append};
     my $lines  = $p{lines};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "oops, $file is a directory", %args) if -d $file;
     return $log->error( "oops, $file is not writable", %args )
@@ -765,6 +839,70 @@ sub find_bin {
     return $log->error( "find_bin: could not find $bin", %args);
 }
 
+sub find_config {
+    my $self = shift;
+    my $file = shift or die "missing file name";
+    my %p = validate( @_,
+        {   etcdir => { type => SCALAR | UNDEF, optional => 1, },
+            %std_opts,
+        }
+    );
+
+#my @caller = caller;
+#warn sprintf( "find_config loaded by %s, %s, %s\n", @caller );
+
+    $log->audit("find_config: searching for $file");
+
+    my @etc_dirs;
+    my $etcdir = $p{etcdir};
+    push @etc_dirs, $etcdir if ( $etcdir && -d $etcdir );
+    push @etc_dirs, qw{ /opt/local/etc /usr/local/etc /etc etc };
+    push @etc_dirs, cwd;
+
+    my $r = $self->find_readable( $file, @etc_dirs );
+    if ( $r ) {
+        $log->audit( "  found $r" );
+        return $r;
+    };
+
+    # try $file-dist in the working dir
+    if ( -r "./$file-dist" ) {
+        $log->audit("  found in ./");
+        return cwd . "/$file-dist";
+    }
+
+    return $log->error( "could not find $file", fatal => $p{fatal} );
+}
+
+sub find_readable {
+    my $self = shift;
+    my $file = shift;
+    my $dir  = shift or return;   # break recursion at end of @_
+
+    #$log->audit("looking for $file in $dir") if $self->{debug};
+    if ( -r "$dir/$file" ) {
+        no warnings;
+        return "$dir/$file";       # success
+    }
+
+    if ( ! -d $dir ) {
+        return $self->find_readable( $file, @_ );
+    };
+
+    # warn about directories we don't have read access to
+    if ( ! -r $dir ) {
+        $log->error( "$dir is not readable", fatal => 0 );
+        return $self->find_readable( $file, @_ );
+    };
+
+    # warn about files that exist but aren't readable
+    if ( -e "$dir/$file" ) {
+        $log->error( "$dir/$file is not readable", fatal => 0);
+    };
+
+    return $self->find_readable( $file, @_ );
+}
+
 sub fstab_list {
     my $self = shift;
     my %p = validate( @_, {   %std_opts, } );
@@ -842,14 +980,10 @@ sub get_cpan_config {
 
 sub get_dir_files {
     my $self = shift;
-    my %p = validate( @_,
-        {   'dir'   => { type => SCALAR,  optional => 0, },
-            %std_opts,
-        }
-    );
+    my $dir = shift or die "missing dir name";
+    my %p = validate( @_, { %std_opts } );
 
-    my $dir = $p{dir};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my @files;
 
@@ -924,6 +1058,17 @@ TRY:
     return \@ips;
 }
 
+sub get_std_args {
+    my $self = shift;
+    my %p = @_;
+    my %args;
+    foreach ( qw/ debug fatal test_ok quiet / ) {
+        next if ! defined $p{$_};
+        $args{$_} = $p{$_};
+    };
+    return %args;
+};
+
 sub get_the_date {
     my $self = shift;
     my %p = validate(
@@ -934,7 +1079,7 @@ sub get_the_date {
     );
 
     my $bump  = $p{bump} || 0;
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $time = time;
     my $mess = "get_the_date time: " . time;
@@ -1121,6 +1266,17 @@ sub get_url_system {
     return 1;
 }
 
+sub has_module {
+        my $self = shift;
+            my ($name, $ver) = @_;
+
+## no critic ( ProhibitStringyEval )
+    eval "use $name" . ($ver ? " $ver;" : ";");
+## use critic
+
+        !$EVAL_ERROR;
+};
+
 sub install_if_changed {
     my $self = shift;
     my %p = validate(
@@ -1142,7 +1298,7 @@ sub install_if_changed {
     my ( $newfile, $existing, $mode, $uid, $gid, $email) = (
         $p{newfile}, $p{existing}, $p{mode}, $p{uid}, $p{gid}, $p{email} );
     my ($sudo, $notify ) = ($p{sudo}, $p{notify} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     if ( $newfile !~ /\// ) {
         # relative filename given
@@ -1305,7 +1461,7 @@ sub install_from_source {
     );
 
     return $p{test_ok} if defined $p{test_ok};
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my ( $site, $url, $package, $targets, $patches, $bintest ) =
         ( $p{site},    $p{url}, $p{package},
@@ -1594,7 +1750,7 @@ sub install_module_from_src {
 
     my ( $module, $site, $url, $src, $targets )
         = ( $p{module}, $p{site}, $p{url}, $p{src}, $p{targets} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     $self->cwd_source_dir( $src, %args );
 
@@ -1618,7 +1774,7 @@ sub install_module_from_src {
 
     my $found;
     print "looking for $module in $src...";
-    foreach my $file ( $self->get_dir_files( dir => $src ) ) {
+    foreach my $file ( $self->get_dir_files( $src ) ) {
 
         next if ! -d $file;  # only check directories
         next if $file !~ /$module/;
@@ -1736,7 +1892,7 @@ sub is_writable {
     my $file = shift or die "missing file or dir name\n";
 
     my %p = validate( @_, { %std_opts } );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $nl = "\n";
     $nl = "<br>" if ( $ENV{GATEWAY_INTERFACE} );
@@ -1769,7 +1925,7 @@ sub logfile_append {
     );
 
     my ( $file, $lines ) = ( $p{file}, $p{lines} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my ( $dd, $mm, $yy, $lm, $hh, $mn, $ss ) = $self->get_the_date( %args );
 
@@ -1805,7 +1961,7 @@ sub mkdir_system {
     );
 
     my ( $dir, $mode ) = ( $p{dir}, $p{mode} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->audit( "mkdir_system: $dir already exists.") if -d $dir;
 
@@ -1871,7 +2027,7 @@ sub check_pidfile {
     my $self = shift;
     my $file = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->error( "missing filename", %args) if ! $file;
     return $log->error( "$file is not a regular file", %args)
@@ -1908,6 +2064,77 @@ sub check_pidfile {
     }
 
     return $file;
+}
+
+sub parse_config {
+    my $self = shift;
+    my $file = shift or die "missing file name";
+    my %p = validate( @_, {
+            etcdir => { type=>SCALAR,  optional=>1, },
+            %std_opts,
+        },
+    );
+
+    my %args = $self->get_std_args( %p );
+
+    if ( ! -f $file ) { $file = $self->find_config( $file, %p ); };
+
+    if ( ! $file || ! -r $file ) {
+        return $log->error( "could not find config file!", %args);
+    };
+
+    my %hash;
+    $log->audit( "  read config from $file");
+
+    my @config = $self->file_read( $file );
+    foreach ( @config ) {
+        next if ! $_;
+        chomp;
+        next if $_ =~ /^#/;          # skip lines beginning with #
+        next if $_ =~ /^[\s+]?$/;    # skip empty lines
+
+        my ( $key, $val ) = $self->parse_line( $_ );
+
+        next if ! $key;
+        $hash{$key} = $val;
+    }
+
+    return \%hash;
+}
+
+sub parse_line {
+    my $self = shift;
+    my $line = shift;
+    my %p = validate( @_, {
+            strip => { type => BOOLEAN, optional=>1, default=>1 },
+        },
+    );
+
+    my $strip = $p{strip};
+
+    # this regexp must match and return these patterns
+    # localhost1  = localhost, disk, da0, disk_da0
+    # hosts   = localhost lab.simerson.net seattle.simerson.net
+
+    my ( $key, $val ) = $line =~ /\A
+        \s*      # any amount of leading white space, greedy
+        (.*?)    # all characters, non greedy
+        \s*      # any amount of white space, greedy
+        =
+        \s*      # same, except on the other side of the =
+        (.*?)
+        \s*
+        \z/xms;
+
+    # remove any comments
+    if ( $strip && $val && $val =~ /#/ ) {
+
+        # removes everything from a # to the right, including
+        # any spaces to the left of the # symbol.
+        ($val) = $val =~ /(.*?\S)\s*#/;
+    }
+
+    return ( $key, $val );
 }
 
 sub provision_unix {
@@ -1961,7 +2188,7 @@ sub sources_get {
     );
 
     my ( $package, $site, $path ) = ( $p{package}, $p{site}, $p{path} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     $log->audit( "sources_get: fetching $package from site $site\n\t path: $path");
 
@@ -1981,7 +2208,7 @@ sub sources_get {
                 and return $log->audit( "  ok, using existing archive: $tarball");
         }
 
-        $self->file_delete( file => $tarball, %args );
+        $self->file_delete( $tarball, %args );
     }
 
     foreach my $ext (@extensions) {
@@ -2002,7 +2229,7 @@ sub sources_get {
         };
 
         $log->audit( "  oops, is not [b|g]zipped data!");
-        $self->file_delete( file => $tarball, %args);
+        $self->file_delete( $tarball, %args);
     }
 
     return $log->error( "unable to get $package", %args );
@@ -2025,7 +2252,7 @@ sub source_warning {
     );
 
     my ( $package, $src ) = ( $p{package}, $p{src} );
-    my %args = $toaster->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $log->audit( "$package sources not present.", %args ) if !-d $package;
 
@@ -2282,9 +2509,8 @@ __END__
 
 =head1 SYNOPSIS
 
-  use Mail::Toaster;
-  my $toaster = Mail::Toaster->new;
-  my $util = $toaster->get_util;
+  use Mail::Toaster::Utility;
+  my $toaster = Mail::Toaster::Utility->new;
 
   $util->file_write($file, lines=> @lines);
 
@@ -2416,7 +2642,7 @@ The advantage this sub has over a Pure Perl implementation is that it can utiliz
 
 
   ############## clean_tmp_dir ################
-  # Usage      : $util->clean_tmp_dir( dir=>$dir );
+  # Usage      : $util->clean_tmp_dir( $dir );
   # Purpose    : clean up old build stuff before rebuilding
   # Returns    : 0 - failure,  1 - success
   # Parameters : S - $dir - a directory or file.
@@ -2498,7 +2724,7 @@ Set the ownership (user and group) of a file. Will use the native perl methods (
 =item file_delete
 
   ############################################
-  # Usage      : $util->file_delete( file=>$file );
+  # Usage      : $util->file_delete( $file );
   # Purpose    : Deletes a file.
   # Returns    : 0 - failure, 1 - success
   # Parameters
@@ -2644,6 +2870,38 @@ Example:
    success will return the full path to the binary.
 
 
+=item find_config
+
+This sub is called by several others to determine which configuration file to use. The general logic is as follows:
+
+  If the etc dir and file name are provided and the file exists, use it.
+
+If that fails, then go prowling around the drive and look in all the usual places, in order of preference:
+
+  /opt/local/etc/
+  /usr/local/etc/
+  /etc
+
+Finally, if none of those work, then check the working directory for the named .conf file, or a .conf-dist.
+
+Example:
+  my $twconf = $util->find_config ( 'toaster-watcher.conf',
+      etcdir => '/usr/local/etc',
+    )
+
+ arguments required:
+   file - the .conf file to read in
+
+ arguments optional:
+   etcdir - the etc directory to prefer
+   debug
+   fatal
+
+ result:
+   0 - failure
+   the path to $file
+
+
 =item get_my_ips
 
 returns an arrayref of IP addresses on local interfaces.
@@ -2701,7 +2959,7 @@ If the file exists, it checks to see if it is writable. If the file does not exi
 
 =item get_dir_files
 
-   $util->get_dir_files( dir=>$dir, debug=>1 )
+   $util->get_dir_files( $dir, debug=>1 )
 
  required arguments:
    dir - a directory

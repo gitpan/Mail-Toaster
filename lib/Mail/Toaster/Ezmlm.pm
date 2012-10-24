@@ -3,32 +3,30 @@ use warnings;
 
 package Mail::Toaster::Ezmlm;
 
-our $VERSION = '5.33';
+our $VERSION = '5.35';
 
 use Params::Validate qw( :all );;
 use Pod::Usage;
 use English qw( -no_match_vars );
 
 use lib 'lib';
-use Mail::Toaster          5.33;
+use Mail::Toaster  5.35;
 
 my ( $log, $util, %std_opts );
 
 sub new {
     my $class = shift;
     my %p     = validate( @_,
-        {   'log' => { type => OBJECT  },
+        {  toaster  => { type => OBJECT  },
             fatal   => { type => BOOLEAN, optional => 1 },
             debug   => { type => BOOLEAN, optional => 1 },
             test_ok => { type => BOOLEAN, optional => 1 },
         }
     );
 
-    $log = $p{'log'};
-    $util = $log->get_util;
-
-    my $debug = $log->get_debug;  # inherit from our parent
-    my $fatal = $log->get_fatal;
+    $log = $util = $p{toaster}->get_util;
+    my $debug = $p{toaster}->get_debug;  # inherit from our parent
+    my $fatal = $p{toaster}->get_fatal;
     $debug = $p{debug} if defined $p{debug};  # explicity overridden
     $fatal = $p{fatal} if defined $p{fatal};
 
@@ -156,10 +154,10 @@ sub lists_get {
 
     print "now fetching a list of ezmlm lists..." if $debug;
 
-    foreach my $all ( $util->get_dir_files( dir => $dir ) ) {
+    foreach my $all ( $util->get_dir_files( $dir ) ) {
         next unless ( -d $all );
 
-        foreach my $second ( $util->get_dir_files( dir => $all ) ) {
+        foreach my $second ( $util->get_dir_files( $all ) ) {
             next unless ( -d $second );
             if ( $second =~ /subscribers$/ ) {
                 print "found one: $all, $second $br" if $debug;
@@ -218,7 +216,7 @@ sub process_cgi {
 
     $util->install_module( "HTML::Template", debug => $debug,);
 
-    my $conf = $log->parse_config( file=>"toaster.conf", debug => 0 );
+    my $conf = $util->parse_config( "toaster.conf", debug => 0 );
 
     $debug = 0;
 
