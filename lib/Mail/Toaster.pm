@@ -3,7 +3,7 @@ package Mail::Toaster;
 use strict;
 use warnings;
 
-our $VERSION = '5.35';
+our $VERSION = '5.37';
 
 use Cwd;
 #use Data::Dumper;
@@ -19,12 +19,15 @@ use vars qw/ $INJECT $util $conf $log $qmail %std_opts /;
 
 sub new {
     my $class = shift;
-    my %p = validate( @_, {
-            test_ok => { type => BOOLEAN, optional => 1 },
-            debug   => { type => BOOLEAN, optional => 1, default => 1 },
-            fatal   => { type => BOOLEAN, optional => 1, default => 1 },
-        }
+
+    %std_opts = (
+        test_ok => { type => BOOLEAN, optional => 1 },
+        debug   => { type => BOOLEAN, optional => 1, default => 1 },
+        fatal   => { type => BOOLEAN, optional => 1, default => 1 },
+        quiet   => { type => BOOLEAN, optional => 1, default => 0 },
     );
+
+    my %p = validate( @_, { %std_opts } );
 
     my $self = {
         audit  => [],
@@ -39,15 +42,7 @@ sub new {
     };
     bless( $self, $class );
 
-    $self->{util} = $util = $self->get_util();
-    $log  = $util;
-
-    %std_opts = (
-        test_ok => { type => BOOLEAN, optional => 1 },
-        debug   => { type => BOOLEAN, optional => 1, default => $self->{debug} },
-        fatal   => { type => BOOLEAN, optional => 1, default => $self->{fatal} },
-        quiet   => { type => BOOLEAN, optional => 1, default => 0 },
-    );
+    $self->{util} = $log = $util = $self->get_util();
 
     my @caller = caller;
     warn sprintf( "Toaster.pm loaded by %s, %s, %s\n", @caller )
@@ -209,7 +204,7 @@ sub check_cron_dccd {
             lines => [ '#!/bin/sh', '/usr/local/dcc/libexec/cron-dccd', ],
             mode => '0755',
         );
-        $self->audit("created dccd nightly cron job");
+        $log->audit("created dccd nightly cron job");
     };
 };
 
@@ -315,15 +310,28 @@ sub train_spamassassin {
 
 sub train_dspam {
     my ($self, $type, $file, $email) = @_;
-    return if ! $conf->{install_dspam};
+    if ( ! $conf->{install_dspam} ) {
+        $log->audit( "skipping dspam training, install_dspam is not set");
+        return;
+    };
+    if ( ! -f $file ) {   # file moved (due to user action)
+        $log->audit( "skipping dspam train of $file, it moved");
+        return;
+    };
     #$log->audit($file);
     my $cmd;
     my $dspam = '/usr/local/bin/dspamc';
-    -x $dspam or return;
+    if ( ! -x $dspam ) {
+        $log->audit("skipping, could not exec $dspam");
+        return;
+    };
     if ( $type eq 'ham' ) {
         $cmd = "$dspam --client --user $email --source=corpus --class=innocent --deliver=summary --stdout";
         my $dspam_class = $self->get_dspam_class( $file );
-        return if ( $dspam_class && $dspam_class eq 'innocent' ); # dspam correct
+        if ( $dspam_class && $dspam_class eq 'innocent' ) {
+            $log->audit("dpam tagged innocent correctly, skipping");
+            return;
+        };
         if ( $dspam_class && $dspam_class eq 'spam' ) {         # dspam miss
             $cmd = "$dspam --client --user $email --mode=toe --source=error --class=innocent --deliver=summary --stdout";
         };
@@ -331,7 +339,10 @@ sub train_dspam {
     elsif ( $type eq 'spam' ) {
         $cmd = "$dspam --client --user $email --source=corpus --class=spam --deliver=summary --stdout";
         my $dspam_class = $self->get_dspam_class( $file );
-        return if ( $dspam_class && $dspam_class eq 'innocent' );
+        if ( $dspam_class && $dspam_class eq 'spam' ) {
+            $log->audit("dpam tagged spam correctly, skipping");
+            return;
+        };
         if ( $dspam_class && $dspam_class eq 'innocent' ) {
             $cmd = "$dspam --client --user $email --mode=toe --source=error --class=spam --deliver=summary --stdout";
         };
@@ -756,7 +767,7 @@ sub get_maildir_paths {
 
     # this method requires a SQL query for each domain
     require Mail::Toaster::Qmail;
-    my $qmail = Mail::Toaster::Qmail->new( toaster => $self );
+    $qmail ||= Mail::Toaster::Qmail->new( toaster => $self );
 
     my $qdir  = $conf->{'qmail_dir'} || "/var/qmail";
 
@@ -930,10 +941,11 @@ sub process_logfiles {
 
     my $pop3_logs = $conf->{pop3_log_method} || $conf->{'logs_pop3d'};
     my $smtpd = $conf->{'smtpd_daemon'} || 'qmail';
+    my $submit = $conf->{'submit_daemon'} || 'qmail';
 
     $self->supervised_log_rotate( prot => 'send' );
     $self->supervised_log_rotate( prot => 'smtp' ) if $smtpd eq 'qmail';
-    $self->supervised_log_rotate( prot => 'submit' ) if $conf->{submit_enable};
+    $self->supervised_log_rotate( prot => 'submit' ) if $conf->{submit_enable} && $submit eq 'qmail';
     $self->supervised_log_rotate( prot => 'pop3'   ) if $pop3_logs eq 'qpop3d';
 
     require Mail::Toaster::Logs;
@@ -1010,13 +1022,14 @@ sub service_symlinks {
     my $r = $self->service_symlinks_smtp();
     push @active_services, $r if $r;
 
-    foreach my $prot ( qw/ pop3 submit / ) {
-        if ( $conf->{$prot . '_enable'} ) {
-            push @active_services, $prot;
-        }
-        else {
-            $self->service_symlinks_cleanup( $prot );
-        };
+    $r = $self->service_symlinks_submit();
+    push @active_services, $r if $r;
+
+    if ( $conf->{pop3_enable} || $conf->{'pop3_daemon'} eq 'qpop3d' ) {
+        push @active_services, 'pop3';
+    }
+    else {
+        $self->service_symlinks_cleanup( 'pop3' );
     };
 
     foreach my $prot ( @active_services ) {
@@ -1044,7 +1057,7 @@ sub service_symlinks {
 sub service_symlinks_smtp {
     my $self = shift;
 
-    return 'smtp' if !  $conf->{smtpd_daemon};
+    return 'smtp' if ! $conf->{smtpd_daemon};
 
     if ( $conf->{smtpd_daemon} eq 'qmail' ) {
         $self->service_symlinks_cleanup( 'qpsmtpd' );
@@ -1055,6 +1068,21 @@ sub service_symlinks_smtp {
         $self->service_symlinks_cleanup( 'smtp' );
         return 'qpsmtpd';
     };
+
+    return 'smtp';
+}
+
+sub service_symlinks_submit {
+    my $self = shift;
+
+    return 'submit' if ! $conf->{submit_daemon};
+
+    if ( $conf->{submit_daemon} eq 'qpsmtpd' ) {
+        $self->service_symlinks_cleanup( 'submit' );
+        return 'qpsmtpd';
+    };
+
+    return 'submit';
 }
 
 sub service_symlinks_cleanup {
@@ -1163,7 +1191,7 @@ sub supervise_dirs_create {
 
     my @sdirs = qw/ smtp send pop3 submit /;
     push @sdirs, 'vpopmaild' if $conf->{vpopmail_daemon};
-    if ( 'qpsmtpd' eq $conf->{smtpd_daemon} ) {
+    if ( $conf->{smtpd_daemon}  && 'qpsmtpd' eq $conf->{smtpd_daemon} ) {
         push @sdirs, 'qmail-deliverable';
         push @sdirs, 'qpsmtpd';
     };
@@ -1208,16 +1236,16 @@ sub supervised_dir_test {
 
     return $log->error("directory $dir does not exist", %args )
         unless ( -d $dir || -l $dir );
-    $log->test( "exists, $dir", -d $dir, %args );
+    $self->test( "exists, $dir", -d $dir, %args );
 
     return $log->error("$dir/run does not exist!", %args ) if ! -f "$dir/run";
-    $log->test( "exists, $dir/run", -f "$dir/run", %args);
+    $self->test( "exists, $dir/run", -f "$dir/run", %args);
 
     return $log->error("$dir/run is not executable", %args ) if ! -x "$dir/run";
-    $log->test( "perms,  $dir/run", -x "$dir/run", %args );
+    $self->test( "perms,  $dir/run", -x "$dir/run", %args );
 
     return $log->error("$dir/down is present", %args ) if -f "$dir/down";
-    $log->test( "!exist, $dir/down", !-f "$dir/down", %args );
+    $self->test( "!exist, $dir/down", !-f "$dir/down", %args );
 
     my $log_method = $conf->{ $prot . '_log_method' }
       || $conf->{ $prot . 'd_log_method' }
@@ -1227,19 +1255,19 @@ sub supervised_dir_test {
 
     # make sure the log directory exists
     return $log->error( "$dir/log does not exist", %args ) if ! -d "$dir/log";
-    $log->test( "exists, $dir/log", -d "$dir/log", %args );
+    $self->test( "exists, $dir/log", -d "$dir/log", %args );
 
     # make sure the supervise/log/run file exists
     return $log->error( "$dir/log/run does not exist", %args ) if ! -f "$dir/log/run";
-    $log->test( "exists, $dir/log/run", -f "$dir/log/run", %args );
+    $self->test( "exists, $dir/log/run", -f "$dir/log/run", %args );
 
     # check the log/run file permissions
     return $log->error( "perms, $dir/log/run", %args) if ! -x "$dir/log/run";
-    $log->test( "perms,  $dir/log/run", -x "$dir/log/run", %args );
+    $self->test( "perms,  $dir/log/run", -x "$dir/log/run", %args );
 
     # make sure the supervise/down file does not exist
     return $log->error( "$dir/log/down exists", %args) if -f "$dir/log/down";
-    $log->test( "!exist, $dir/log/down", "$dir/log/down", %args );
+    $self->test( "!exist, $dir/log/down", "$dir/log/down", %args );
     return 1;
 }
 
@@ -1402,7 +1430,7 @@ sub supervise_restart {
 
 sub supervised_tcpserver {
     my $self = shift;
-    my %p = validate( @_, { prot => { type=>SCALAR,  }, },);
+    my %p = validate( @_, { prot => { type=>SCALAR } } );
 
     my $prot = $p{'prot'};
 
@@ -1429,7 +1457,7 @@ sub supervised_tcpserver {
             require POSIX;
             $maxcon = POSIX::floor( $maxmem / ( $mem / 1024000 ) );
             require Mail::Toaster::Qmail;
-            my $qmail = Mail::Toaster::Qmail->new( toaster  => $self );
+            $qmail ||= Mail::Toaster::Qmail->new( toaster  => $self );
             $qmail->_memory_explanation( $prot, $maxcon );
         }
     }

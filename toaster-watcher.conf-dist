@@ -27,7 +27,7 @@ toaster_test_email                 = test@example.com
 toaster_test_email_pass            = cHanGeMe
 
 toaster_debug                      = 0
-supervise_rebuilt_notice           = 1       # email admin when a run file is updated
+supervise_rebuild_notice           = 1       # email admin when a run file is updated
 
 system_config_dir                  = /usr/local/etc
 
@@ -61,6 +61,7 @@ cvsup_supfile_ports                = portsnap        # portsnap or path to file
                                                      # ex: /etc/cvsup-ports
 cvsup_supfile_sources              = cvsup-sources
 toaster_pkg_site                   = ftp://ftp.freebsd.org
+use_pkgng                          = 1               # Use the new package format pkgng see https://wiki.freebsd.org/pkgng
 
 
 ######################################
@@ -405,6 +406,7 @@ submit_enable                      = 1
 submit_listen_on_address           = all        # all, hostname, IP
 submit_listen_on_port              = submission # submission, port number
 submit_hostname                    = 0
+submit_daemon                      = qmail      # qpsmtpd, qmail
 
 # smtp-submit_hostname [ system | qmail | mail.example.com ]
 #

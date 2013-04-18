@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 use strict;
-#use warnings;
+use warnings;
 
 use English qw( -no_match_vars );
 use Test::More 'no_plan';
@@ -114,7 +114,9 @@ $log->dump_audit( quiet => 1 );
 		ok ( $qmail->build_pop3_run(), 'build_pop3_run');
 		ok ( $qmail->build_send_run(), 'build_send_run');
 		ok ( $qmail->build_smtp_run(), 'build_smtp_run');
-		ok ( $qmail->build_submit_run(), 'build_submit_run');
+        if ( $conf->{submit_enable} ) {
+            ok ( $qmail->build_submit_run(), 'build_submit_run');
+        };
 	};
 
 # check_control
@@ -194,7 +196,6 @@ $log->dump_audit( quiet => 1 );
 		ok ( $qmail->rebuild_ssl_temp_keys( debug=>0, fatal=>0, test_ok=>1 ), 'rebuild_ssl_temp_keys');
 	}
 
-
 # restart
     my $send = $toaster->service_dir_get( prot=>'send');
 	if ( -d $send ) {
@@ -211,10 +212,11 @@ $log->dump_audit( quiet => 1 );
 	}
 
 # restart
-	if ( $toaster->supervised_dir_test( prot=>"smtp", fatal=>0 ) ) {
-		ok ( $qmail->restart( prot=>"smtp" ), 'restart smtp');
+	if ( $toaster->service_dir_test( prot => 'smtp', fatal=>0 ) ) {
+        if ( ! $conf->{smtpd_daemon} || $conf->{smtpd_daemon} eq 'qmail' ) {
+            ok( $qmail->restart( prot=> 'smtp' ), 'restart smtp' );
+        };
 	};
-
 
 # smtp_set_qmailqueue
 	if ( -d $qmail_dir && -f "$qmail_dir/bin/qmail-queue" ) {

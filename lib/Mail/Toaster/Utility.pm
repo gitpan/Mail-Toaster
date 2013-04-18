@@ -8,6 +8,7 @@ our $VERSION = '5.35';
 
 use Cwd;
 use Carp;
+#use Data::Dumper;
 use English qw( -no_match_vars );
 use File::Basename;
 use File::Copy;
@@ -24,11 +25,11 @@ use vars qw/ $log %std_opts /;
 sub new {
     my $class = shift;
 
-# globally scoped hash, populated with defaults as requested by the caller
+# globally scoped hash, populated with defaults, overridable by the caller
     %std_opts = (
-        'fatal'   => { type => BOOLEAN, optional => 1, default => 1 },
-        'debug'   => { type => BOOLEAN, optional => 1, default => 1 },
-        'quiet'   => { type => BOOLEAN, optional => 1, default => 0 },
+        'fatal'   => { type => BOOLEAN, optional => 1 },
+        'debug'   => { type => BOOLEAN, optional => 1 },
+        'quiet'   => { type => BOOLEAN, optional => 1 },
         'test_ok' => { type => BOOLEAN, optional => 1 },
     );
 
@@ -38,16 +39,26 @@ sub new {
         }
     );
 
-    my $toaster = $p{toaster};
+    my $toaster = $p{toaster} || {};
     my $self = {
-        debug => $p{debug},
-        fatal => $p{fatal},
+        audit  => [],
+        errors => [],
+        last_audit => 0,
+        last_error => 0,
+        debug  => $p{debug},
+        fatal  => $p{fatal},
     };
     bless $self, $class;
 
+    if ( defined $toaster ) {      # inherit settings
+        $self->{debug} = $toaster->{debug} if defined $toaster->{debug};
+        $self->{fatal} = $toaster->{fatal} if defined $toaster->{fatal};
+    };
+
     $log = $self->{log} = $self;
 
-    $log->audit( $class . sprintf( " loaded by %s, %s, %s", caller ) );
+    my %args = $self->get_std_args( %p );
+    $log->audit( $class . sprintf( " loaded by %s, %s, %s", caller ), %args );
     return $self;
 }
 
@@ -733,7 +744,7 @@ sub files_diff {
     );
 
     my ( $f1, $f2, $type ) = ( $p{f1}, $p{f2}, $p{type} );
-    my %args = $log->get_std_args(%p);
+    my %args = $self->get_std_args(%p);
 
     if ( !-e $f1 || !-e $f2 ) {
         $log->error( "$f1 or $f2 does not exist!", %args );
@@ -809,7 +820,7 @@ sub find_bin {
     );
 
     my $prefix = "/usr/local";
-    my %args = $log->get_std_args(%p);
+    my %args = $self->get_std_args(%p);
 
     if ( $bin =~ /^\// && -x $bin ) {  # we got a full path
         $log->audit( "find_bin: found $bin", %args );
@@ -1063,8 +1074,13 @@ sub get_std_args {
     my %p = @_;
     my %args;
     foreach ( qw/ debug fatal test_ok quiet / ) {
-        next if ! defined $p{$_};
-        $args{$_} = $p{$_};
+        if ( defined $p{$_} ) {
+            $args{$_} = $p{$_};
+            next;
+        };
+        if ( $self->{$_} ) {
+            $args{$_} = $self->{$_};
+        };
     };
     return %args;
 };
@@ -1127,7 +1143,7 @@ sub get_the_date {
 sub get_mounted_drives {
     my $self = shift;
     my %p = validate( @_, { %std_opts } );
-    my %args = $log->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my $mount = $self->find_bin( 'mount', %args );
 
@@ -1159,7 +1175,7 @@ sub get_url {
     );
 
     my $dir = $p{dir};
-    my %args = $log->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my ($ua, $response);
     ## no critic ( ProhibitStringyEval )
@@ -1187,7 +1203,7 @@ sub get_url {
             $log->audit( "result 200: file download ok" );
         }
         else {
-            $log->error( "unhandled response: $response", fatal => 0 );
+            $log->error( "unhandled response: $response for $url", fatal => 0 );
         };
     };
 
@@ -1208,7 +1224,7 @@ sub get_url_system {
 
     my $dir      = $p{dir};
     my $debug    = $p{debug};
-    my %args = $log->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     my ($fetchbin, $found);
     if ( $OSNAME eq "freebsd" ) {
@@ -2077,7 +2093,7 @@ sub parse_config {
 
     my %args = $self->get_std_args( %p );
 
-    if ( ! -f $file ) { $file = $self->find_config( $file, %p ); };
+    if ( ! -f $file ) { $file = $self->find_config( $file, %args ); };
 
     if ( ! $file || ! -r $file ) {
         return $log->error( "could not find config file!", %args);
@@ -2335,7 +2351,7 @@ sub syscmd {
         },
     );
 
-    my %args  = $log->get_std_args( %p );
+    my %args  = $self->get_std_args( %p );
 
     $log->audit("syscmd: $cmd");
 
