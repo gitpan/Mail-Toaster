@@ -1,0 +1,57 @@
+{
+   "abstract" : "Mail::Toaster perl programs and modules",
+   "author" : [
+      "Matt Simerson (matt@tnpi.net)"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921",
+   "license" : [
+      "bsd"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Mail-Toaster",
+   "no_index" : {
+      "directory" : [
+         "t",
+         "inc"
+      ]
+   },
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Test::Simple" : "0"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "DBI" : "1",
+            "Data::Dumper" : "0",
+            "Date::Parse" : "1",
+            "DateTime" : "0.5",
+            "Email::Valid" : "0",
+            "English" : "0",
+            "File::stat" : "0",
+            "Getopt::Long" : "0",
+            "IO::Socket::SSL" : "0",
+            "Mail::Send" : "0",
+            "Net::DNS" : "0.2",
+            "Params::Validate" : "0.7",
+            "Pod::Usage" : "0",
+            "Sys::Hostname" : "0",
+            "URI" : "0",
+            "perl" : "5.008001",
+            "version" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "version" : "5.38"
+}

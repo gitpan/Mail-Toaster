@@ -128,3 +128,4 @@ t/Utility.t
 toaster-watcher.conf-dist
 toaster.conf-dist
 TODO
+META.json                                Module JSON meta-data (added by MakeMaker)
