@@ -41,6 +41,7 @@
             "File::stat" : "0",
             "Getopt::Long" : "0",
             "IO::Socket::SSL" : "0",
+            "LWP" : "0",
             "Mail::Send" : "0",
             "Net::DNS" : "0.2",
             "Params::Validate" : "0.7",
@@ -53,5 +54,5 @@
       }
    },
    "release_status" : "stable",
-   "version" : "5.38"
+   "version" : "5.39"
 }
