@@ -36,4 +36,4 @@ requires:
   URI: 0
   perl: 5.008001
   version: 0
-version: 5.39
+version: 5.40
