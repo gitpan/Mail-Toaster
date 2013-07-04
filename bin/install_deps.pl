@@ -27,12 +27,12 @@ use CPAN;
 use English qw( -no_match_vars );
 
 my $apps = [
-    { app => 'expat'         , info => { port => 'expat2',         dport=>'expat2' } },
-    { app => 'gettext'       , info => { port => 'gettext',        dport=>'gettext'} },
-    { app => 'gmake'         , info => { port => 'gmake',          dport=>'gmake'  } },
-    { app => 'mysql-server-5', info => { port => 'mysql50-server', dport=>'mysql5',  yum =>'mysql-server'} },
-    { app => 'apache22'      , info => { port => 'apache22',       dport=>'',     yum => 'httpd' } },
-    { app => 'mod_perl2'     , info => { port => 'mod_perl2',      dport=>'',     yum => 'mod_perl' } },
+#   { app => 'expat'         , info => { port => 'expat2',         dport=>'expat2' } },
+#   { app => 'gettext'       , info => { port => 'gettext',        dport=>'gettext'} },
+#   { app => 'gmake'         , info => { port => 'gmake',          dport=>'gmake'  } },
+#   { app => 'mysql-server-5', info => { port => 'mysql50-server', dport=>'mysql5',  yum =>'mysql-server'} },
+#   { app => 'apache22'      , info => { port => 'apache22',       dport=>'',     yum => 'httpd' } },
+#   { app => 'mod_perl2'     , info => { port => 'mod_perl2',      dport=>'',     yum => 'mod_perl' } },
     { app => 'rsync'         , info => { }, },
 ];
 
@@ -178,9 +178,9 @@ sub install_app_freebsd {
     my $category = $info->{category} || '*';
     my ($portdir) = glob "/usr/ports/$category/$name";
 
-    if ( $portdir && -d $portdir && chdir $portdir ) {
+    if ( $portdir && -d $portdir ) {
         print " from ports ($portdir)\n";
-        system "make install clean"
+        system "make -C $portdir install clean"
             and warn "'make install clean' failed for port $app\n";
     };
 };
@@ -291,12 +291,8 @@ sub install_module_freebsd {
         return;
     };
 
-    if ( ! chdir $portdir ) {
-        print "unable to cd to /usr/ports/$category/$portname\n";
-    };
-
     print " from ports ($portdir)\n";
-    system "make install clean"
+    system "make -C $portdir install clean"
         and warn "'make install clean' failed for port $module\n";
 }
 
@@ -394,6 +390,8 @@ sub name_overrides {
     my @modules = (
         { module=>'LWP::UserAgent', info => { cat=>'www', port=>'p5-libwww', dport=>'p5-libwww-perl' }, },
         { module=>'Mail::Send'    , info => { port => 'Mail::Tools', }  },
+        { module=>'Date::Parse'   , info => { port => 'TimeDate',    }  },
+        { module=>'LWP'           , info => { port => 'libwww',      }  },
     );
     my ($match) = grep { $_->{module} eq $mod } @modules;
     return $match if $match;

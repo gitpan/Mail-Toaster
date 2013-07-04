@@ -6,29 +6,20 @@ use Cwd;
 use English qw( -no_match_vars );
 use Test::More;
 
-use lib "lib";
+use lib 'lib';
 
-eval "use Mail::Ezmlm";
+eval 'use Mail::Ezmlm';
 if ($EVAL_ERROR) {
     plan skip_all => "Mail::Ezmlm is required for ezmlm.cgi testing",
 }
-else {
-    plan 'no_plan';
-};
 
-require_ok( 'Mail::Toaster' );
-require_ok( 'Mail::Toaster::Ezmlm' );
+use_ok 'Mail::Toaster::Ezmlm';
 
 # basic OO mechanism
-my $toaster = Mail::Toaster->new();
-my $ezmlm = Mail::Toaster::Ezmlm->new( toaster => $toaster );
+my $ezmlm = Mail::Toaster::Ezmlm->new;
+isa_ok( $ezmlm, 'Mail::Toaster::Ezmlm', 'object class' );
 
-ok ( defined $ezmlm, 'get Mail::Toaster::Ezmlm object' );
-ok ( $ezmlm->isa('Mail::Toaster::Ezmlm'), 'check object class' );
-
-my $conf = $toaster->get_config;
-my $util = $toaster->get_util;
-
+my $conf = $ezmlm->conf;
 ok( $conf, 'toaster-watcher.conf loaded');
 
 # process_shell
@@ -39,7 +30,7 @@ ok( $conf, 'toaster-watcher.conf loaded');
 # authenticate
     if ( eval "require vpopmail" ) {
         ok( ! $ezmlm->authenticate(
-            domain   => 'example.com', 
+            domain   => 'example.com',
             password => 'exampass',
         ), 'authenticate');
     };
@@ -47,20 +38,21 @@ ok( $conf, 'toaster-watcher.conf loaded');
 ok( ! $ezmlm->subs_list(
     list     => {'list_object'=>1},
     list_dir => 'path/to/list',
-    debug    => 0, ), 'subs_list');
+    verbose  => 0, ), 'subs_list');
 
 ok( ! $ezmlm->subs_add (
         list=>'list_object',
         list_dir=>'path/to/list',
-        debug=>0,
+        verbose=>0,
         requested=>['user@example.com'],
         br=>'\n',
     ), 'subs_add');
 
-#ok( ! $ezmlm->lists_get(domain=>'example.com',debug=>0), 'subs_list');
+#ok( ! $ezmlm->lists_get(domain=>'example.com',verbose=>0), 'subs_list');
 
 ok( $ezmlm->logo( test_ok => 1), 'logo');
 
-ok( $ezmlm->dir_check(dir=>"/tmp",debug=>0) , 'dir_check');
+ok( $ezmlm->dir_check(dir=>"/tmp",verbose=>0) , 'dir_check');
 
-
+done_testing();
+exit;

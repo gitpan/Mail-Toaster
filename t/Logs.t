@@ -8,9 +8,8 @@ use Test::More;
 use lib 'lib';
 use Mail::Toaster;
 
-my $toaster = Mail::Toaster->new(debug=>0);
-my $util = $toaster->{util};
-my $conf = $util->parse_config( "toaster.conf", debug => 0 );
+my $toaster = Mail::Toaster->new(verbose=>0);
+my $conf = $toaster->util->parse_config( "toaster.conf", verbose => 0 );
 
 my $logdir = $conf->{logs_base};
 my $count  = $conf->{logs_counters};
@@ -25,7 +24,7 @@ else {
 
 require_ok('Mail::Toaster::Logs');
 
-my $log = Mail::Toaster::Logs->new(toaster => $toaster, conf=>$conf);
+my $log = Mail::Toaster::Logs->new;
 ok( defined $log, 'get Mail::Toaster::Logs object' );
 ok( $log->isa('Mail::Toaster::Logs'), 'check object class' );
 
@@ -61,7 +60,7 @@ SKIP: {
 
 # rbl_count
     #skip "rbl_count, needs root permissions", 1 if ( $UID != 0 );
-    if ( $util->has_module("Date::Format") ) {
+    if ( $toaster->util->has_module("Date::Format") ) {
         ok( $log->rbl_count(), 'rbl_count');
     };
 
@@ -72,18 +71,18 @@ SKIP: {
 
 
 # send_count
-    if ( $util->has_module("Date::Format") ) {
+    if ( $toaster->util->has_module("Date::Format") ) {
         ok( $log->send_count(), 'send_count');
     };
 
 
 # imap_count
     if ( $UID == 0 ) {
-        ok( $log->imap_count(debug=>0), 'imap_count');
+        ok( $log->imap_count(verbose=>0), 'imap_count');
 
 
 # pop3_count
-        ok( $log->pop3_count(debug=>0), 'pop3_count');
+        ok( $log->pop3_count(verbose=>0), 'pop3_count');
 
 
 # webmail_count
@@ -113,7 +112,7 @@ SKIP: {
 ###### end of STDIN subs ########
 
 # compress_yesterdays_logs
-    if ( $util->has_module("Date::Format") ) {
+    if ( $toaster->util->has_module("Date::Format") ) {
         ok( $log->compress_yesterdays_logs( file=>"sendlog" ), 'compress_yesterdays_logs');
 
 # purge_last_months_logs
@@ -165,16 +164,16 @@ SKIP: {
 
     my $countfile = $log->set_countfile(prot=>"pop3");
 # counter_read
-    my ( $path, $file ) = $util->path_parse($countfile);
+    my ( $path, $file ) = $toaster->util->path_parse($countfile);
     if ( -w $path ) {
-        ok( $log->counter_read(file=>$countfile, debug=>0), 'counter_read');
+        ok( $log->counter_read(file=>$countfile, verbose=>0), 'counter_read');
     }
     else {
         if ( -e $countfile ) {
-            ok( $log->counter_read(file=>$countfile, debug=>0), 'counter_read');
+            ok( $log->counter_read(file=>$countfile, verbose=>0), 'counter_read');
         };
         $countfile = $log->set_countfile(prot=>"blop3");
-        ok( ! $log->counter_read(file=>$countfile, debug=>0), 'counter_read');
+        ok( ! $log->counter_read(file=>$countfile, verbose=>0), 'counter_read');
     }
 
 

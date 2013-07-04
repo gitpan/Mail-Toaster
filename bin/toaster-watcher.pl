@@ -3,12 +3,11 @@ use strict;
 use warnings;
 
 #use Data::Dumper;
-use English qw( -no_match_vars );
+use English '-no_match_vars';
 use Getopt::Std;
 
-use lib 'lib';  
-use Mail::Toaster        5.25; 
-use Mail::Toaster::Qmail 5.25; 
+use lib 'lib';
+use Mail::Toaster 5.41;
 
 die "Sorry, you are not root!\n" if $UID != 0;
 
@@ -18,36 +17,33 @@ $|++;
 getopts('dv');
 $opt_v = $opt_v ? 1 : 0;
 
-my $toaster = Mail::Toaster->new( debug => $opt_v );
-my $util   = $toaster->get_util;
-my $conf   = $toaster->get_config();
-my $qmail  = Mail::Toaster::Qmail->new( toaster => $toaster );
-my $setup  = Mail::Toaster::Setup->new( toaster => $toaster, conf => $conf );
-my $debug  = $conf->{'toaster_debug'} || $opt_v || 0;
+my $toaster = Mail::Toaster->new( verbose => $opt_v );
+my $verbose = $toaster->conf->{'toaster_verbose'} || $opt_v || 0;
 
 my $pidfile = "/var/run/toaster-watcher.pid";
-if ( ! $util->check_pidfile( $pidfile, fatal=>0, debug=>$debug ) ) {
-    $util->error( "another toaster-watcher is running,  I refuse to!",fatal=>0,debug=>$debug);
+if ( ! $toaster->util->check_pidfile( $pidfile, fatal=>0, verbose=>$verbose ) ) {
+    $toaster->error( "another toaster-watcher is running,  I refuse to!",fatal=>0,verbose=>$verbose);
     exit 500;
 };
 
-# suppress test output when not running in debug mode
-my $quiet = 1; $quiet-- if $debug;  
+# suppress test output when not running in verbose mode
+my $quiet = 1; $quiet-- if $verbose;
 
-my %args = ( fatal=>0, debug => $debug, quiet => $quiet );
+my %args = ( fatal=>0, verbose => $verbose, quiet => $quiet );
 
-print "$0 v$Mail::Toaster::VERSION\n" if $debug;
+print "$0 v$Mail::Toaster::VERSION\n" if $verbose;
 
 $toaster->log( "Starting up" );
-$qmail->config( %args );
+$toaster->qmail->config( %args );
 
 foreach my $prot ( qw/  send pop3 smtp submit / ) {
     $toaster->log( "Building $prot/run" );
     my $method = 'build_' . $prot . '_run';
-    $qmail->$method( %args );
+    $toaster->qmail->$method( %args );
 };
+$toaster->build_vpopmaild_run;
 
-#$setup->startup_script();
+#$toaster->setup->startup_script();
 $toaster->check( %args );
 $toaster->service_symlinks( %args );
 $toaster->clear_open_smtp( %args );
@@ -56,17 +52,16 @@ $toaster->run_isoqlog( %args );
 $toaster->run_qmailscanner( %args );
 $toaster->clean_mailboxes( %args );
 $toaster->learn_mailboxes( %args );
-$toaster->process_logfiles( %args ); 
+$toaster->process_logfiles( %args );
 $toaster->check_cron( %args );
 
-$qmail->rebuild_ssl_temp_keys( %args );
-$qmail->rebuild_simscan_control( %args );
+$toaster->qmail->rebuild_ssl_temp_keys( %args );
+$toaster->qmail->rebuild_simscan_control( %args );
 
 unlink $pidfile;
 $toaster->log( "Exiting" );
 
 exit 0;
-
 
 __END__
 
@@ -74,10 +69,6 @@ __END__
 =head1 NAME
 
 toaster-watcher.pl - monitors and configure various aspects of a qmail toaster
-
-=head1 VERSION
-
-5.15
 
 =head1 SYNOPSIS
 
@@ -94,41 +85,41 @@ The really cool part about toaster-watcher.pl is that it dynamically builds the 
 
 =item build_send_run
 
-We first build a new $service/send/run file based on your settings in 
+We first build a new $service/send/run file based on your settings in
 toaster-watcher.conf. There are a ton of configuration options, be sure
-to check out the docs for toaster-watcher.conf. 
+to check out the docs for toaster-watcher.conf.
 
-If the new generated file is different than the installed version, we 
+If the new generated file is different than the installed version, we
 install the updated run file and restart the daemon.
 
 
 =item build_pop3_run
 
-We first build a new $service/pop3/run file based on your settings in 
+We first build a new $service/pop3/run file based on your settings in
 toaster-watcher.conf. There are a ton of configuration options, be sure
-to check out the docs for toaster-watcher.conf. 
+to check out the docs for toaster-watcher.conf.
 
-If the new generated file is different than the installed version, we 
+If the new generated file is different than the installed version, we
 install the updated run file and restart the daemon.
 
 
 =item build_smtp_run
 
-We first build a new $service/smtp/run file based on your settings in 
+We first build a new $service/smtp/run file based on your settings in
 toaster-watcher.conf. There are a ton of configuration options, be sure
-to check out the docs for toaster-watcher.conf. 
+to check out the docs for toaster-watcher.conf.
 
-If the new generated file is different than the installed version, we 
+If the new generated file is different than the installed version, we
 install the updated run file and restart the daemon.
 
 
 =item build_submit_run
 
-We first build a new $service/submit/run file based on your settings in 
+We first build a new $service/submit/run file based on your settings in
 toaster-watcher.conf. There are a ton of configuration options, be sure
-to check out the docs for toaster-watcher.conf. 
+to check out the docs for toaster-watcher.conf.
 
-If the new generated file is different than the installed version, we 
+If the new generated file is different than the installed version, we
 install the updated run file and restart the daemon.
 
 
@@ -151,7 +142,7 @@ I have mine configured to block the IP (for 24 hours) of anyone that's sent me a
 
 =item Maildir Processing
 
-Many times its useful to have a script that cleans up old mail messages on your mail system and enforces policy. Now toaster-watcher.pl does that. You tell it how often to run (I use every 7 days), what mail folders to clean (Inbox, Read, Unread, Sent, Trash, Spam), and then how old the messaged need to be before you remove them. 
+Many times its useful to have a script that cleans up old mail messages on your mail system and enforces policy. Now toaster-watcher.pl does that. You tell it how often to run (I use every 7 days), what mail folders to clean (Inbox, Read, Unread, Sent, Trash, Spam), and then how old the messaged need to be before you remove them.
 
 I have my system set to remove messages in Sent folders more than 180 days old and messages in Trash and Spam folders that are over 14 days old. I have also instructed toaster-watcher to feed any messages in my Spam and Read folders that are more than 1 day old through sa-learn. That way I train SpamAssassin by merely moving my messages into appropriate folders.
 
@@ -159,10 +150,6 @@ I have my system set to remove messages in Sent folders more than 180 days old a
 =back
 
 =head1 TODO
-
-Optionally send an email notification to an admin if a file gets updated. Make this
-configurable on a per service basis. I can imagine wanting to know if pop3/run or send/run ever
-changed but I don't care to get emailed every time a RBL fails a DNS check.
 
 Feature request by David Chaplin-Leobell: check for low disk space on the queue and
 mail delivery partitions.  If low disk is detected, it could either just
@@ -188,12 +175,12 @@ http://mail-toaster.org/
 
 =head1 ACKNOWLEDGEMENTS
 
-Thanks to Randy Ricker, Anton Zavrin, Randy Jordan, Arie Gerszt, Joe Kletch, and Marius Kirschner for contributing to the development of this script.
+Thanks to Randy Ricker, Anton Zavrin, Randy Jordan, Arie Gerszt, Joe Kletch, and Marius Kirschner for contributing to the development of this program.
 
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2004-2007, The Network People, Inc.  All rights reserved.
+Copyright (c) 2004-2013, The Network People, Inc.  All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -206,4 +193,3 @@ Neither the name of the The Network People, Inc. nor the names of its contributo
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 =cut
-

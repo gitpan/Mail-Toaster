@@ -3,52 +3,19 @@ package Mail::Toaster::Mysql;
 use strict;
 use warnings;
 
-our $VERSION = '5.35';
-
+use DBI;
 use Carp;
-use Params::Validate qw( :all );
-use English qw( -no_match_vars );
+use Params::Validate ':all';
+use English '-no_match_vars';
 
-use lib 'inc';
 use lib 'lib';
-
-use vars qw($darwin $freebsd $toaster $log $util);
-
-use Mail::Toaster 5.35;
-
-sub new {
-    my $class = shift;
-    my %p = validate( @_, { toaster => OBJECT } );
-
-    my $self = { };
-    bless( $self, $class );
-
-    $toaster = $p{toaster};
-    $log = $util = $toaster->get_util;
-
-    if ( $OSNAME eq "freebsd" ) {
-        require Mail::Toaster::FreeBSD;
-        $freebsd = Mail::Toaster::FreeBSD->new( toaster => $toaster );
-    }
-    elsif ( $OSNAME eq "darwin" ) {
-        require Mail::Toaster::Darwin;
-        $darwin = Mail::Toaster::Darwin->new( toaster => $toaster );
-    };
-
-    return $self;
-}
+use parent 'Mail::Toaster::Base';
 
 sub autocommit {
-
-    my ($dot) = @_;
-
-    if ( $dot->{'autocommit'} && $dot->{'autocommit'} ne "" ) {
-
-        return $dot->{'autocommit'};    #	SetAutocommit
-    }
-    else {
-        return 1;                       #  Default to autocommit.
-    }
+    my ($self,$dot) = @_;
+    return 1 if ! $dot->{autocommit};
+    return 1 if $dot->{autocommit} ne '';
+    return $dot->{'autocommit'};
 }
 
 sub backup {
@@ -59,42 +26,41 @@ sub backup {
         return 0;
     }
 
-    my $debug      = $dot->{'debug'};
+    my $verbose      = $dot->{'verbose'};
     my $backupfile = $dot->{'backupfile'} || "mysql_full_dump";
     my $backupdir  = $dot->{'backup_dir'} || "/var/backups/mysql";
 
-    print "backup: beginning mysql_backup.\n" if $debug;
+    $self->audit( "backup: beginning mysql_backup.\n" );
 
-    my $cronolog  = $util->find_bin( "cronolog" );
-    my $mysqldump = $util->find_bin( "mysqldump" );
+    my $cronolog  = $self->util->find_bin( "cronolog" );
+    my $mysqldump = $self->util->find_bin( "mysqldump" );
 
     my $mysqlopts = "--all-databases --opt --password=" . $dot->{'pass'};
-    my ( $dd, $mm, $yy ) = $util->get_the_date( debug => $debug );
+    my ( $dd, $mm, $yy ) = $self->util->get_the_date( verbose => $verbose );
 
-    print "backup: backup root is $backupdir.\n" if $debug;
+    print "backup: backup root is $backupdir.\n" if $verbose;
 
-    $util->cwd_source_dir( "$backupdir/$yy/$mm/$dd" );
+    $self->util->cwd_source_dir( "$backupdir/$yy/$mm/$dd" );
 
-    print "backup: backup file is $backupfile.\n" if $debug;
+    $self->audit( "backup: backup file is $backupfile.\n" );
 
     if (   -e "$backupdir/$yy/$mm/$dd/$backupfile"
         || -e "$backupdir/$yy/$mm/$dd/$backupfile.gz" )
     {
-        $log->audit( "backup: backup for today is already done, ok (skipped)" )
-          if $debug;
+        $self->audit( "backup: backup for today is already done, ok (skipped)" );
     }
 
     # dump the databases
     my $cmd =
       "$mysqldump $mysqlopts | $cronolog $backupdir/%Y/%m/%d/$backupfile";
-    $log->audit("backup: running $cmd") if $debug;
-    $util->syscmd( $cmd );
+    $self->audit("backup: running $cmd");
+    $self->util->syscmd( $cmd );
 
     # gzip the backup to greatly reduce its size
-    my $gzip = $util->find_bin( "gzip" );
+    my $gzip = $self->util->find_bin( "gzip" );
     $cmd = "$gzip $backupdir/$yy/$mm/$dd/$backupfile";
-    $log->audit("backup: running $cmd") if $debug;
-    $util->syscmd( $cmd );
+    $self->audit("backup: running $cmd");
+    $self->util->syscmd( $cmd );
 }
 
 sub binlog_on {
@@ -116,11 +82,11 @@ EOBINLOG
 }
 
 sub connect {
-    my ( $self, $dot, $warn, $debug ) = @_;
+    my ( $self, $dot, $warn, $verbose ) = @_;
     my $dbh;
 
-    $util->install_module( "DBI", debug => $debug );
-    $util->install_module( "DBD::mysql", debug => $debug );
+    $self->util->install_module( "DBI", verbose => $verbose );
+    $self->util->install_module( "DBD::mysql", verbose => $verbose );
 
     my $ac  = $self->autocommit($dot);
     my $dbv = $self->db_vars($dot);
@@ -131,7 +97,7 @@ sub connect {
                 { RaiseError => 0, AutoCommit => $ac } );
 
     if ( !$dbh ) {
-        carp "db connect failed: $!\n" if $debug;
+        carp "db connect failed: $!\n" if $verbose;
         croak unless $warn;
         return $dbh;
     }
@@ -186,30 +152,30 @@ sub defaults {
     my $self = shift;
 
     if ( -e "/etc/my.cnf" ) {
-        $log->audit( "mysql->defaults: checking my.cnf, ok (exists)" );
+        $self->audit( "mysql->defaults: checking my.cnf, ok (exists)" );
         return 1;
     }
 
-    $log->audit( "mysql->defaults: checking my.cnf, MISSING" );
+    $self->audit( "mysql->defaults: checking my.cnf, MISSING" );
 
     if ( -e "/usr/local/share/mysql/my-large.cnf" ) {
         use File::Copy;
         copy( "/usr/local/share/mysql/my-large.cnf", "/etc/my.cnf" );
 
         if ( -e "/etc/my.cnf" ) {
-            $log->audit( "mysql->defaults: installing my.cnf, ok" );
+            $self->audit( "mysql->defaults: installing my.cnf, ok" );
             print "\n\n\tI just installed a default /etc/my.cnf\n";
             print "\n\tPlease review it for sanity in your environment!\n\n";
             sleep 3;
         }
         else {
-            $log->audit( "mysql->defaults: installing my.cnf, FAILED" );
+            $self->audit( "mysql->defaults: installing my.cnf, FAILED" );
         }
     }
 }
 
 sub flush_logs {
-    my ( $self, $dbh, $debug ) = @_;
+    my ( $self, $dbh, $verbose ) = @_;
 
     my $query = "FLUSH LOGS";
     my $sth = $self->query( $dbh, $query );
@@ -233,28 +199,20 @@ sub get_hashes {
 
 sub install {
     my $self = shift;
-    my %p = validate( @_, {
-            conf  => { type=>HASHREF, },
-            fatal => { type=>BOOLEAN, optional=>1, default=>1 },
-            debug => { type=>BOOLEAN, optional=>1, default=>1 },
-        },
-    );
-
-    my ( $conf, $fatal, $debug ) = ( $p{conf}, $p{fatal}, $p{debug} );
 
     # only install if install_mysql is set to a value we recognize
-    my $ver = $conf->{install_mysql} or do {
-        $log->audit( "skipping MySQL install, not selected.");
+    my $ver = $self->conf->{install_mysql} or do {
+        $self->audit( "skipping MySQL install, not selected.");
         return;
     };
 
     if ( lc($OSNAME) eq "darwin" ) {
-        $log->audit( "detected OS " . $OSNAME . ", installing for Darwin.");
-        return $self->install_darwin( $debug);
+        $self->audit( "detected OS " . $OSNAME . ", installing for Darwin.");
+        return $self->install_darwin;
     };
 
     if ( lc($OSNAME) eq "freebsd" ) {
-        return $self->install_freebsd( $conf, $debug )
+        return $self->install_freebsd;
     };
 
     print "\nskipping MySQL, build support on $OSNAME is not available."
@@ -264,14 +222,13 @@ sub install {
 
 sub install_darwin {
     my $self = shift;
-    my $debug = shift;
 
-		croak "you are calling this incorrectly!\n" if $OSNAME ne "darwin";
+    return if $OSNAME ne "darwin";
 
-    if ( $util->find_bin( "port", debug=>0) ) {
-        $darwin->install_port( "mysql5" );
-        $darwin->install_port( "p5-dbi" );
-        $darwin->install_port( "p5-dbd-mysql" );
+    if ( $self->util->find_bin( "port", verbose=>0) ) {
+        $self->darwin->install_port( "mysql5" );
+        $self->darwin->install_port( "p5-dbi" );
+        $self->darwin->install_port( "p5-dbd-mysql" );
         return 1;
     }
 
@@ -280,52 +237,50 @@ sub install_darwin {
 
 sub install_extras {
     my $self = shift;
-    my ($conf, $debug) = @_;
 
-    if ( $conf->{install_mysqld} ) {
+    if ( $self->conf->{install_mysqld} ) {
 
-        $freebsd->conf_check(
+        $self->freebsd->conf_check(
                 check=>"mysql_enable",
                 line=>"mysql_enable=\"YES\"",
-                debug=>$debug,
                 );
 
         $self->defaults();
-        $self->startup( conf=>$conf, debug=>$debug )
+        $self->startup;
     };
 
-    $freebsd->install_port( "p5-DBI" );
-    $freebsd->install_port( "p5-DBD-mysql" );
+    $self->freebsd->install_port( "p5-DBI" );
+    $self->freebsd->install_port( "p5-DBD-mysql" );
 
     return 1;
 }
 
 sub install_freebsd {
-    my ($self, $conf, $debug) = @_;
+    my ($self) = @_;
 
     my @ports = qw/ mysql-client /;
-    push @ports, 'mysql-server' if $conf->{install_mysqld};
+    push @ports, 'mysql-server' if $self->conf->{install_mysqld};
 
     my $installed = 0;
     foreach ( @ports ) {
-        $installed++ if $freebsd->is_port_installed( $_, debug => 0 );
+        $installed++ if $self->freebsd->is_port_installed( $_, verbose => 0 );
     };
 
     if ($installed == scalar @ports ) {
-        $log->audit( "mysql->install: MySQL is installed" );
-        return $self->install_extras( $conf, $debug);
+        $self->audit( "mysql->install: MySQL is installed" );
+        return $self->install_extras;
     };
 
     # MySQL is not installed, lets do it!
     my $flags = "SKIP_DNS_CHECK";
-       $flags .= ",BUILD_OPTIMIZED" if $conf->{'install_mysql_optimized'};
+       $flags .= ",BUILD_OPTIMIZED" if $self->conf->{'install_mysql_optimized'};
 
-    my $dir = $conf->{'install_mysql_dir'};
+    my $dir = $self->conf->{'install_mysql_dir'};
     if ( $dir && $dir ne "/var/db/mysql" ) { $flags .= ",DB_DIR=$dir"; };
 
     my $check;
 
-    my $ver = $conf->{install_mysql};
+    my $ver = $self->conf->{install_mysql};
 
     if    ( $ver =~ /^3|323$/  ) { $dir = "323"; $check = "3.23"; }
     elsif ( $ver =~ /^4|40$/   ) { $dir = "40";  $check = "4.0";  }
@@ -336,28 +291,28 @@ sub install_freebsd {
     else                         { $dir = "51";  $check = "5";    }
 
     @ports = 'client';
-    push @ports, 'server' if $conf->{install_mysqld};
+    push @ports, 'server' if $self->conf->{install_mysqld};
 
     foreach ( @ports ) {
-        $freebsd->install_port( "mysql$dir-$_",
+        $self->freebsd->install_port( "mysql$dir-$_",
             check => "mysql-$_-$check",
             flags => $flags,
         );
     };
 
-    return $log->error( "MySQL install FAILED" )
-        if !$freebsd->is_port_installed( "mysql-client" );
+    return $self->error( "MySQL install FAILED" )
+        if !$self->freebsd->is_port_installed( "mysql-client" );
 
-    if ( ! $conf->{install_mysqld} ) {
-        $log->audit( "installing MySQL client, ok" );
-        return $self->install_extras( $conf, $debug);
+    if ( ! $self->conf->{install_mysqld} ) {
+        $self->audit( "installing MySQL client, ok" );
+        return $self->install_extras;
     };
 
-    return $log->error( "MySQL install FAILED" )
-        if !$freebsd->is_port_installed( "mysql-server" );
+    return $self->error( "MySQL install FAILED" )
+        if !$self->freebsd->is_port_installed( "mysql-server" );
 
-    $log->audit( "installing MySQL client and server, ok" );
-    return $self->install_extras( $conf, $debug);
+    $self->audit( "installing MySQL client and server, ok" );
+    return $self->install_extras;
 };
 
 sub is_newer {
@@ -378,7 +333,7 @@ sub is_newer {
 
 sub parse_dot_file {
 
-    my ( $self, $file, $start, $debug ) = @_;
+    my ( $self, $file, $start, $verbose ) = @_;
 
     my ($homedir) = ( getpwuid($<) )[7];
     my $dotfile = "$homedir/$file";
@@ -393,20 +348,20 @@ sub parse_dot_file {
     my %array;
     my $gotit = 0;
 
-    print "parse_dot_file: $dotfile\n" if $debug;
-    foreach ( $util->file_read( $dotfile, debug=>$debug ) ) {
+    print "parse_dot_file: $dotfile\n" if $verbose;
+    foreach ( $self->util->file_read( $dotfile, verbose=>$verbose ) ) {
 
         next if /^#/;
         my $line = $_;
         chomp $line;
         if ($gotit) {
             if ( $line =~ /^\[/ ) { last }
-            print "2. $line\n" if $debug;
+            print "2. $line\n" if $verbose;
             $line =~ /(\w+)\s*=\s*(.*)\s*$/;
             $array{$1} = $2 if $1;
         }
         else {
-            print "1. $line\n" if $debug;
+            print "1. $line\n" if $verbose;
             if ( $line eq $start ) {
                 $gotit = 1;
                 next;
@@ -414,7 +369,7 @@ sub parse_dot_file {
         }
     }
 
-    if ($debug) {
+    if ($verbose) {
         foreach my $key ( keys %array ) {
             print "hash: $key\t=$array{$key}\n";
         }
@@ -424,9 +379,9 @@ sub parse_dot_file {
 }
 
 sub phpmyadmin_install {
-    my ( $self, $conf ) = @_;
+    my ( $self ) = @_;
 
-    if ( ! $conf->{'install_phpmyadmin'} ) {
+    if ( ! $self->conf->{'install_phpmyadmin'} ) {
         print "phpmyadmin: install is disabled. Enable install_phpmyadmin in "
             . "toaster-watcher.conf and try again.\n";
         return;
@@ -436,7 +391,7 @@ sub phpmyadmin_install {
 
     if ( $OSNAME eq "freebsd" ) {
 
-        $freebsd->install_port( "phpmyadmin", check => "phpMyAdmin");
+        $self->freebsd->install_port( "phpmyadmin", check => "phpMyAdmin");
         $dir = "/usr/local/www/data/phpMyAdmin";
 
         # the port moved the install location
@@ -446,7 +401,7 @@ sub phpmyadmin_install {
 
         print
 "NOTICE: the port install of phpmyadmin requires that Apache be installed in ports!\n";
-        $darwin->install_port( "phpmyadmin" );
+        $self->darwin->install_port( "phpmyadmin" );
         $dir = "/Library/Webserver/Documents/phpmyadmin";
     }
 
@@ -458,13 +413,13 @@ sub phpmyadmin_install {
     print "installed successfully. Now configuring....";
     unless ( -e "$dir/config.inc.php" ) {
 
-        my $user = $conf->{'phpMyAdmin_user'}      || "pma";
-        my $pass = $conf->{'phpMyAdmin_pass'}      || "pmapass";
-        my $auth = $conf->{'phpMyAdmin_auth_type'} || "cookie";
+        my $user = $self->conf->{'phpMyAdmin_user'}      || "pma";
+        my $pass = $self->conf->{'phpMyAdmin_pass'}      || "pmapass";
+        my $auth = $self->conf->{'phpMyAdmin_auth_type'} || "cookie";
 
-        $util->syscmd( "cp $dir/config.inc.php.sample $dir/config.inc.php" );
+        $self->util->syscmd( "cp $dir/config.inc.php.sample $dir/config.inc.php" );
 
-        my @lines = $util->file_read( "$dir/config.inc.php" );
+        my @lines = $self->util->file_read( "$dir/config.inc.php" );
         foreach (@lines) {
 
             chomp;
@@ -481,7 +436,7 @@ sub phpmyadmin_install {
                 $_ = "$1 = '$auth';";
             }
         }
-        $util->file_write( "$dir/config.inc.php", lines => \@lines );
+        $self->util->file_write( "$dir/config.inc.php", lines => \@lines );
 
         my $dot = { user => 'root', pass => '' };
         if ( $self->connect( $dot, 1 ) ) {
@@ -542,20 +497,20 @@ sub query {
     }
 
     no warnings;
-    return $log->error( "couldn't prepare: $dbh::errstr", fatal => 0);
+    return $self->error( "couldn't prepare: $dbh::errstr", fatal => 0);
     return $sth;
 }
 
 sub query_confirm {
 
-    my ( $self, $dbh, $query, $debug ) = @_;
+    my ( $self, $dbh, $query, $verbose ) = @_;
 
-    if ( $util->yes_or_no("\n\t$query \n\n Does this query look correct? ") )
+    if ( $self->util->yes_or_no("\n\t$query \n\n Does this query look correct? ") )
     {
         my $sth;
         if ( $sth = $self->query( $dbh, $query ) ) {
             $sth->finish;
-            print "\nQuery executed successfully.\n" if $debug;
+            print "\nQuery executed successfully.\n" if $verbose;
         }
         print "\nQuery execute FAILED.\n";
         return 0;
@@ -589,10 +544,10 @@ sub sanity {
 
 sub shutdown_mysqld {
 
-    my ( $self, $db_v, $drh, $debug ) = @_;
+    my ( $self, $db_v, $drh, $verbose ) = @_;
     my $rc;
 
-    print "shutdown: shutting down mysqld $db_v->{'host'}..." if $debug;
+    print "shutdown: shutting down mysqld $db_v->{'host'}..." if $verbose;
 
     if ($drh) {
         $rc = $drh->func(
@@ -614,7 +569,7 @@ sub shutdown_mysqld {
         );
     }
 
-    if ($debug) {
+    if ($verbose) {
         print "shutdown->rc: $rc\n";
         $rc ? print "success.\n" : print "failed.\n";
     }
@@ -631,22 +586,14 @@ sub shutdown_mysqld {
 }
 
 sub startup {
-
     my $self = shift;
-    my %p = validate(@_, {
-            'conf'=> {type=>HASHREF, optional=>1},
-            'debug'=> {type=>BOOLEAN, optional=>1, default=>1},
-        }
-    );
-    my $conf = $p{'conf'};
-    my $debug = $p{'debug'};
 
     if ( -e "/tmp/mysql.sock" || -e "/opt/local/var/run/mysqld/mysqld.sock" ) {
-        $log->audit( "mysql->startup: starting MySQL, ok (already started)" );
+        $self->audit( "mysql->startup: starting MySQL, ok (already started)" );
         return 1;
     }
 
-    my $etc = $conf->{'system_config_dir'} || "/usr/local/etc";
+    my $etc = $self->conf->{'system_config_dir'} || "/usr/local/etc";
 
     my $start = "$etc/rc.d/mysql-server";
     if ( !-e $start && -e "$etc/rc.d/mysql-server.sh" ) {
@@ -662,11 +609,11 @@ sub startup {
     }
 
     if ( -x $start ) {
-        $util->syscmd( "sh $start start", debug=>0 );
-        $log->audit( "mysql->startup: starting MySQL, ok" );
+        $self->util->syscmd( "sh $start start", verbose=>0 );
+        $self->audit( "mysql->startup: starting MySQL, ok" );
     }
     else {
-        $log->audit( "mysql->startup: starting MySQL, FAILED" );
+        $self->audit( "mysql->startup: starting MySQL, FAILED" );
         print "\t\tcould not find startup file.\n";
         return 0;
     }
@@ -692,13 +639,13 @@ sub status {
 
 sub tables_lock {
 
-    my ( $self, $dbh, $debug ) = @_;
+    my ( $self, $dbh, $verbose ) = @_;
 
     # Table locking is done at the per-thread level. If we did a $sth->finish
     # the thread would end and we'd lose our lock. So, instead we pass the $sth
     # handle back and close it after we've done our deeds.
 
-    print "lock_tables: locking tables.\n" if $debug;
+    print "lock_tables: locking tables.\n" if $verbose;
 
     if ( my $sth = $self->query( $dbh, "FLUSH TABLES WITH READ LOCK" ) ) {
         return $sth;
@@ -707,9 +654,9 @@ sub tables_lock {
 
 sub tables_unlock {
 
-    my ( $self, $dbh, $sth, $debug ) = @_;
+    my ( $self, $dbh, $sth, $verbose ) = @_;
 
-    print "tables_unlock: unlocking mysql tables.\n" if $debug;
+    print "tables_unlock: unlocking mysql tables.\n" if $verbose;
 
     my $query = "UNLOCK TABLES";  # unnecessary, simply calling finish does this
 
@@ -787,13 +734,13 @@ You will need to have cronolog, gzip, and mysqldump installed in a "normal" loca
 
 =item connect
 
-    my ($dbh, $dsn, $drh) = $mysql->connect($dot, $warn, $debug);
+    my ($dbh, $dsn, $drh) = $mysql->connect($dot, $warn, $verbose);
 
 $dot is a hashref of key/value pairs in the same format you'd find in ~/.my.cnf. Not coincidentally, that's where it expects you'll be getting them from.
 
 $warn allows you to determine whether to die or warn on failure or error. To warn, set $warn to a non-zero value.
 
-$debug will print out helpful debugging messages should you be having problems.
+$verbose will print out helpful messages should you be having problems.
 
 
 =item db_vars
@@ -803,7 +750,7 @@ This sub is called internally by $mysql->connect and is used principally to set 
 
 =item flush_logs
 
-	$mysql->flush_logs($dbh, $debug)
+	$mysql->flush_logs($dbh, $verbose)
 
 runs the mysql "FLUSH LOGS" query on the server. This commits any pending (memory cached writes) to disk.
 
@@ -836,7 +783,7 @@ As you can see, is_newer can be very useful, especially when you need to execute
 
 =item parse_dot_file
 
- $mysql->parse_dot_file ($file, $start, $debug)
+ $mysql->parse_dot_file ($file, $start, $verbose)
 
 Example:
 
@@ -853,9 +800,7 @@ A hashref is returned wih key value pairs
 
 Install PhpMyAdmin from FreeBSD ports.
 
-	$mysql->phpmyadmin_install($conf);
-
-$conf is a hash of configuration values. See toaster-watcher.conf for configuring the optional values to pass along.
+	$mysql->phpmyadmin_install;
 
 
 =item query
@@ -876,7 +821,7 @@ If $warn is set, we don't die if the query fails. This way you can decide when y
 
 =item query_confirm
 
-	$mysql->query_confirm($dbh, $query, $debug);
+	$mysql->query_confirm($dbh, $query );
 
 Use this if you want to interactively get user confirmation before executing a query.
 
@@ -901,7 +846,7 @@ returns error_code 200 on success, 500 on error. See error_desc for details.
 
 =item	tables_lock
 
-	my $sth = $mysql->tables_lock($dbh, $debug);
+	my $sth = $mysql->tables_lock($dbh );
 	# do some mysql stuff
 	$mysql->tables_unlock($dbh, $sth);
 
@@ -910,7 +855,7 @@ Takes a statement handle and does a global lock on all tables.  Quite useful whe
 
 =item tables_unlock
 
-	$mysql->tables_unlock($dbh, $sth, $debug);
+	$mysql->tables_unlock($dbh, $sth );
 
 Takes a statement handle and does a global unlock on all tables.  Quite useful after you've used $mysql->tables_lock, done your deeds and wish to release your lock.
 

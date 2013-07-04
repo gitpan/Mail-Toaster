@@ -3,71 +3,33 @@ use warnings;
 
 package Mail::Toaster::Ezmlm;
 
-our $VERSION = '5.35';
-
-use Params::Validate qw( :all );;
+use Params::Validate ':all';
 use Pod::Usage;
 use English qw( -no_match_vars );
 
 use lib 'lib';
-use Mail::Toaster  5.35;
-
-my ( $log, $util, %std_opts );
-
-sub new {
-    my $class = shift;
-    my %p     = validate( @_,
-        {  toaster  => { type => OBJECT  },
-            fatal   => { type => BOOLEAN, optional => 1 },
-            debug   => { type => BOOLEAN, optional => 1 },
-            test_ok => { type => BOOLEAN, optional => 1 },
-        }
-    );
-
-    $log = $util = $p{toaster}->get_util;
-    my $debug = $p{toaster}->get_debug;  # inherit from our parent
-    my $fatal = $p{toaster}->get_fatal;
-    $debug = $p{debug} if defined $p{debug};  # explicity overridden
-    $fatal = $p{fatal} if defined $p{fatal};
-
-    my $self = {
-        'log' => $log,
-        debug => $debug,
-        fatal => $fatal,
-    };
-    bless $self, $class;
-
-    # globally scoped hash, populated with defaults as requested by the caller
-    %std_opts = (
-        'test_ok' => { type => BOOLEAN, optional => 1 },
-        'fatal'   => { type => BOOLEAN, optional => 1, default => $fatal },
-        'debug'   => { type => BOOLEAN, optional => 1, default => $debug },
-        'quiet'   => { type => BOOLEAN, optional => 1, default => 0 },
-    );
-
-    return $self;
-}
+use parent 'Mail::Toaster::Base';
 
 sub authenticate {
     my $self = shift;
 	my %p = validate ( @_, {
 	        'domain'   => SCALAR,
 	        'password' => SCALAR,
-            %std_opts,
+            $self->get_std_opts,
         },
 	);
 
 	my ($domain, $password ) = ( $p{domain}, $p{password} );
-    my %args = $log->get_std_args( %p );
+    my %args = $self->get_std_args( %p );
 
     return $p{test_ok} if defined $p{test_ok};
 
-    $util->install_module( "vpopmail", %args );
+    $self->util->install_module( "vpopmail", %args );
 
     require vpopmail;
 
     if ( vpopmail::vauth_user( 'postmaster', $domain, $password, undef ) ) {
-        $log->audit( "authenticated postmaster\@$domain (ok)", %args);
+        $self->audit( "authenticated postmaster\@$domain (ok)", %args);
         return 1;
     }
 
@@ -93,19 +55,19 @@ sub dir_check {
     my %p = validate( @_, {
             'dir' => SCALAR,
             'br'  => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
-    my ( $dir, $br, $fatal, $debug )
-        = ( $p{'dir'}, $p{'br'}, $p{'fatal'}, $p{'debug'} );
+    my ( $dir, $br, $fatal, $verbose )
+        = ( $p{'dir'}, $p{'br'}, $p{'fatal'}, $p{'verbose'} );
 
     unless ( -d $dir && -r $dir ) {
-        $log->error( "no read perms to $dir: $! $br",fatal=>0);
+        $self->error( "no read perms to $dir: $! $br",fatal=>0);
         return 0;
     };
 
-    $log->audit( "dir_check: checking: $dir" );
+    $self->audit( "dir_check: checking: $dir" );
     return 1;
 }
 
@@ -129,16 +91,16 @@ sub lists_get {
     my %p = validate( @_, {
             'domain'  => { type=>SCALAR, },
             'br'      => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
-    my ( $domain, $br, $fatal, $debug )
-        = ( $p{'domain'}, $p{'br'}, $p{'fatal'}, $p{'debug'} );
+    my ( $domain, $br, $fatal, $verbose )
+        = ( $p{'domain'}, $p{'br'}, $p{'fatal'}, $p{'verbose'} );
 
     my %lists;
 
-    $util->install_module( "vpopmail", debug => $debug,);
+    $self->util->install_module( "vpopmail", verbose => $verbose,);
 
     require vpopmail;
 
@@ -150,28 +112,28 @@ sub lists_get {
         return 0;
     }
 
-    print "domain dir for $domain: $dir $br" if $debug;
+    print "domain dir for $domain: $dir $br" if $verbose;
 
-    print "now fetching a list of ezmlm lists..." if $debug;
+    print "now fetching a list of ezmlm lists..." if $verbose;
 
-    foreach my $all ( $util->get_dir_files( $dir ) ) {
+    foreach my $all ( $self->util->get_dir_files( $dir ) ) {
         next unless ( -d $all );
 
-        foreach my $second ( $util->get_dir_files( $all ) ) {
+        foreach my $second ( $self->util->get_dir_files( $all ) ) {
             next unless ( -d $second );
             if ( $second =~ /subscribers$/ ) {
-                print "found one: $all, $second $br" if $debug;
-                my ( $path, $list_dir ) = $util->path_parse($all);
-                print "list name: $list_dir $br" if $debug;
+                print "found one: $all, $second $br" if $verbose;
+                my ( $path, $list_dir ) = $self->util->path_parse($all);
+                print "list name: $list_dir $br" if $verbose;
                 $lists{$list_dir} = $all;
             }
             else {
-                print "failed second match: $second $br" if $debug;
+                print "failed second match: $second $br" if $verbose;
             }
         }
     }
 
-    print "done. $br" if $debug;
+    print "done. $br" if $verbose;
 
     return \%lists;
 }
@@ -182,7 +144,7 @@ sub logo {
             'conf'         => { type=>HASHREF, optional=>1, },
 	        'web_logo_url' => { type=>SCALAR,  optional=>1, },
 	        'web_logo_alt' => { type=>SCALAR,  optional=>1, },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
@@ -201,12 +163,12 @@ sub process_cgi {
     my %p = validate( @_, {
             'list_dir' => { type=>SCALAR,  optional=>1, },
             'br'       => { type=>SCALAR,  optional=>1, default=>'<br>' },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
-    my ( $list_dir, $br, $fatal, $debug )
-        = ( $p{'list_dir'}, $p{'br'}, $p{'fatal'}, $p{'debug'} );
+    my ( $list_dir, $br, $fatal, $verbose )
+        = ( $p{'list_dir'}, $p{'br'}, $p{'fatal'}, $p{'verbose'} );
 
     my ( $mess, $ezlists, $authed );
 
@@ -214,11 +176,11 @@ sub process_cgi {
     use CGI::Carp qw( fatalsToBrowser );
     print header('text/html');
 
-    $util->install_module( "HTML::Template", debug => $debug,);
+    $self->util->install_module( "HTML::Template", verbose => $verbose,);
 
-    my $conf = $util->parse_config( "toaster.conf", debug => 0 );
+    my $conf = $self->util->parse_config( "toaster.conf", verbose => 0 );
 
-    $debug = 0;
+    $verbose = 0;
 
     my $cgi = CGI->new;
 
@@ -250,12 +212,12 @@ sub process_cgi {
     my $list_of_lists = '<select name="list">';
 
     if ( $domain && $password ) {
-        print "we got a domain ($domain) & password ($password)<br>" if $debug;
+        print "we got a domain ($domain) & password ($password)<br>" if $verbose;
 
-        $authed = $self->authenticate( domain=>$domain, password=>$password, debug=>$debug );
+        $authed = $self->authenticate( domain=>$domain, password=>$password, verbose=>$verbose );
 
         if ($authed) {
-            $ezlists = $self->lists_get( domain=>$domain, br=>$br, debug=>$debug );
+            $ezlists = $self->lists_get( domain=>$domain, br=>$br, verbose=>$verbose );
             print "WARNING: couldn't retrieve list of ezmlm lists!<br>"
               unless $ezlists;
 
@@ -281,22 +243,22 @@ sub process_cgi {
             exit 0;
         }
 
-        $util->install_module( "vpopmail", debug => $debug,);
-        print "running vpopmail v", vpopmail::vgetversion(), "<br>" if $debug;
+        $self->util->install_module( "vpopmail", verbose => $verbose,);
+        print "running vpopmail v", vpopmail::vgetversion(), "<br>" if $verbose;
 
-        $util->install_module( "Mail::Ezmlm", debug => $debug,);
+        $self->util->install_module( "Mail::Ezmlm", verbose => $verbose,);
         require Mail::Ezmlm;
 
         $list_dir = $ezlists->{$list_sel};
-        return 0 unless $self->dir_check( dir=>$list_dir, br=>$br, debug=>$debug );
+        return 0 unless $self->dir_check( dir=>$list_dir, br=>$br, verbose=>$verbose );
         my $list = new Mail::Ezmlm($list_dir);
 
         if ( $action eq "list" ) {
-            $self->subs_list( list=>$list, list_dir=>$list_dir, br=>$br, debug=>$debug );
+            $self->subs_list( list=>$list, list_dir=>$list_dir, br=>$br, verbose=>$verbose );
         }
         elsif ( $action eq "add" ) {
             my @reqs = split( /\n/, param('addresses') );
-            print "reqs: @reqs<br>" if $debug;
+            print "reqs: @reqs<br>" if $verbose;
             my $requested = \@reqs;
             $self->subs_add( list=>$list, list_dir=>$list_dir, requested=>$requested, br=>$br );
         }
@@ -313,18 +275,18 @@ sub process_cgi {
 
 sub process_shell {
     my $self = shift;
-    my %p     = validate( @_, { %std_opts } );
+    my %p     = validate( @_, { $self->get_std_opts } );
     use vars qw($opt_a $opt_d $opt_f $opt_v $list );
-    my $debug = $p{debug};
+    my $verbose = $p{verbose};
 
-    $util->install_module( "Mail::Ezmlm", %p );
+    $self->util->install_module( "Mail::Ezmlm", %p );
     require Mail::Ezmlm;
 
     use Getopt::Std;
     getopts('a:d:f:v');
 
     my $br = "\n";
-    $debug = $opt_v if defined $opt_v;
+    $verbose = $opt_v if defined $opt_v;
 
     # set up based on command line options
     my $list_dir;
@@ -337,11 +299,11 @@ sub process_shell {
         print "You didn't set the list directory! Use the -d option!\n";
         pod2usage;
     }
-    return 0 if ! $self->dir_check( dir=>$list_dir, br=>$br, debug=>$debug );
+    return 0 if ! $self->dir_check( dir=>$list_dir, br=>$br, verbose=>$verbose );
 
     if ( $opt_a && $opt_a eq "list" ) {
         $list = new Mail::Ezmlm($list_dir);
-        $self->subs_list( list=>$list, list_dir=>$list_dir, br=>$br, debug=>$debug );
+        $self->subs_list( list=>$list, list_dir=>$list_dir, br=>$br, verbose=>$verbose );
         return 1;
     }
 
@@ -361,7 +323,7 @@ sub process_shell {
     }
 
     if ( -r $list_file ) {
-        my @lines = $util->file_read($list_file, debug=>$debug);
+        my @lines = $self->util->file_read($list_file, verbose=>$verbose);
         $requested = \@lines;
     }
     else {
@@ -385,15 +347,15 @@ sub subs_add {
             'list_dir'  => { type=>SCALAR,   },
 	        'requested' => { type=>ARRAYREF, },
             'br'        => { type=>SCALAR,   },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
-	my ($list, $list_dir, $requested, $br, $fatal, $debug)
-        = ( $p{'list'}, $p{'list_dir'}, $p{'requested'}, $p{'br'}, $p{'fatal'}, $p{'debug'} );
+	my ($list, $list_dir, $requested, $br, $fatal, $verbose)
+        = ( $p{'list'}, $p{'list_dir'}, $p{'requested'}, $p{'br'}, $p{'fatal'}, $p{'verbose'} );
 	
 	if ( ! -d $list_dir ) {
-        print "ERROR: Aiiieee, the list $list_dir is missing!\n" if $debug;
+        print "ERROR: Aiiieee, the list $list_dir is missing!\n" if $verbose;
         return 0;
     }
 
@@ -451,25 +413,25 @@ sub subs_list {
 	        'list'      => { type=>HASHREF,   },
             'list_dir'  => { type=>SCALAR,   },
             'br'        => { type=>SCALAR,  optional=>1, default=>'\n' },
-            %std_opts,
+            $self->get_std_opts,
         },
     );
 
-    my ( $list, $list_dir, $br, $fatal, $debug )
-        = ( $p{'list'}, $p{'list_dir'}, $p{'br'}, $p{'fatal'}, $p{'debug'} );
+    my ( $list, $list_dir, $br, $fatal, $verbose )
+        = ( $p{'list'}, $p{'list_dir'}, $p{'br'}, $p{'fatal'}, $p{'verbose'} );
 
     if ( ! -d $list_dir ) {
-        print "ERROR: Aiiieee, the list $list_dir is missing!\n" if $debug;
+        print "ERROR: Aiiieee, the list $list_dir is missing!\n" if $verbose;
         return 0;
     }
-    print "subs_list: listing subs for list $list_dir $br" if $debug;
+    print "subs_list: listing subs for list $list_dir $br" if $verbose;
 
     #	print "subscriber list: ";
     #	$list->list;                 # list subscribers
     #	#$list->list(\*STDERR);       # list subscribers
     #	"\n";
 
-    print "subs_list: getting list of subscribers...$br$br" if $debug;
+    print "subs_list: getting list of subscribers...$br$br" if $verbose;
 
     foreach my $sub ( $list->subscribers ) {
         print "$sub $br";
@@ -494,7 +456,7 @@ Mail::Toaster::Ezmlm - a batch processing tool for ezmlm mailing lists
      -a   action  - add, remove, list
      -d   dir     - ezmlm list directory
      -f   file    - file containing list of email addresses
-     -v   verbose - print debugging options
+     -v   verbose - print verbose options
 
 
 =head1 DESCRIPTION
