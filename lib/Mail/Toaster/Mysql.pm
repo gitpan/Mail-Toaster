@@ -3,8 +3,8 @@ package Mail::Toaster::Mysql;
 use strict;
 use warnings;
 
-use DBI;
 use Carp;
+#use DBI; # eval'ed in connect
 use Params::Validate ':all';
 use English '-no_match_vars';
 
@@ -92,6 +92,9 @@ sub connect {
     my $dbv = $self->db_vars($dot);
     my $dsn = "DBI:$dbv->{'driver'}:database=$dbv->{'db'};"
         . "host=$dbv->{'host'};port=$dbv->{'port'}";
+
+    eval "use DBI";
+    return $self->error($@) if $@;
 
     $dbh = DBI->connect( $dsn, $dbv->{'user'}, $dbv->{'pass'},
                 { RaiseError => 0, AutoCommit => $ac } );
@@ -235,7 +238,7 @@ sub install_darwin {
     croak "DarwinPorts is not installed.\n";
 }
 
-sub install_extras {
+sub install_freebsd_extras {
     my $self = shift;
 
     if ( $self->conf->{install_mysqld} ) {
@@ -268,7 +271,7 @@ sub install_freebsd {
 
     if ($installed == scalar @ports ) {
         $self->audit( "mysql->install: MySQL is installed" );
-        return $self->install_extras;
+        return $self->install_freebsd_extras;
     };
 
     # MySQL is not installed, lets do it!
@@ -305,14 +308,14 @@ sub install_freebsd {
 
     if ( ! $self->conf->{install_mysqld} ) {
         $self->audit( "installing MySQL client, ok" );
-        return $self->install_extras;
+        return $self->install_freebsd_extras;
     };
 
     return $self->error( "MySQL install FAILED" )
         if !$self->freebsd->is_port_installed( "mysql-server" );
 
     $self->audit( "installing MySQL client and server, ok" );
-    return $self->install_extras;
+    return $self->install_freebsd_extras;
 };
 
 sub is_newer {

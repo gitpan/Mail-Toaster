@@ -21,19 +21,19 @@ sub install {
         return;
     }
 
-    my $version = $self->conf->{'install_vpopmail'} || "5.4.33";
+    my $version = $self->conf->{install_vpopmail} || '5.4.33';
 
     if ( $OSNAME eq "freebsd" ) {
     # always install the port version, so subsequent ports will
     # find it registered in the ports db.
-        $self->install_freebsd_port();
+        $self->install_freebsd_port;
     }
 
     if ( $version ne 'port' ) {
         $self->install_from_source( %p );
     };
 
-    return $self->post_install();
+    return $self->post_install;
 };
 
 sub install_freebsd_port {
@@ -111,7 +111,7 @@ OPTIONS_FILE_$valias+=VALIAS
 ",
     ) or return;
 
-    my $vpopdir = $self->conf->{'vpopmail_home_dir'};
+    my $vpopdir = $self->get_vpop_dir;
     my $docroot = $self->conf->{'toaster_http_docs'};
 
     # add a symlink so docs are web browsable
@@ -129,7 +129,7 @@ sub install_from_source {
     my $conf = $self->conf;
     my $version = $conf->{'install_vpopmail'} || "5.4.33";
     my $package = "vpopmail-$version";
-    my $vpopdir = $conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
+    my $vpopdir = $self->get_vpop_dir;
 
     $self->create_user();   # add the vpopmail user/group
     my $uid = getpwnam( $conf->{'vpopmail_user'} || "vpopmail" );
@@ -270,13 +270,13 @@ sub default_domain {
     };
 
     if ( $self->is_newer( min => "5.3.22", cur => $version ) ) {
-        my $vpopdir = $self->conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
-        $self->util->file_write( "$vpopdir/etc/defaultdomain",
+        my $vpopetc = $self->get_vpop_etc;
+        $self->util->file_write( "$vpopetc/defaultdomain",
             lines => [ $default_domain ],
             verbose => 0,
         );
 
-        $self->util->chown( "$vpopdir/etc/defaultdomain",
+        $self->util->chown( "$vpopetc/defaultdomain",
             uid  => $self->conf->{'vpopmail_user'}  || "vpopmail",
             gid  => $self->conf->{'vpopmail_group'} || "vchkpw",
         );
@@ -290,29 +290,22 @@ sub default_domain {
 
 sub vpopmail_etc {
     my $self  = shift;
-    my %p = validate( @_, { $self->get_std_opts },);
+    my %p = validate( @_, { $self->get_std_opts } );
 
-    my @lines;
+    my $vetc = $self->get_vpop_etc;
 
-    my $vpopdir = $self->conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
-    my $vetc    = "$vpopdir/etc";
-    my $qdir    = $self->conf->{'qmail_dir'};
+    mkpath( $vetc, oct('0775') ) if ! -d $vetc;
 
-    mkdir( $vpopdir, oct('0775') ) unless ( -d $vpopdir );
-
-    if ( -d $vetc ) { print "$vetc already exists.\n"; }
+    if ( -d $vetc ) {
+        print "$vetc already exists.\n";
+    }
     else {
         print "creating $vetc\n";
         mkdir( $vetc, oct('0775') ) or carp "failed to create $vetc: $!\n";
     }
 
-    $self->install_default_tcp_smtp( etc_dir => $vetc );
-
-    my $qmail_control = "$qdir/bin/qmailctl";
-    if ( -x $qmail_control ) {
-        print " vpopmail_etc: rebuilding tcp.smtp.cdb\n";
-        $self->util->syscmd( "$qmail_control cdb", verbose => 0 );
-    }
+    $self->setup->tcp_smtp( etc_dir => $vetc );
+    $self->setup->tcp_smtp_cdb( etc_dir => $vetc );
 }
 
 sub etc_passwd {
@@ -339,82 +332,21 @@ sub etc_passwd {
     print "system password accounts: no\n";
 };
 
-sub install_default_tcp_smtp {
-    my $self  = shift;
-    my %p = validate( @_, {
-            'etc_dir' => SCALAR,
-        },
-    );
+sub get_vpop_etc {
+    my $self = shift;
+    my $base = $self->get_vpop_dir;
+    return "$base/etc";
+};
 
-    my $etc_dir = $p{'etc_dir'};
-
-    # test for an existing one
-    if ( -f "$etc_dir/tcp.smtp" ) {
-        my $count = $self->util->file_read( "$etc_dir/tcp.smtp" );
-        return if $count != 1;
-        # back it up
-        $self->util->archive_file( "$etc_dir/tcp.smtp" );
-    }
-
-    my $qdir = $self->conf->{'qmail_dir'};
-
-    my @lines = <<"EO_TCP_SMTP";
-# RELAYCLIENT="" means IP can relay
-# RBLSMTPD=""    means DNSBLs are ignored for this IP
-# QMAILQUEUE=""  is the qmail queue process, defaults to $qdir/bin/qmail-queue
-#
-#    common QMAILQUEUE settings:
-# QMAILQUEUE="$qdir/bin/qmail-queue"
-# QMAILQUEUE="$qdir/bin/simscan"
-#
-#      handy test settings
-# 127.:allow,RELAYCLIENT="",RBLSMTPD="",QMAILQUEUE="$qdir/bin/simscan"
-# 127.:allow,RELAYCLIENT="",RBLSMTPD="",QMAILQUEUE="$qdir/bin/qscanq/bin/qscanq"
-127.0.0.1:allow,RELAYCLIENT="",RBLSMTPD=""
-
-EO_TCP_SMTP
-    my $block = 1;
-
-    if ( $self->conf->{'vpopmail_enable_netblocks'} ) {
-
-        if (
-            $self->util->yes_or_no(
-                  "Do you need to enable relay access for any netblocks? :
-
-NOTE: If you are an ISP and have dialup pools, this is where you want
-to enter those netblocks. If you have systems that should be able to
-relay through this host, enter their IP/netblocks here as well.\n\n"
-            )
-          )
-        {
-            do {
-                $block = $self->util->ask( "the netblock to add (empty to finish)" );
-                push @lines, "$block:allow" if $block;
-            } until ( !$block );
-        }
-    }
-
-    #no Smart::Comments;
-    push @lines, <<"EO_QMAIL_SCANNER";
-#
-# Allow anyone with reverse DNS set up
-#=:allow
-#    soft block on no reverse DNS
-#:allow,RBLSMTPD="Blocked - Reverse DNS queries for your IP fail. Fix your DNS!"
-#    hard block on no reverse DNS
-#:allow,RBLSMTPD="-Blocked - Reverse DNS queries for your IP fail. You cannot send me mail."
-#    default allow
-#:allow,QMAILQUEUE="$qdir/bin/simscan"
-:allow
-EO_QMAIL_SCANNER
-
-    $self->util->file_write( "$etc_dir/tcp.smtp", lines => \@lines );
-}
+sub get_vpop_dir {
+    my $self = shift;
+    return $self->{conf}{vpopmail_home_dir} || '/usr/local/vpopmail';
+};
 
 sub installed_version {
     my $self = shift;
 
-    my $vpopdir = $self->{conf}{vpopmail_home_dir} || '/usr/local/vpopmail';
+    my $vpopdir = $self->get_vpop_dir;
     return if ! -x "$vpopdir/bin/vpasswd";
 
     my $installed = `$vpopdir/bin/vpasswd -v | head -1 | cut -f2 -d" "`;
@@ -452,8 +384,8 @@ sub logging {
 
 sub post_install {
     my $self = shift;
-    $self->vpopmail_etc();
-    $self->mysql_privs();
+    $self->vpopmail_etc;
+    $self->mysql_privs;
     $self->util->install_module( "vpopmail" ) if $self->{conf}{install_ezmlm_cgi};
     print "vpopmail: complete.\n";
     return 1;
@@ -494,7 +426,7 @@ sub test {
     print "do vpopmail directories exist...\n";
     my $vpdir = $self->conf->{'vpopmail_home_dir'};
     foreach ( "", "bin", "domains", "etc/", "include", "lib" ) {
-        $self->toaster->test("  $vpdir/$_", -d "$vpdir/$_" );
+        $self->setup->test->pretty("  $vpdir/$_", -d "$vpdir/$_" );
     }
 
     print "checking vpopmail binaries...\n";
@@ -510,17 +442,17 @@ sub test {
         vsetuserquota   vuserinfo   /
       )
     {
-        $self->toaster->test("  $_", -x "$vpdir/bin/$_" );
+        $self->setup->test->pretty("  $_", -x "$vpdir/bin/$_" );
     }
 
     print "do vpopmail libs exist...\n";
     foreach ("$vpdir/lib/libvpopmail.a") {
-        $self->toaster->test("  $_", -e $_ );
+        $self->setup->test->pretty("  $_", -e $_ );
     }
 
     print "do vpopmail includes exist...\n";
     foreach (qw/ config.h vauth.h vlimits.h vpopmail.h vpopmail_config.h /) {
-        $self->toaster->test("  include/$_", -e "$vpdir/include/$_" );
+        $self->setup->test->pretty("  include/$_", -e "$vpdir/include/$_" );
     }
 
     print "checking vpopmail etc files...\n";
@@ -528,7 +460,7 @@ sub test {
     push @vpetc, 'vpopmail.mysql' if $self->conf->{'vpopmail_mysql'};
 
     foreach ( @vpetc ) {
-        $self->toaster->test("  $_", (-e "$vpdir/etc/$_" && -s "$vpdir/etc/$_" ));
+        $self->setup->test->pretty("  $_", (-e "$vpdir/etc/$_" && -s "$vpdir/etc/$_" ));
     }
 }
 
@@ -536,9 +468,9 @@ sub create_user {
     my $self  = shift;
     my %p = validate( @_, { $self->get_std_opts } );
 
-    my $vpopdir = $self->conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
-    my $vpuser  = $self->conf->{'vpopmail_user'}     || "vpopmail";
-    my $vpgroup = $self->conf->{'vpopmail_group'}    || "vchkpw";
+    my $vpopdir = $self->get_vpop_dir;
+    my $vpuser  = $self->conf->{vpopmail_user}  || 'vpopmail';
+    my $vpgroup = $self->conf->{vpopmail_group} || 'vchkpw';
 
     my $uid = getpwnam($vpuser);
     my $gid = getgrnam($vpgroup);
@@ -601,7 +533,7 @@ sub mysql_privs {
     my $user = $self->conf->{'vpopmail_mysql_user'} || $self->conf->{vpopmail_mysql_repl_user};
     my $pass = $self->conf->{'vpopmail_mysql_pass'} || $self->conf->{vpopmail_mysql_repl_pass};
 
-    my $vpopdir = $self->conf->{'vpopmail_home_dir'} || "/usr/local/vpopmail";
+    my $vpopdir = $self->get_vpop_dir;
 
     my @lines = "$my_read|0|$user|$pass|$db";
     if ($mysql_repl) {

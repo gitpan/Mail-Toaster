@@ -17,7 +17,7 @@ use File::Spec;
 use File::stat;
 use Params::Validate qw(:all);
 use Scalar::Util qw( openhandle );
-use URI;
+#use URI;  # required in get_url
 
 use lib 'lib';
 use parent 'Mail::Toaster::Base';
@@ -1032,6 +1032,8 @@ sub get_url {
         return $self->get_url_system( $url, %p );
     };
 
+    eval "require URI";  ## no critic ( StringyEval )
+    return $self->error( $@, fatal => $p{fatal} ) if $@;
     my $uri = URI->new($url);
     my @parts = $uri->path_segments;
     my $file = $parts[-1];  # everything after the last / in the URL
@@ -1105,6 +1107,8 @@ sub get_url_system {
     my $timeout = $p{timeout} || 0;
     if ( ! $timeout ) {
         $self->syscmd( $fetchcmd, %args ) or return;
+        eval "require URI";  ## no critic ( StringyEval )
+        return $self->error( $@, fatal => $p{fatal} ) if $@;
         my $uri = URI->new($url);
         my @parts = $uri->path_segments;
         my $file = $parts[-1];  # everything after the last / in the URL
@@ -1275,7 +1279,7 @@ sub install_if_changed_copy {
 
         if ( $clean ) {
             move( $newfile, $existing ) or
-                return $self->error( "failed copy $newfile to $existing", %$args);
+                return $self->error( "failed move $newfile to $existing", %$args);
         }
         else {
             copy( $newfile, $existing ) or
@@ -1334,12 +1338,8 @@ sub install_from_source {
           $p{targets}, $p{patches}, $p{bintest} );
 
     my $patch_args = $p{patch_args} || '';
-    my $src = $p{source_dir} || "/usr/local/src";
-       $src .= "/$p{source_sub_dir}" if $p{source_sub_dir};
-
-    my $original_directory = cwd;
-
-    $self->cwd_source_dir( $src, %args );
+    my $srcdir = $p{source_dir} || "/usr/local/src";
+       $srcdir .= "/$p{source_sub_dir}" if $p{source_sub_dir};
 
     if ( $bintest && $self->find_bin( $bintest, fatal => 0, verbose => 0 ) ) {
         return if ! $self->yes_or_no(
@@ -1349,11 +1349,13 @@ sub install_from_source {
         );
     }
 
-    $self->audit( "install_from_source: building $package in $src" );
+    $self->audit( "install_from_source: building $package in $srcdir" );
 
-    $self->install_from_source_cleanup($package,$src) or return;
+    my $original_directory = cwd;
+    $self->cwd_source_dir( $srcdir, %args );
+
+    $self->install_from_source_cleanup($package,$srcdir) or return;
     $self->install_from_source_get_files($package,$site,$url,$p{patch_url},$patches) or return;
-
     $self->extract_archive( $package ) or return;
 
     # cd into the package directory
@@ -1371,10 +1373,10 @@ sub install_from_source {
 
         $self->audit( "found sources in $sub_path" ) if $sub_path;
         return $self->error( "FAILED to find $package sources!",fatal=>0)
-            unless ( -d $sub_path && chdir($sub_path) );
+            unless ( -d $sub_path && chdir $sub_path );
     }
 
-    $self->install_from_source_apply_patches($src, $patches, $patch_args) or return;
+    $self->install_from_source_apply_patches($srcdir, $patches, $patch_args) or return;
 
     # set default build targets if none are provided
     if ( !@$targets[0] ) {
@@ -1400,7 +1402,7 @@ sub install_from_source {
     }
 
     # clean up the build sources
-    chdir $src;
+    chdir $srcdir;
     File::Path::rmtree($package) if -d $package;
 
     if ( defined $sub_path && -d "$package/$sub_path" ) {
@@ -1440,7 +1442,11 @@ sub install_from_source_cleanup {
     ) or return $self->error( "OK then, skipping install.", fatal => 0);
 
     $self->audit( "  removing previous build sources." );
-    File::Path::rmtree( "$package-*" ) or die $!;
+    foreach my $dir ( glob "$package-*" ) {
+        File::Path::rmtree( $dir )
+            or return $self->error("failed to delete $package: $!");
+    };
+    return 1;
 };
 
 sub install_from_source_get_files {
@@ -1743,7 +1749,7 @@ sub is_writable {
         return 1;
     }
 
-    return $self->error( "  $file not writable by " . getpwuid($>) . "$nl$nl", %args ) if ! -w $file;
+    return $self->error( "  $file not writable by " . getpwuid($>) . "$nl$nl", frames=>2, %args ) if ! -w $file;
 
     $self->audit( "$file is writable" );
     return 1;
@@ -1751,16 +1757,15 @@ sub is_writable {
 
 sub logfile_append {
     my $self = shift;
-    my %p = validate(
-        @_,
-        {   'file'  => { type => SCALAR,   optional => 0, },
-            'lines' => { type => ARRAYREF, optional => 0, },
+    my $file = shift or croak "missing filename!";
+    my %p = validate( @_,
+        {   'lines' => { type => ARRAYREF, optional => 0, },
             'prog'  => { type => BOOLEAN,  optional => 1, default => 0, },
             $self->get_std_opts,
         },
     );
 
-    my ( $file, $lines ) = ( $p{file}, $p{lines} );
+    my $lines = $p{lines};
     my %args = $self->get_std_args( %p );
 
     my ( $dd, $mm, $yy, $lm, $hh, $mn, $ss ) = $self->get_the_date( %args );
@@ -2852,11 +2857,11 @@ tests to determine if the running process is attached to a terminal.
 
 =item logfile_append
 
-   $util->logfile_append( file=>$file, lines=>\@lines )
+   $util->logfile_append( $file, lines=>\@lines )
 
 Pass a filename and an array ref and it will append a timestamp and the array contents to the file. Here's a working example:
 
-   $util->logfile_append( file=>$file, prog=>"proggy", lines=>["Starting up", "Shutting down"] )
+   $util->logfile_append( $file, prog=>"proggy", lines=>["Starting up", "Shutting down"] )
 
 That will append a line like this to the log file:
 

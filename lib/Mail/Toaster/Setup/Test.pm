@@ -3,15 +3,9 @@ package Mail::Toaster::Setup::Test;
 use strict;
 use warnings;
 
-#use Carp;
-#use Config;
-#use Cwd;
-#use Data::Dumper;
-#use File::Copy;
-#use File::Path;
+use Carp;
 use English '-no_match_vars';
 use Params::Validate qw( :all );
-#use Sys::Hostname;
 
 use lib 'lib';
 use parent 'Mail::Toaster::Base';
@@ -23,10 +17,196 @@ sub daemontools {
     my @bins = qw/ multilog softlimit setuidgid supervise svok svscan tai64nlocal /;
     foreach my $test ( @bins ) {
         my $bin = $self->util->find_bin( $test, fatal => 0, verbose=>0);
-        $self->toaster->test("  $test", -x $bin );
+        $self->pretty("  $test", -x $bin );
     };
 
     return 1;
+}
+
+sub email_send {
+    my $self = shift;
+    my $email = $self->conf->{toaster_admin_email} || 'root';
+    my $qdir = $self->conf->{qmail_dir} || '/var/qmail';
+    my $ibin = "$qdir/bin/qmail-inject";
+    if ( ! -x $ibin ) {
+        return $self->error("qmail-inject ($ibin) not found!");
+    };
+
+    foreach ( qw/ clean spam eicar attach clam / ) {
+        open(my $INJECT, "| $ibin -a -f \"\" $email" ) or
+            return $self->error( "couldn't send using qmail-inject!");
+        my $method = 'email_send_' . $_;
+        $self->$method( $INJECT, $email );
+        close $INJECT;
+    };
+
+    return 1;
+}
+
+sub email_send_attach {
+    my ( $self, $INJECT, $email ) = @_;
+
+    print "\n\t\tSending .com test attachment - should fail.\n";
+    print $INJECT <<"EOATTACH";
+From: Mail Toaster Testing <$email>
+To: Email Administrator <$email>
+Subject: Email test (blocked attachment message)
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Content-Disposition: inline
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+This is an example of an Email message containing a virus. It should
+trigger the virus scanner, and not be delivered.
+
+If you are using qmail-scanner, the server admin should get a notification.
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="Eicar.com"
+
+00000000000000000000000000000000000000000000000000000000000000000000
+
+--gKMricLos+KVdGMg--
+
+EOATTACH
+
+}
+
+sub email_send_clam {
+    my ( $self, $INJECT, $email ) = @_;
+
+    print "\n\t\tSending ClamAV test virus - should fail.\n";
+    print $INJECT <<EOCLAM;
+From: Mail Toaster testing <$email>
+To: Email Administrator <$email>
+Subject: Email test (virus message)
+
+This is a viral message containing the clam.zip test virus pattern. It should be blocked by any scanning software using ClamAV.
+
+
+--Apple-Mail-7-468588064
+Content-Transfer-Encoding: base64
+Content-Type: application/zip;
+        x-unix-mode=0644;
+        name="clam.zip"
+Content-Disposition: attachment;
+        filename=clam.zip
+
+UEsDBBQAAAAIALwMJjH9PAfvAAEAACACAAAIABUAY2xhbS5leGVVVAkAA1SjO0El6E1BVXgEAOgD
+6APzjQpgYGJgYGBh4Gf4/5+BYQeQrQjEDgxSDAQBIwPD7kIBBwbjAwEB3Z+DgwM2aDoYsKStqfy5
+y5ChgndtwP+0Aj75fYYML5/+38J5VnGLz1nFJB4uRqaCMnEmOT8eFv1bZwRQjTwA5Degid0C8r+g
+icGAt2uQn6uPsZGei48PA4NrRWZJQFF+cmpxMUNosGsQVNzZx9EXKJSYnuqUX+HI8Axqlj0QBLgy
+MPgwMjIkOic6wcx8wNDXyM3IJAkMFAYGNoiYA0iPAChcwDwwGxRwjFA9zAxcEIYCODDBgAlMCkDE
+QDTUXmSvtID8izeQaQOiQWHiGBbLAPUXsl+QwAEAUEsBAhcDFAAAAAgAvAwmMf08B+8AAQAAIAIA
+AAgADQAAAAAAAAAAAKSBAAAAAGNsYW0uZXhlVVQFAANUoztBVXgAAFBLBQYAAAAAAQABAEMAAAA7
+AQAAAAA=
+
+--Apple-Mail-7-468588064
+
+
+EOCLAM
+
+}
+
+sub email_send_clean {
+    my ( $self, $INJECT, $email ) = @_;
+
+    print "\n\t\tsending a clean message - should arrive unaltered\n";
+    print $INJECT <<EOCLEAN;
+From: Mail Toaster testing <$email>
+To: Email Administrator <$email>
+Subject: Email test (clean message)
+
+This is a clean test message. It should arrive unaltered and should also pass any virus or spam checks.
+
+EOCLEAN
+
+}
+
+sub email_send_eicar {
+    my ( $self, $INJECT, $email ) = @_;
+
+    # http://eicar.org/anti_virus_test_file.htm
+    # X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
+
+    print "\n\t\tSending the EICAR test virus - should fail.\n";
+    print $INJECT <<EOVIRUS;
+From: Mail Toaster testing <$email'>
+To: Email Administrator <$email>
+Subject: Email test (eicar virus test message)
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Content-Disposition: inline
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+This is an example email containing a virus. It should trigger any good virus
+scanner.
+
+If it is caught by AV software, it will not be delivered to its intended
+recipient (the email admin). The Qmail-Scanner administrator should receive
+an Email alerting him/her to the presence of the test virus. All other
+software should block the message.
+
+--gKMricLos+KVdGMg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sneaky.txt"
+
+X5O!P%\@AP[4\\PZX54(P^)7CC)7}\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\$H+H*
+
+--gKMricLos+KVdGMg--
+
+EOVIRUS
+      ;
+
+}
+
+sub email_send_spam {
+    my ( $self, $INJECT, $email ) = @_;
+
+    print "\n\t\tSending a sample spam message - should fail\n";
+
+    print $INJECT 'Return-Path: sb55sb55@yahoo.com
+Delivery-Date: Mon, 19 Feb 2001 13:57:29 +0000
+Return-Path: <sb55sb55@yahoo.com>
+Delivered-To: jm@netnoteinc.com
+Received: from webnote.net (mail.webnote.net [193.120.211.219])
+   by mail.netnoteinc.com (Postfix) with ESMTP id 09C18114095
+   for <jm7@netnoteinc.com>; Mon, 19 Feb 2001 13:57:29 +0000 (GMT)
+Received: from netsvr.Internet (USR-157-050.dr.cgocable.ca [24.226.157.50] (may be forged))
+   by webnote.net (8.9.3/8.9.3) with ESMTP id IAA29903
+   for <jm7@netnoteinc.com>; Sun, 18 Feb 2001 08:28:16 GMT
+From: sb55sb55@yahoo.com
+Received: from R00UqS18S (max1-45.losangeles.corecomm.net [216.214.106.173]) by netsvr.Internet with SMTP (Microsoft Exchange Internet Mail Service Version 5.5.2653.13)
+   id 1429NTL5; Sun, 18 Feb 2001 03:26:12 -0500
+DATE: 18 Feb 01 12:29:13 AM
+Message-ID: <9PS291LhupY>
+Subject: anti-spam test: checking SpamAssassin [if present] (There yours for FREE!)
+To: undisclosed-recipients:;
+
+Congratulations! You have been selected to receive 2 FREE 2 Day VIP Passes to Universal Studios!
+
+Click here http://209.61.190.180
+
+As an added bonus you will also be registered to receive vacations discounted 25%-75%!
+
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+This mailing is done by an independent marketing co.
+We apologize if this message has reached you in error.
+Save the Planet, Save the Trees! Advertise via E mail.
+No wasted paper! Delete with one simple keystroke!
+Less refuse in our Dumps! This is the new way of the new millennium
+To be removed please reply back with the word "remove" in the subject line.
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+
+';
 }
 
 sub imap_auth {
@@ -35,15 +215,15 @@ sub imap_auth {
 
     return $p{test_ok} if defined $p{test_ok}; # for testing only
 
-    $self->imap_auth_nossl();
-    $self->imap_auth_ssl();
+    $self->imap_auth_nossl;
+    $self->imap_auth_ssl;
 };
 
 sub imap_auth_nossl {
     my $self = shift;
 
     my $r = $self->util->install_module("Mail::IMAPClient", verbose => 0);
-    $self->toaster->test("checking Mail::IMAPClient", $r );
+    $self->pretty("checking Mail::IMAPClient", $r );
     if ( ! $r ) {
         print "skipping imap test authentications\n";
         return;
@@ -62,12 +242,12 @@ sub imap_auth_nossl {
         Server   => 'localhost',
     );
     if ( !defined $imap ) {
-        $self->toaster->test( "imap connection", $imap );
+        $self->pretty( "imap connection", $imap );
         return;
     };
 
-    $self->toaster->test( "authenticate IMAP user with plain passwords",
-        $imap->IsAuthenticated() );
+    $self->pretty( "authenticate IMAP user with plain passwords",
+        $imap->IsAuthenticated );
 
     my @features = $imap->capability
         or warn "Couldn't determine capability: $@\n";
@@ -81,11 +261,11 @@ sub imap_auth_nossl {
         Pass   => 'hi_there_log_watcher'
     )
     or do {
-        $self->toaster->test( "imap connection that should fail", 0);
+        $self->pretty( "imap connection that should fail", 0);
         return 1;
     };
-    $self->toaster->test( "  imap connection", $imap->IsConnected() );
-    $self->toaster->test( "  test auth that should fail", !$imap->IsAuthenticated() );
+    $self->pretty( "  imap connection", $imap->IsConnected );
+    $self->pretty( "  test auth that should fail", !$imap->IsAuthenticated );
     $imap->logout;
     return;
 };
@@ -97,7 +277,7 @@ sub imap_auth_ssl {
     my $pass = $self->conf->{'toaster_test_email_pass'} || 'cHanGeMe';
 
     my $r = $self->util->install_module( "IO::Socket::SSL", verbose => 0,);
-    $self->toaster->test( "checking IO::Socket::SSL ", $r);
+    $self->pretty( "checking IO::Socket::SSL ", $r);
     if ( ! $r ) {
         print "skipping IMAP SSL tests due to missing SSL support\n";
         return;
@@ -110,30 +290,30 @@ sub imap_auth_ssl {
         Proto    => 'tcp',
         SSL_verify_mode => 'SSL_VERIFY_NONE',
     );
-    $self->toaster->test( "  imap SSL connection", $socket);
+    $self->pretty( "  imap SSL connection", $socket);
     return if ! $socket;
 
-    print "  connected with " . $socket->get_cipher() . "\n";
+    print "  connected with " . $socket->get_cipher . "\n";
     print $socket ". login $user $pass\n";
     ($r) = $socket->peek =~ /OK/i;
-    $self->toaster->test( "  auth IMAP SSL with plain password", $r ? 0 : 1);
+    $self->pretty( "  auth IMAP SSL with plain password", $r ? 0 : 1);
     print $socket ". logout\n";
     close $socket;
 
 #  no idea why this doesn't work, so I just forge an authentication by printing directly to the socket
 #   my $imapssl = Mail::IMAPClient->new( Socket=>$socket, User=>$user, Password=>$pass) or warn "new IMAP failed: ($@)\n";
-#   $imapssl->IsAuthenticated() ? print "ok\n" : print "FAILED.\n";
+#   $imapssl->IsAuthenticated ? print "ok\n" : print "FAILED.\n";
 
 # doesn't work yet because courier doesn't support CRAM-MD5 via the vchkpw auth module
 #   print "authenticating IMAP user with CRAM-MD5...";
 #   $imap->connect;
-#   $imap->authenticate();
-#   $imap->IsAuthenticated() ? print "ok\n" : print "FAILED.\n";
+#   $imap->authenticate;
+#   $imap->IsAuthenticated ? print "ok\n" : print "FAILED.\n";
 #
 #   print "logging out...";
 #   $imap->logout;
-#   $imap->IsAuthenticated() ? print "FAILED.\n" : print "ok.\n";
-#   $imap->IsConnected() ? print "connection open.\n" : print "connection closed.\n";
+#   $imap->IsAuthenticated ? print "FAILED.\n" : print "ok.\n";
+#   $imap->IsConnected ? print "connection open.\n" : print "connection closed.\n";
 
 }
 
@@ -144,7 +324,7 @@ sub pop3_auth {
     $OUTPUT_AUTOFLUSH = 1;
 
     my $r = $self->util->install_module( "Mail::POP3Client", verbose => 0,);
-    $self->toaster->test("checking Mail::POP3Client", $r );
+    $self->pretty("checking Mail::POP3Client", $r );
     eval "use Mail::POP3Client";
     if ( $EVAL_ERROR ) {
         print "unable to load Mail::POP3Client, skipping POP3 tests\n";
@@ -198,10 +378,10 @@ sub pop3_auth_prot {
 
     $pop->User($user);
     $pop->Pass($pass);
-    $pop->Connect() >= 0 || warn $pop->Message();
-    $self->toaster->test( "  $name authentication", ($pop->State eq 'TRANSACTION'));
+    $pop->Connect >= 0 || warn $pop->Message;
+    $self->pretty( "  $name authentication", ($pop->State eq 'TRANSACTION'));
 
-#   if ( my @features = $pop->Capa() ) {
+#   if ( my @features = $pop->Capa ) {
 #       print "  POP3 server supports: " . join( ",", @features ) . "\n";
 #   }
     $pop->Close;
@@ -215,7 +395,7 @@ sub smtp_auth {
     foreach ( @modules ) {
         eval "use $_";
         die $@ if $@;
-        $self->toaster->test( "loading $_", 'ok' );
+        $self->pretty( "loading $_", 'ok' );
     };
 
     Net::SSLeay::load_error_strings();
@@ -226,11 +406,11 @@ sub smtp_auth {
        $host = 'localhost' if ( $host =~ /system|qmail|all/i );
 
     my $smtp = Net::SMTP_auth->new($host);
-    $self->toaster->test( "connect to smtp port on $host", $smtp );
+    $self->pretty( "connect to smtp port on $host", $smtp );
     return 0 if ! defined $smtp;
 
-    my @auths = $smtp->auth_types();
-    $self->toaster->test( "  get list of SMTP AUTH methods", scalar @auths);
+    my @auths = $smtp->auth_types;
+    $self->pretty( "  get list of SMTP AUTH methods", scalar @auths);
     $smtp->quit;
 
     $self->smtp_auth_pass($host, \@auths);
@@ -250,19 +430,19 @@ sub smtp_auth_pass {
 
         my $smtp = Net::SMTP_auth->new($host);
         my $r = $smtp->auth( $_, $user, $pass );
-        $self->toaster->test( "  authentication with $_", $r );
+        $self->pretty( "  authentication with $_", $r );
         next if ! $r;
 
         $smtp->mail( $self->conf->{'toaster_admin_email'} );
         $smtp->to('postmaster');
-        $smtp->data();
+        $smtp->data;
         $smtp->datasend("To: postmaster\n");
         $smtp->datasend("\n");
         $smtp->datasend("A simple test message\n");
-        $smtp->dataend();
+        $smtp->dataend;
 
         $smtp->quit;
-        $self->toaster->test("  sending after auth $_", 1 );
+        $self->pretty("  sending after auth $_", 1 );
     }
 }
 
@@ -277,7 +457,7 @@ sub smtp_auth_fail {
     foreach (@$auths) {
         my $smtp = Net::SMTP_auth->new($host);
         my $r = $smtp->auth( $_, $user, $pass );
-        $self->toaster->test( "  failed authentication with $_", ! $r );
+        $self->pretty( "  failed authentication with $_", ! $r );
         $smtp->quit;
     }
 }
@@ -304,14 +484,14 @@ sub run_all {
     $self->setup->vpopmail->test;
     sleep 1;
 
-    $self->toaster->check_processes;
+    $self->toaster->check_running_processes;
     sleep 1;
     $self->test_network;
     sleep 1;
     $self->crons;
     sleep 1;
 
-    $self->qmail->check_rcpthosts();
+    $self->qmail->check_rcpthosts;
     sleep 1;
 
     if ( ! $self->util->yes_or_no( "skip the mail scanner tests?", timeout  => 10 ) ) {
@@ -322,7 +502,7 @@ sub run_all {
     sleep 1;
 
     if ( ! $self->util->yes_or_no( "skip the authentication tests?", timeout  => 10) ) {
-        $self->auth();
+        $self->auth;
     };
 
     # there's plenty more room here for more tests.
@@ -405,9 +585,24 @@ sub crons {
     print "checking cron processes\n";
 
     foreach (@crons) {
-        $self->toaster->test("  $_", system( $_ ) ? 0 : 1 );
+        $self->pretty("  $_", system( $_ ) ? 0 : 1 );
     }
 }
+
+sub pretty {
+    my $self = shift;
+    my $mess = shift or croak "test with no args?!";
+    my $result = shift;
+
+    my %p = validate(@_, { $self->get_std_opts } );
+    return $p{test_ok} if defined $p{test_ok};
+
+    print $mess;
+    defined $result or do { print "\n"; return; };
+    for ( my $i = length($mess); $i <=  65; $i++ ) { print '.' };
+    print $result ? 'ok' : 'FAILED';
+    print "\n";
+};
 
 sub test_dns {
 
@@ -554,7 +749,7 @@ sub test_logging {
     print "do the logging directories exist?\n";
     my $q_log = $self->conf->{'qmail_log_base'};
     foreach ( '', "pop3", "send", "smtp", "submit" ) {
-        $self->toaster->test("  $q_log/$_", -d "$q_log/$_" );
+        $self->pretty("  $q_log/$_", -d "$q_log/$_" );
     }
 
     print "checking log files?\n";
@@ -564,7 +759,7 @@ sub test_logging {
     push @active_log_files, "pop3/current" if $self->conf->{'pop3_daemon'} eq 'qpop3d';
 
     foreach ( @active_log_files ) {
-        $self->toaster->test("  $_", -f "$q_log/$_" );
+        $self->pretty("  $_", -f "$q_log/$_" );
     }
 }
 
@@ -585,7 +780,7 @@ sub test_network {
     print "checking for listening tcp ports\n";
     my @listeners = `$netstat | grep -i listen`;
     foreach (qw( smtp http pop3 imap https submission pop3s imaps )) {
-        $self->toaster->test("  $_", scalar grep {/$_/} @listeners );
+        $self->pretty("  $_", scalar grep {/$_/} @listeners );
     }
 
     print "checking for udp listeners\n";
@@ -593,7 +788,7 @@ sub test_network {
     push @udps, "snmp" if $self->conf->{install_snmp};
 
     foreach ( @udps ) {
-        $self->toaster->test("  $_", `$netstat | grep $_` );
+        $self->pretty("  $_", `$netstat | grep $_` );
     }
 }
 
@@ -603,17 +798,17 @@ sub test_qmail {
 
     my $qdir = $self->conf->{'qmail_dir'};
     print "does qmail's home directory exist?\n";
-    $self->toaster->test("  $qdir", -d $qdir );
+    $self->pretty("  $qdir", -d $qdir );
 
     print "checking qmail directory contents\n";
     my @tests = qw(alias boot control man users bin doc queue);
     push @tests, "configure" if ( $OSNAME eq "freebsd" );    # added by the port
     foreach (@tests) {
-        $self->toaster->test("  $qdir/$_", -d "$qdir/$_" );
+        $self->pretty("  $qdir/$_", -d "$qdir/$_" );
     }
 
     print "is the qmail rc file executable?\n";
-    $self->toaster->test(  "  $qdir/rc", -x "$qdir/rc" );
+    $self->pretty(  "  $qdir/rc", -x "$qdir/rc" );
 
     print "do the qmail users exist?\n";
     foreach (
@@ -626,20 +821,20 @@ sub test_qmail {
         $self->conf->{'qmail_log_user'}    || 'qmaill',
       )
     {
-        $self->toaster->test("  $_", $self->setup->user_exists($_) );
+        $self->pretty("  $_", $self->setup->user_exists($_) );
     }
 
     print "do the qmail groups exist?\n";
     foreach ( $self->conf->{'qmail_group'}     || 'qmail',
               $self->conf->{'qmail_log_group'} || 'qnofiles',
         ) {
-        $self->toaster->test("  $_", scalar getgrnam($_) );
+        $self->pretty("  $_", scalar getgrnam($_) );
     }
 
     print "do the qmail alias files have contents?\n";
     my $q_alias = "$qdir/alias/.qmail";
     foreach ( qw/ postmaster root mailer-daemon / ) {
-        $self->toaster->test( "  $q_alias-$_", -s "$q_alias-$_" );
+        $self->pretty( "  $q_alias-$_", -s "$q_alias-$_" );
     }
 }
 
@@ -648,12 +843,12 @@ sub supervised_procs {
 
     print "do supervise directories exist?\n";
     my $q_sup = $self->conf->{'qmail_supervise'} || "/var/qmail/supervise";
-    $self->toaster->test("  $q_sup", -d $q_sup);
+    $self->pretty("  $q_sup", -d $q_sup);
 
     # check supervised directories
     foreach ( qw/ smtp send pop3 submit / ) {
-        $self->toaster->test( "  $q_sup/$_",
-            $self->toaster->supervised_dir_test( prot => $_, verbose=>1 ) );
+        $self->pretty( "  $q_sup/$_",
+            $self->toaster->supervised_dir_test( $_, verbose=>1 ) );
     }
 
     print "do service directories exist?\n";
@@ -661,23 +856,23 @@ sub supervised_procs {
 
     my @active_service_dirs;
     foreach ( qw/ smtp send / ) {
-        push @active_service_dirs, $self->toaster->service_dir_get( prot => $_ );
+        push @active_service_dirs, $self->toaster->service_dir_get( $_ );
     }
 
-    push @active_service_dirs, $self->toaster->service_dir_get( prot => 'pop3' )
+    push @active_service_dirs, $self->toaster->service_dir_get( 'pop3' )
         if $self->conf->{'pop3_daemon'} eq 'qpop3d';
 
-    push @active_service_dirs, $self->toaster->service_dir_get( prot => "submit" )
+    push @active_service_dirs, $self->toaster->service_dir_get( "submit" )
         if $self->conf->{'submit_enable'};
 
     foreach ( $q_ser, @active_service_dirs ) {
-        $self->toaster->test( "  $_", -d $_ );
+        $self->pretty( "  $_", -d $_ );
     }
 
     print "are the supervised services running?\n";
     my $svok = $self->util->find_bin( 'svok', fatal => 0 );
     foreach ( @active_service_dirs ) {
-        $self->toaster->test( "  $_", system("$svok $_") ? 0 : 1 );
+        $self->pretty( "  $_", system("$svok $_") ? 0 : 1 );
     }
 };
 
@@ -686,12 +881,12 @@ sub ucspi {
 
     print "checking ucspi-tcp binaries...\n";
     foreach (qw( tcprules tcpserver rblsmtpd tcpclient recordio )) {
-        $self->toaster->test("  $_", $self->util->find_bin( $_, fatal => 0, verbose=>0 ) );
+        $self->pretty("  $_", $self->util->find_bin( $_, fatal => 0, verbose=>0 ) );
     }
 
     if ( $self->conf->{install_mysql} && $self->conf->{'vpopmail_mysql'} ) {
         my $tcpserver = $self->util->find_bin( "tcpserver", fatal => 0, verbose=>0 );
-        $self->toaster->test( "  tcpserver mysql support",
+        $self->pretty( "  tcpserver mysql support",
             scalar `strings $tcpserver | grep sql`
         );
     }
@@ -702,3 +897,58 @@ sub ucspi {
 1;
 __END__;
 
+
+
+=item email_send
+
+
+  ############ email_send ####################
+  # Usage      : $toaster->email_send("clean" );
+  #            : $toaster->email_send("spam"  );
+  #            : $toaster->email_send("attach");
+  #            : $toaster->email_send("virus" );
+  #            : $toaster->email_send("clam"  );
+  #
+  # Purpose    : send test emails to test the content scanner
+  # Returns    : 1 on success
+  # Parameters : type (clean, spam, attach, virus, clam)
+  # See Also   : email_send_[clean|spam|...]
+
+
+Email test routines for testing a mail toaster installation.
+
+This sends a test email of a specified type to the postmaster email address configured in toaster-watcher.conf.
+
+
+=item email_send_attach
+
+
+  ######### email_send_attach ###############
+  # Usage      : internal only
+  # Purpose    : send an email with a .com attachment
+  # Parameters : an email address
+  # See Also   : email_send
+
+Sends a sample test email to the provided address with a .com file extension. If attachment scanning is enabled, this should trigger the content scanner (simscan/qmailscanner/etc) to reject the message.
+
+
+=item email_send_clam
+
+Sends a test clam.zip test virus pattern, testing to verify that the AV engine catches it.
+
+
+=item email_send_clean
+
+Sends a test clean email that the email filters should not block.
+
+
+=item email_send_eicar
+
+Sends an email message with the Eicar virus inline. It should trigger the AV engine and block the message.
+
+
+=item email_send_spam
+
+Sends a sample spam message that SpamAssassin should block.
+
+=cut

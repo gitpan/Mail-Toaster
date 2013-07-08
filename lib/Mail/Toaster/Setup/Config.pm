@@ -110,6 +110,7 @@ sub apply_tweaks {
             }
         };
         $self->error( "attempt to replace\n$search\n\twith\n$replace\n\tfailed",
+            frames => 1,
             fatal => 0) if ( ! $found && ! $e->{nowarn} );
         $total_found += $found;
     };
@@ -450,7 +451,7 @@ sub config_tweaks_mysql {
 
     $changes{'install_mysql'}   = '55      # 0, 1, 2, 3, 40, 41, 5, 55';
     $changes{'install_mysqld'}  = '1       # 0, 1';
-    $changes{'vpopmail_mysql'}  = '1         # disables all mysql options';
+    $changes{'vpopmail_mysql'}  = '1         # enables all mysql options';
     $changes{'smtpd_use_mysql_relay_table'} = 0;
     $changes{'install_squirrelmail_sql'}    = 1;
     $changes{'install_spamassassin_sql'}    = 1;
