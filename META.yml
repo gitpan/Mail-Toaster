@@ -7,7 +7,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: 0
 dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921'
+generated_by: 'ExtUtils::MakeMaker version 6.96, CPAN::Meta::Converter version 2.132830'
 license: bsd
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -36,4 +36,8 @@ requires:
   URI: 0
   perl: 5.008001
   version: 0
-version: 5.42
+resources:
+  bugtracker: https://github.com/msimerson/Mail-Toaster/issues
+  homepage: http://www.tnpi.net/wiki/Mail_Toaster
+  repository: git://github.com/msimerson/Mail-Toaster.git
+version: 5.44

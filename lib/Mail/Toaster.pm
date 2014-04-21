@@ -3,7 +3,7 @@ package Mail::Toaster;
 use strict;
 use warnings;
 
-our $VERSION = '5.42';
+our $VERSION = '5.44';
 
 use Carp;
 use Cwd;
@@ -204,6 +204,7 @@ sub learn_mailbox {
     my %counter = ( spam => 0, ham => 0 );
     my %messages = ( ham => [], spam => [] );
 
+    my $dspam = $self->util->find_bin('dspamc', fatal=>0);
     foreach my $dir ( $self->get_maildir_folders( $d, $find ) ) {
         my $type = 'ham';
         $type = 'spam' if $dir =~ /(?:spam|junk)/i;
@@ -214,7 +215,7 @@ sub learn_mailbox {
             next if $counter{$type} >  5000 && $counter{$type} % 25 != 0;
             next if $counter{$type} >  2500 && $counter{$type} % 10 != 0;
 
-            $self->train_dspam( $type, $message, $email );
+            $self->train_dspam( $dspam, $type, $message, $email );
             push @{$messages{$type}}, $message; # for SA training
         };
     };
@@ -239,14 +240,13 @@ sub train_spamassassin {
 };
 
 sub train_dspam {
-    my ($self, $type, $file, $email) = @_;
+    my ($self, $dspam, $type, $file, $email) = @_;
     if ( ! $self->conf->{install_dspam} ) {
         return $self->audit( "skip dspam training, install_dspam unset");
     };
     if ( ! -f $file ) {   # file moved (due to MUA action)
         return $self->audit( "skipping dspam train of $file, it moved");
     };
-    my $dspam = $self->util->find_bin('dspamc');
     if ( ! -x $dspam ) {
         return $self->audit("skipping, $dspam not executable");
     };
@@ -343,11 +343,11 @@ sub maildir_clean {
 
     my $find = $self->util->find_bin( 'find', verbose=>0 );
     if ( $dir =~ /(?:cur|new)$/ ) {
-        $self->util->syscmd( "$find $dir -type f -mtime +$days -delete" );
+        $self->util->syscmd( "$find '$dir' -type f -mtime +$days -delete" );
     }
     else {
-        $self->util->syscmd( "$find $dir/cur -type f -mtime +$days -delete" );
-        $self->util->syscmd( "$find $dir/new -type f -mtime +$days -delete" );
+        $self->util->syscmd( "$find '$dir/cur' -type f -mtime +$days -delete" );
+        $self->util->syscmd( "$find '$dir/new' -type f -mtime +$days -delete" );
     };
     return 1;
 };
@@ -387,17 +387,21 @@ sub get_daemons {
 
     my @list = qw/ send pop3 /;
     push @list, 'vpopmaild' if $self->conf->{vpopmail_daemon};
+    push @list, 'qmail-deliverable' if $self->conf->{install_qmail_deliverable};
 
-    if ( $self->conf->{smtpd_daemon} && 'qpsmtpd' eq $self->conf->{smtpd_daemon} ) {
-        push @list, 'qmail-deliverable', 'qpsmtpd';
+    my $smtpd = $self->conf->{smtpd_daemon};
+    if ( $smtpd && 'qpsmtpd' eq $smtpd ) {
+        push @list, 'qpsmtpd';
     }
     else {
         push @list, 'smtp';
     };
 
-    if ( ! $self->conf->{submit_daemon} || 'qmail' eq $self->conf->{submit_daemon} ) {
-        push @list, 'submit';
-    };
+    if ( $self->conf->{submit_enable} ) {
+        if ( ! $self->conf->{submit_daemon} || 'qmail' eq $self->conf->{submit_daemon} ) {
+            push @list, 'submit';
+        };
+    }
 
     return @list;
 };
@@ -482,7 +486,7 @@ sub get_maildir_folders {
     my ( $self, $d, $find ) = @_;
 
     $find ||= $self->util->find_bin( 'find', verbose=>0 );
-    my $find_dirs = "$find $d -type d -name cur";
+    my $find_dirs = "$find '$d' -type d -name cur";
 
     my @dirs;
     foreach my $maildir ( `$find_dirs` ) {
@@ -661,7 +665,7 @@ sub service_symlinks_pop3 {
     my $self = shift;
 
     if (    $self->conf->{pop3_enable}   # legacy
-         || $self->conf->{pop3_daemon} eq 'qpop3d' ) {
+         && $self->conf->{pop3_daemon} eq 'qpop3d' ) {
         return 'pop3';
     };
     $self->service_symlinks_cleanup( 'pop3' );
@@ -1058,7 +1062,7 @@ sub supervised_tcpserver {
         }
     }
     $exec .= "-c$maxcon " if $maxcon != 40;
-    $exec .= "-t$self->conf->{$prot.'_dns_lookup_timeout'} "
+    $exec .= '-t' . $self->conf->{$prot.'_dns_lookup_timeout'} . ' '
       if $self->conf->{ $prot . '_dns_lookup_timeout' } != 26;
 
     $exec .= $self->supervised_tcpserver_cdb( $prot );

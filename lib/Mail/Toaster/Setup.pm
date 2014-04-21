@@ -641,9 +641,15 @@ sub courier_startup_freebsd {
     if ( $self->conf->{pop3_daemon} eq "courier" ) {
         $self->freebsd->conf_check(
             check => "courier_imap_pop3d_enable",
-            line  => "courier_imap_pop3d_enable=\"$start\"",
+            line  => "courier_imap_pop3d_enable=\"YES\"",
         );
     }
+    else {
+        $self->freebsd->conf_check(
+            check => "courier_imap_pop3d_enable",
+            line  => "courier_imap_pop3d_enable=\"NO\"",
+        );
+    };
 };
 
 sub cronolog {
@@ -856,6 +862,7 @@ sub dependencies {
     $self->util->install_module( "Date::Format", port => "p5-TimeDate");
     $self->util->install_module( "Date::Parse" );
     $self->util->install_module( "Mail::Send",  port => "p5-Mail-Tools");
+    $self->util->install_module( "Qmail::Deliverable") if $self->conf->{install_qmail_deliverable};
 
     if ( ! -x "$qmaildir/bin/qmail-queue" ) {
         $self->conf->{qmail_chk_usr_patch} = 0;
@@ -2083,6 +2090,7 @@ sub lighttpd {
 sub lighttpd_freebsd {
     my $self = shift;
 
+# installing manually overrides the dialogs
     $self->freebsd->install_port( 'm4',
         options => "# this file installed by mail-toaster
 # Options for m4-1.4.16_1,1
@@ -2834,8 +2842,13 @@ daily_status_mail_rejects_logs=3                        # How many logs to check
 sub php {
     my $self = shift;
 
+    if ( ! $self->conf->{install_squirrelmail} && ! $self->conf->{install_roundcube} ) {
+        $self->audit("skipping PHP install");
+        return;
+    };
+
     if ( $OSNAME eq 'freebsd' ) {
-        return $self->php_freebsd();
+        return $self->php_freebsd;
     };
 
     my $php = $self->util->find_bin('php',fatal=>0);
@@ -3724,10 +3737,10 @@ WITH_RELAY_COUNTRY=true",
         verbose => 0,
     );
 
-    # the old port didn't install the spamd.sh file
-    # new versions install sa-spamd.sh and require the rc.conf flag
+    # the very old port didn't install a spamd.sh file
+    # new versions install sa-spamd and require the rc.conf flag
     my $start = -f "/usr/local/etc/rc.d/spamd.sh" ? "/usr/local/etc/rc.d/spamd.sh"
-                : -f "/usr/local/etc/rc.d/spamd"    ? "/usr/local/etc/rc.d/spamd"
+                : -f "/usr/local/etc/rc.d/spamd"  ? "/usr/local/etc/rc.d/spamd"
                 : "/usr/local/etc/rc.d/sa-spamd";   # current location, 9/23/06
 
     my $flags = $self->conf->{install_spamassassin_flags};

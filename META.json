@@ -4,7 +4,7 @@
       "Matt Simerson (matt@tnpi.net)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "ExtUtils::MakeMaker version 6.96, CPAN::Meta::Converter version 2.132830",
    "license" : [
       "bsd"
    ],
@@ -54,5 +54,14 @@
       }
    },
    "release_status" : "stable",
-   "version" : "5.42"
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/msimerson/Mail-Toaster/issues"
+      },
+      "homepage" : "http://www.tnpi.net/wiki/Mail_Toaster",
+      "repository" : {
+         "url" : "git://github.com/msimerson/Mail-Toaster.git"
+      }
+   },
+   "version" : "5.44"
 }
