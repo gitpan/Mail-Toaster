@@ -2,12 +2,11 @@
 abstract: 'Mail::Toaster perl programs and modules'
 author:
   - 'Matt Simerson (matt@tnpi.net)'
-build_requires:
-  Test::Simple: 0
+build_requires: {}
 configure_requires:
   ExtUtils::MakeMaker: 0
 dynamic_config: 1
-generated_by: 'ExtUtils::MakeMaker version 6.96, CPAN::Meta::Converter version 2.132830'
+generated_by: 'ExtUtils::MakeMaker version 6.6302, CPAN::Meta::Converter version 2.120630'
 license: bsd
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -40,4 +39,4 @@ resources:
   bugtracker: https://github.com/msimerson/Mail-Toaster/issues
   homepage: http://www.tnpi.net/wiki/Mail_Toaster
   repository: git://github.com/msimerson/Mail-Toaster.git
-version: 5.45
+version: 5.46
