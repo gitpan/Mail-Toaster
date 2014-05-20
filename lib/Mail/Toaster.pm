@@ -3,7 +3,7 @@ package Mail::Toaster;
 use strict;
 use warnings;
 
-our $VERSION = '5.46';
+our $VERSION = '5.47';
 
 use Carp;
 use Cwd;
@@ -664,7 +664,7 @@ sub service_symlinks {
 sub service_symlinks_pop3 {
     my $self = shift;
 
-    if (    $self->conf->{pop3_enable}   # legacy
+    if (    $self->conf->{pop3_daemon}
          && $self->conf->{pop3_daemon} eq 'qpop3d' ) {
         return 'pop3';
     };
