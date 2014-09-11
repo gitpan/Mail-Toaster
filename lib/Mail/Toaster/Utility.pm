@@ -4,7 +4,7 @@ package Mail::Toaster::Utility;
 use strict;
 use warnings;
 
-our $VERSION = '5.44';
+our $VERSION = '5.48';
 
 use Cwd;
 use Carp;
@@ -1581,6 +1581,7 @@ sub install_module_freebsd {
     };
 
     return 1 if $self->freebsd->is_port_installed( $portname );
+    return 1 if $self->freebsd->install_package( $portname );
 
     my $portdir = glob("/usr/ports/*/$portname");
     return if ! $portdir;

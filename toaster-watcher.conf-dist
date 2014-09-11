@@ -46,7 +46,7 @@ toaster_dl_url                     = /internet/mail/toaster
 preserve_cgifiles                  = 0
 toaster_apache_vhost               = 1
 
-package_install_method             = ports     # packages | ports
+package_install_method             = packages  # packages | ports
                                      # if both options are supported, the setup
                                      # script will prefer the one you choose.
 
@@ -61,7 +61,6 @@ cvsup_supfile_ports                = portsnap        # portsnap or path to file
                                                      # ex: /etc/cvsup-ports
 cvsup_supfile_sources              = cvsup-sources
 toaster_pkg_site                   = ftp://ftp.freebsd.org
-use_pkgng                          = 1               # Use the new package format pkgng see https://wiki.freebsd.org/pkgng
 
 
 ######################################
@@ -116,8 +115,6 @@ install_ezmlm                      = 5.1.0   # 0, ver, port
 install_ezmlm_cgi                  = 0
 install_ezmlm_mysql                = 0
 install_qmail_notify               = 0
-install_aspell                     = 0
-install_ispell                     = 1
 install_quota_tools                = 0
 install_roundcube                  = port    # 0, port
 install_roundcube_db_pass          = To4st3dR0ndc@be
@@ -270,7 +267,7 @@ smtpd_checkpasswd_bin              = vpopmail_home_dir/bin/vchkpw
 smtpd_relay_database               = vpopmail_home_dir/etc/tcp.smtp.cdb
 smtpd_qmail_queue                  = /var/qmail/bin/qmail-queue
 #smtpd_qmail_queue                 = /var/qmail/bin/simscan
-smtpd_fixcrio                      = 0
+smtpd_fixcrio                      = 0         # NOT compatible with TLS enabled qmail
 smtpd_recordio                     = 0
 
 ##

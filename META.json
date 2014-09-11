@@ -4,7 +4,7 @@
       "Matt Simerson (matt@tnpi.net)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.94, CPAN::Meta::Converter version 2.140640",
+   "generated_by" : "ExtUtils::MakeMaker version 6.98, CPAN::Meta::Converter version 2.120630",
    "license" : [
       "bsd"
    ],
@@ -63,5 +63,5 @@
          "url" : "git://github.com/msimerson/Mail-Toaster.git"
       }
    },
-   "version" : "5.47"
+   "version" : "5.48"
 }
