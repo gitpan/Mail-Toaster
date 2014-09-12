@@ -40,7 +40,7 @@ if ( ! -d $tmp ) {
 };
 skip "$tmp dir creation failed!\n", 2 if ( ! -d $tmp );
 ok( -d $tmp, "temp dir: $tmp" );
-ok( $util->syscmd( "cp TODO $tmp/", fatal => 0 ), 'cp TODO' );
+ok( $util->syscmd( "cp README $tmp/", fatal => 0 ), 'cp README' );
 
 
 # ask - asks a question and retrieves the answer
@@ -79,7 +79,7 @@ my $star  = $util->find_bin( "star",  fatal => 0 );
 
 SKIP: {
     skip "gzip or tar is missing!\n", 6 unless ( -x $gzip and -x $tar and -d $tmp );
-    ok( $util->syscmd( "$tar -cf $tmp/test.tar TODO", fatal => 0),
+    ok( $util->syscmd( "$tar -cf $tmp/test.tar README", fatal => 0),
         "tar -cf test.tar"
     );
     ok( $util->syscmd( "$gzip -f $tmp/test.tar", fatal => 0), 'gzip test.tar'
@@ -268,7 +268,7 @@ SKIP: {
 # get the permissions of the file in octal file mode
 use File::stat;
 my $st = stat($rwtest) or warn "No $tmp: $!\n";
-my $before = sprintf "%lo", $st->mode & 07777;
+my $before = sprintf "%lo", $st->mode & oct('07777');
 
 #$util->syscmd( "ls -al $rwtest" );   # use ls -al to view perms
 
@@ -398,7 +398,7 @@ SKIP: {
 
 # get_the_date
 my $mod = "Date::Format";
-if ( eval "require $mod" ) {
+if ( eval "require $mod" ) {   ## no critic (Stringy)
 
     ok( @list = $util->get_the_date(), 'get_the_date' );
 
@@ -473,12 +473,7 @@ ok( !$util->install_from_source(
 );
 
 # is_process_running
-my $process_that_exists 
-    = lc($OSNAME) eq 'darwin' ? 'launchd' 
-    : lc($OSNAME) eq 'freebsd' ? 'cron'  
-    : 'init';      # init does not run in a freebsd jail
-
-ok( $util->is_process_running($process_that_exists), "is_process_running, $process_that_exists" )
+ok( $util->is_process_running('perl'), "is_process_running, perl" )
    ; # or diag system "/bin/ps -ef && /bin/ps ax";
 ok( !$util->is_process_running("nonexistent"), "is_process_running, nonexistent" );
 
@@ -487,7 +482,7 @@ ok( !$util->is_process_running("nonexistent"), "is_process_running, nonexistent"
 # logfile_append
 
 $mod = "Date::Format";
-if ( eval "require $mod" ) {
+if ( eval "require $mod" ) {      ## no critic (Stringy)
     ok( $util->logfile_append( $rwtest,
             prog  => $0,
             lines => ['running tests'],
